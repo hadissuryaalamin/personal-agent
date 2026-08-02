@@ -309,6 +309,41 @@ dengan `MEMORY_ENABLED=false`.
 Penyaringan fakta itu satu panggilan API tambahan per obrolan, dijalanin di latar
 belakang **setelah** dia menjawab — jadi nggak nambah jeda yang kamu rasakan.
 
+## Kalender (baca aja)
+
+Agent bisa jawab *"besok ada kelas apa?"*, *"kelas berikutnya di mana?"* kalau
+kamu kasih link ICS di `.env`:
+
+```
+CALENDAR_ICS_URL=https://...
+CALENDAR_TZ=Australia/Canberra
+```
+
+Ambil link-nya di: Google Calendar → Settings → **Secret address in iCal format**,
+Outlook → Calendar → Share → Publish, atau MyTimetable ANU → Export/Subscribe.
+
+> ⚠️ **URL itu setara kata sandi** — siapa pun yang punya bisa baca seluruh
+> jadwalmu tanpa login. Simpan di `.env` (gitignore), jangan di kode. Kalau
+> bocor, cabut dan buat ulang dari setelan kalendermu.
+
+**Cuma bisa baca.** Link ICS itu terbitan satu arah; nggak ada mekanisme buat
+nulis balik, jadi agent nggak bisa bikin acara. Itu butuh API sungguhan dengan
+OAuth (Google Calendar API / Microsoft Graph) — belum dibangun.
+
+Jadwal ditarik paling sering tiap `CALENDAR_CACHE_MINUTES` (default 60) di latar
+belakang, dan salinannya disimpan di `memory/calendar.ics` supaya restart nggak
+perlu nunggu jaringan dan tetap jalan waktu offline.
+
+### Kenapa formatnya berkolom
+
+Agenda yang diselipin ke prompt berbentuk `jam | kode & nama | jenis | lokasi`,
+dan baris `KELAS BERIKUTNYA` dihitung di Python — bukan diserahkan ke model.
+Dua-duanya bukan hiasan: dengan format padat tanpa pemisah, model terbukti
+mengambil nama matkul dari satu baris tapi lokasinya dari baris tetangga, dan
+salah menentukan kelas terdekat. Prompt-nya juga melarang bentuk jam "setengah
+sembilan" karena sempat kejadian meleset setengah jam dari 09:00.
+
 ## Belum ada (tahap berikutnya)
 
-Wake word, notifikasi proaktif, integrasi kalender/LMS, baca daftar tugas otomatis.
+Wake word, notifikasi proaktif, bikin acara kalender (butuh OAuth), integrasi LMS,
+baca daftar tugas otomatis.

@@ -10,7 +10,7 @@ import logging
 import re
 import threading
 
-from . import config, memory
+from . import calendar, config, memory
 
 log = logging.getLogger(__name__)
 
@@ -56,19 +56,39 @@ class _BaseConversation:
 
     @property
     def system_prompt(self) -> str:
-        """System prompt + fakta yang diingat, dibaca ulang tiap giliran.
+        """System prompt + waktu sekarang + fakta + jadwal, disusun tiap giliran.
 
-        Dibaca ulang (bukan di-cache) supaya suntingan manual di facts.md
-        langsung kepakai tanpa restart.
+        Disusun ulang (bukan di-cache) supaya jam terus akurat dan suntingan
+        manual di facts.md langsung kepakai tanpa restart.
         """
+        bagian = [self.base_prompt, calendar.konteks_waktu()]
+
         fakta = memory.read_facts()
-        if not fakta:
-            return self.base_prompt
-        return (
-            f"{self.base_prompt}\n\n"
-            f"Yang kamu inget tentang user dari obrolan sebelumnya:\n{fakta}\n\n"
-            "Pakai ini kalau relevan, tapi jangan disebut-sebut kecuali ditanya."
-        )
+        if fakta:
+            bagian.append(
+                f"Yang kamu inget tentang user dari obrolan sebelumnya:\n{fakta}\n"
+                "Pakai ini kalau relevan, tapi jangan disebut-sebut kecuali ditanya."
+            )
+
+        try:
+            jadwal = calendar.agenda()
+        except Exception:
+            log.warning("gagal nyusun agenda kalender", exc_info=True)
+            jadwal = ""
+        if jadwal:
+            bagian.append(
+                f"{jadwal}\n"
+                "Kalau ditanya soal jadwal, jawab HANYA dari daftar di atas. "
+                "Baca satu baris utuh dari kiri ke kanan — jangan campur nama "
+                "matkul dari satu baris dengan lokasi dari baris lain. Kalau "
+                "ditanya kelas berikutnya, pakai baris KELAS BERIKUTNYA.\n"
+                "Sebut jam persis: 09:00 = 'jam sembilan pagi', 15:30 = 'jam "
+                "tiga lewat tiga puluh sore'. JANGAN pakai bentuk 'setengah "
+                "sembilan' — itu gampang meleset setengah jam.\n"
+                "Jangan bacakan semuanya kecuali user emang minta semua."
+            )
+
+        return "\n\n".join(bagian)
 
     def reset(self) -> None:
         self.messages = []

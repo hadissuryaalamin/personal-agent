@@ -120,6 +120,17 @@ HISTORY_MAX_AGE_HOURS = float(os.getenv("HISTORY_MAX_AGE_HOURS", "12"))
 # kalau dibiarin numpuk, biaya token naik terus.
 FACTS_MAX_ITEMS = int(os.getenv("FACTS_MAX_ITEMS", "30"))
 
+# --- Kalender (baca aja, lewat link ICS) ---
+# URL-nya RAHASIA: siapa pun yang punya bisa baca seluruh jadwalmu tanpa login.
+# Taruh di .env, jangan di kode. Kosongin buat matiin fitur kalender.
+CALENDAR_ICS_URL = os.getenv("CALENDAR_ICS_URL", "").strip()
+CALENDAR_TZ = os.getenv("CALENDAR_TZ", "Australia/Canberra")
+# Berapa hari ke depan yang diselipin ke tiap permintaan
+CALENDAR_DAYS_AHEAD = int(os.getenv("CALENDAR_DAYS_AHEAD", "7"))
+# Jadwal kuliah jarang berubah, jadi nggak perlu ditarik tiap ditanya
+CALENDAR_CACHE_MINUTES = float(os.getenv("CALENDAR_CACHE_MINUTES", "60"))
+CALENDAR_TIMEOUT = float(os.getenv("CALENDAR_TIMEOUT", "20"))
+
 SYSTEM_PROMPT = """Kamu asisten pribadi yang ngobrol dalam Bahasa Indonesia santai, kayak temen.
 
 Kamu lagi ngobrol LEWAT SUARA, bukan teks. Yang kamu terima itu hasil transkrip

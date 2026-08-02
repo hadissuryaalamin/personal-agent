@@ -1,0 +1,24 @@
+# venv
+.venv/
+.venv-agent/
+venv/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# konfigurasi lokal
+.env
+
+# voice piper + model besar lainnya (di-download lewat scripts/setup.ps1)
+models/
+
+# log
+logs/
+*.log
+
+# jupyter
+.ipynb_checkpoints/

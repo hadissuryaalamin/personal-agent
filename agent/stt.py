@@ -92,6 +92,11 @@ def get_model():
         return _model
 
 
+def is_loaded() -> bool:
+    """Model lagi siap di memori? Dipakai buat mutusin perlu ngabarin user apa nggak."""
+    return _model is not None
+
+
 def unload_model() -> bool:
     """Lepas model dari memori. Balikin True kalau tadinya emang ke-load.
 

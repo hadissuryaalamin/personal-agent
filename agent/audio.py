@@ -97,6 +97,15 @@ def beep_error() -> None:
     _beep(240.0, duration=0.25)
 
 
+def beep_busy() -> None:
+    """Dua ketuk pendek: kedengeran, tapi lagi sibuk — pencetanmu diabaikan.
+
+    Beda dari beep_error biar user bisa bedain 'lagi kerja' sama 'gagal'.
+    """
+    _beep(420.0, duration=0.05)
+    _beep(420.0, duration=0.05)
+
+
 # --- Recording --------------------------------------------------------------
 
 

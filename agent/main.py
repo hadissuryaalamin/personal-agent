@@ -98,6 +98,8 @@ class _BackendBase:
             self._launch(lambda: self._recording)
         else:
             log.info("masih ngerjain yang sebelumnya, hotkey diabaikan")
+            # Jangan diam: user perlu tau dia kedengeran, cuma lagi sibuk
+            threading.Thread(target=audio.beep_busy, daemon=True).start()
 
     def _launch(self, is_recording: Callable[[], bool]) -> None:
         """Jalanin pipeline di thread terpisah.
@@ -279,6 +281,13 @@ def _minta_dilupakan(text: str) -> bool:
 
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
     """Satu putaran: rekam -> transcribe -> LLM -> ngomong."""
+    # 0. Kalau model lagi terlepas, mulai muat SEKARANG — barengan sama user
+    #    ngomong. Durasi ngomong (biasanya 3-5 detik) jadi kepakai buat muat,
+    #    bukan nganggur. get_model() punya lock sendiri, jadi transcribe di
+    #    bawah bakal nunggu dengan rapi kalau muatnya belum kelar.
+    if not stt.is_loaded():
+        threading.Thread(target=stt.warmup, name="muat-duluan", daemon=True).start()
+
     # 1. Rekam
     try:
         # beep dibunyiin dari dalam, pas mic udah beneran siap
@@ -299,6 +308,13 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         return
 
     # 2. STT
+    # Muat model bisa makan 10-35 detik kalau file-nya dingin. Tanpa kabar apa
+    # pun, diam selama itu nggak bisa dibedain dari mati — user bakal mencet
+    # ulang dan makin bingung. Piper udah di-warmup jadi ngomongnya instan.
+    if not stt.is_loaded():
+        log.info("model masih dimuat, ngabarin user dulu")
+        _say_safely("Sebentar ya, lagi nyiapin.")
+
     try:
         text = stt.transcribe(clip)
     except Exception:

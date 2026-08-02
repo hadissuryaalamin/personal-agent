@@ -72,7 +72,12 @@ Karena nggak ada window, feedback-nya bunyi:
 |---|---|
 | beep tinggi (880 Hz) | mulai rekam |
 | beep sedang (560 Hz) | selesai rekam, lagi mikir |
+| dua ketuk pendek (420 Hz) | kedengeran, tapi lagi sibuk — pencetanmu diabaikan |
 | beep rendah panjang (240 Hz) | ada yang gagal — cek `logs/agent.log` |
+
+Kalau modelnya lagi terlepas (lihat bagian memori GPU di bawah), dia bakal ngomong
+*"sebentar ya, lagi nyiapin"* dulu — pemuatan bisa makan 13–35 detik kalau file-nya
+dingin, dan diam selama itu nggak bisa dibedain dari mati.
 
 Pertanyaan pertama agak lama (Ollama naikin model ke VRAM). Selanjutnya cepet.
 
@@ -167,9 +172,16 @@ dua-duanya rebutan VRAM — di kartu 8 GB itu masih muat tapi mepet.
 kepegang di VRAM sepanjang agent hidup walaupun cuma kepakai ~0.5 detik per kalimat.
 Di GPU pribadi yang dipakai buat hal lain, itu sayang. Jadi setelah
 `WHISPER_IDLE_UNLOAD_SECONDS` (default 900 = 15 menit) tanpa dipakai, modelnya
-dilepas dan VRAM balik; pertanyaan berikutnya kena muat ulang ~4 detik. Ollama
-melakukan hal yang sama secara default (keep-alive 5 menit). Set `0` kalau kamu
-mau model nempel terus.
+dilepas dan VRAM balik. Ollama melakukan hal yang sama secara default (keep-alive
+5 menit). Set `0` kalau kamu mau model nempel terus.
+
+**Harga muat ulangnya nggak murah, dan bukan rata-rata.** Terukur di mesin uji:
+2–7 detik kalau dimuat tak lama setelah dipakai, tapi **13–35 detik** setelah
+nganggur berjam-jam — dan nganggur lama persis kondisi yang memicu pelepasan.
+Jadi yang kamu bayar hampir selalu kasus terburuknya. Tiga hal meredamnya:
+model mulai dimuat begitu kamu menekan hotkey (barengan kamu ngomong), dia
+ngomong *"sebentar ya"* supaya diamnya nggak terasa seperti mati, dan pencetan
+ulang dijawab dua ketuk. Kalau tetap kerasa lama, `WHISPER_IDLE_UNLOAD_SECONDS=0`.
 
 Catatan: yang balik ~1.9 GB dari 2.0 GB. Sisanya konteks CUDA yang baru lepas pas
 prosesnya mati — itu wajar dan nggak numpuk.

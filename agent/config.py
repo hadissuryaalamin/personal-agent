@@ -59,6 +59,12 @@ WHISPER_LANG = os.getenv("WHISPER_LANG", "id")
 # begini defaultnya (keep-alive 5 menit). Bayarannya: muat ulang ~7 detik di
 # pertanyaan pertama setelah nganggur lama.
 WHISPER_IDLE_UNLOAD_SECONDS = float(os.getenv("WHISPER_IDLE_UNLOAD_SECONDS", "900"))
+# Muat model pas agent nyala (bukan nunggu pertanyaan pertama). Defaultnya
+# ngikutin setelan di atas: kalau model emang bakal dilepas pas nganggur,
+# muat di awal cuma bikin VRAM kepakai percuma sampai ambang idle kelewat.
+WHISPER_WARMUP = os.getenv(
+    "WHISPER_WARMUP", "false" if WHISPER_IDLE_UNLOAD_SECONDS > 0 else "true"
+).lower() in ("1", "true", "yes")
 # Contoh gaya bicara + kosakata yang sering kepakai. Whisper mencondongkan tebakannya
 # ke kata-kata di sini, jadi istilah teknis Inggris nggak dikira kata Indonesia.
 # Nol biaya waktu proses. Tambahin nama orang/tempat/tool yang sering kamu sebut.

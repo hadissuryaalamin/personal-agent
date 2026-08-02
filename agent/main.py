@@ -319,12 +319,23 @@ def _say_safely(text: str) -> None:
 
 
 def warmup() -> None:
-    """Load Whisper & voice Piper di background biar tekan pertama nggak lama."""
+    """Load model di background biar pencetan pertama nggak lama.
+
+    Piper selalu dimuat: CPU-only, 0 VRAM, cuma ~1.5 detik. Whisper tergantung
+    WHISPER_WARMUP — kalau modelnya toh bakal dilepas pas nganggur, muat di awal
+    cuma nahan ~1.9 GB VRAM percuma sampai ambang idle kelewat.
+    """
 
     def _run():
         try:
-            stt.warmup()
             tts.get_voice()
+            if config.WHISPER_WARMUP:
+                stt.warmup()
+            else:
+                log.info(
+                    "Whisper nggak di-warmup; dimuat pas pertanyaan pertama "
+                    "(+~4 detik sekali)"
+                )
             log.info("Warmup selesai, siap dipakai.")
         except Exception:
             log.exception("warmup gagal (model bakal di-load pas dipakai)")

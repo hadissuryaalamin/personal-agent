@@ -105,9 +105,20 @@ SAVE_RECORDINGS = os.getenv("SAVE_RECORDINGS", "false").lower() in ("1", "true",
 RECORDINGS_DIR = _path(os.getenv("RECORDINGS_DIR", "logs/rec"))
 
 # --- Percakapan ---
-# Jumlah pesan (di luar system prompt) yang disimpan di memori. History ephemeral,
-# hilang pas proses mati. TODO(tahap 2): persist ke disk biar nyambung antar sesi.
+# Jumlah pesan (di luar system prompt) yang dibawa ke tiap permintaan.
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "20"))
+
+# --- Memori antar-sesi ---
+# Simpan riwayat & fakta ke disk biar nyambung walaupun agent restart.
+MEMORY_ENABLED = os.getenv("MEMORY_ENABLED", "true").lower() in ("1", "true", "yes")
+MEMORY_DIR = _path(os.getenv("MEMORY_DIR", "memory"))
+# Riwayat yang lebih tua dari ini nggak dimuat lagi. Nyambungin obrolan yang
+# kepotong restart itu berguna dalam hitungan jam; seminggu kemudian, 20 pesan
+# terakhir dari minggu lalu justru bikin salah konteks.
+HISTORY_MAX_AGE_HOURS = float(os.getenv("HISTORY_MAX_AGE_HOURS", "12"))
+# Batas jumlah fakta yang disimpan. Semuanya masuk ke tiap permintaan, jadi
+# kalau dibiarin numpuk, biaya token naik terus.
+FACTS_MAX_ITEMS = int(os.getenv("FACTS_MAX_ITEMS", "30"))
 
 SYSTEM_PROMPT = """Kamu asisten pribadi yang ngobrol dalam Bahasa Indonesia santai, kayak temen.
 

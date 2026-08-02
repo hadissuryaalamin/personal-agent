@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 
-from . import config
+from . import config, memory
 
 log = logging.getLogger(__name__)
 
@@ -29,23 +30,101 @@ def _clean_for_speech(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-class _BaseConversation:
-    """Riwayat chat ephemeral. Hilang pas proses mati.
+PROMPT_FAKTA = """Kamu penyaring memori buat asisten pribadi. Tugasmu mutusin apa \
+yang layak diingat jangka panjang tentang user dari satu tukar obrolan.
 
-    TODO(tahap 2): persist ke disk biar nyambung antar sesi.
-    """
+Yang LAYAK diingat: nama, panggilan, kuliah/kerja di mana, orang penting di \
+hidupnya, jadwal rutin, preferensi yang bakal kepakai lagi (cara dipanggil, gaya \
+jawaban yang disuka), proyek yang lagi dikerjain, kondisi yang perlu diperhatiin.
+
+Yang TIDAK layak: obrolan sekali lewat, pertanyaan pengetahuan umum, hal yang \
+cuma berlaku hari itu, dan apa pun yang udah ada di daftar.
+
+Balas dengan daftar fakta LENGKAP yang terbaru, satu per baris, diawali "- ". \
+Gabung atau perbarui yang sudah ada daripada bikin duplikat. Buang yang ternyata \
+sudah nggak berlaku. Kalau nggak ada yang perlu diubah, balas persis: TIDAK ADA
+
+Jangan nulis penjelasan apa pun di luar daftar."""
+
+
+class _BaseConversation:
+    """Riwayat chat, dimuat dari disk pas mulai dan disimpan tiap giliran."""
 
     def __init__(self, system_prompt: str | None = None) -> None:
-        self.system_prompt = system_prompt or config.SYSTEM_PROMPT
-        self.messages: list[dict[str, str]] = []
+        self.base_prompt = system_prompt or config.SYSTEM_PROMPT
+        self.messages: list[dict[str, str]] = memory.load_history()
+
+    @property
+    def system_prompt(self) -> str:
+        """System prompt + fakta yang diingat, dibaca ulang tiap giliran.
+
+        Dibaca ulang (bukan di-cache) supaya suntingan manual di facts.md
+        langsung kepakai tanpa restart.
+        """
+        fakta = memory.read_facts()
+        if not fakta:
+            return self.base_prompt
+        return (
+            f"{self.base_prompt}\n\n"
+            f"Yang kamu inget tentang user dari obrolan sebelumnya:\n{fakta}\n\n"
+            "Pakai ini kalau relevan, tapi jangan disebut-sebut kecuali ditanya."
+        )
 
     def reset(self) -> None:
         self.messages = []
+        memory.save_history([])
+
+    def forget(self) -> None:
+        """Hapus semua memori, di RAM maupun di disk."""
+        self.messages = []
+        memory.forget_all()
 
     def _trim(self) -> None:
         limit = config.MAX_HISTORY_MESSAGES
         if len(self.messages) > limit:
             self.messages = self.messages[-limit:]
+
+    def _selesai_giliran(self, user_text: str, reply: str) -> None:
+        """Simpan riwayat, lalu saring fakta di latar belakang.
+
+        Penyaringan fakta itu panggilan API tambahan. Dijalanin di thread lain
+        supaya user nggak nunggu — dia udah dapet jawabannya duluan.
+        """
+        memory.save_history(self.messages)
+        if not config.MEMORY_ENABLED:
+            return
+        threading.Thread(
+            target=self._saring_fakta,
+            args=(user_text, reply),
+            name="saring-fakta",
+            daemon=True,
+        ).start()
+
+    def _saring_fakta(self, user_text: str, reply: str) -> None:
+        try:
+            lama = memory.read_facts() or "(masih kosong)"
+            hasil = self._oneshot(
+                PROMPT_FAKTA,
+                f"Daftar fakta sekarang:\n{lama}\n\n"
+                f"Obrolan terbaru:\nUser: {user_text}\nAsisten: {reply}",
+            ).strip()
+
+            if not hasil or hasil.upper().startswith("TIDAK ADA"):
+                return
+            # Jaga-jaga kalau modelnya ngoceh di luar format daftar
+            baris = [b for b in hasil.splitlines() if b.strip().startswith("-")]
+            if not baris:
+                log.debug("penyaring fakta balikin format aneh, diabaikan: %r", hasil)
+                return
+            memory.write_facts("\n".join(baris))
+            log.info("fakta diperbarui (%d baris)", len(baris))
+        except Exception:
+            # Memori itu bonus; jangan sampai bikin obrolan gagal
+            log.warning("gagal nyaring fakta", exc_info=True)
+
+    def _oneshot(self, system: str, user: str) -> str:
+        """Sekali tanya-jawab tanpa nyentuh riwayat obrolan."""
+        raise NotImplementedError
 
     def chat(self, text: str) -> str:
         raise NotImplementedError
@@ -129,7 +208,17 @@ class ClaudeConversation(_BaseConversation):
             response.usage.output_tokens,
             reply,
         )
+        self._selesai_giliran(text, reply)
         return _clean_for_speech(reply)
+
+    def _oneshot(self, system: str, user: str) -> str:
+        response = self._get_client().messages.create(
+            model=config.CLAUDE_MODEL,
+            max_tokens=config.CLAUDE_MAX_TOKENS,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return " ".join(b.text for b in response.content if b.type == "text")
 
 
 class OllamaConversation(_BaseConversation):
@@ -167,7 +256,26 @@ class OllamaConversation(_BaseConversation):
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
         log.info("LLM ollama (%d chars): %s", len(reply), reply)
+        self._selesai_giliran(text, reply)
         return _clean_for_speech(reply)
+
+    def _oneshot(self, system: str, user: str) -> str:
+        import requests
+
+        resp = requests.post(
+            config.OLLAMA_CHAT_URL,
+            json={
+                "model": config.OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+            },
+            timeout=config.OLLAMA_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return (resp.json().get("message") or {}).get("content", "")
 
 
 _conversation: _BaseConversation | None = None

@@ -20,5 +20,8 @@ models/
 logs/
 *.log
 
+# memori antar-sesi (riwayat obrolan & fakta tentang user)
+memory/
+
 # jupyter
 .ipynb_checkpoints/

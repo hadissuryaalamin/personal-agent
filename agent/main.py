@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import re
 import sys
 import threading
 import time
@@ -258,6 +259,24 @@ def make_backend(on_activate):
 
 # --- Pipeline ---------------------------------------------------------------
 
+# Frasa penghapus memori. Dicocokkan lokal, bukan lewat LLM: perintah yang
+# nggak bisa dibatalkan nggak boleh gantung pada tebakan model.
+_FRASA_LUPA = (
+    "lupakan semua",
+    "lupain semua",
+    "hapus memori",
+    "hapus ingatan",
+    "hapus semua memori",
+    "lupakan semuanya",
+)
+
+
+def _minta_dilupakan(text: str) -> bool:
+    bersih = re.sub(r"[^\w\s]", " ", text.lower())
+    bersih = re.sub(r"\s+", " ", bersih).strip()
+    return any(f in bersih for f in _FRASA_LUPA)
+
+
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
     """Satu putaran: rekam -> transcribe -> LLM -> ngomong."""
     # 1. Rekam
@@ -292,6 +311,12 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         audio.beep_error()
         return
     log.info("User: %s", text)
+
+    # 2b. Perintah hapus memori — ditangani lokal, nggak dikirim ke LLM
+    if _minta_dilupakan(text):
+        llm.get_conversation().forget()
+        _say_safely("Oke, semua yang aku inget tentang kamu udah aku hapus.")
+        return
 
     # 3. LLM
     try:

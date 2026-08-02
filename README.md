@@ -267,7 +267,31 @@ Tiap modul bisa dites sendiri:
 | Jawaban lama banget | Cek log: kalau `STT ... detik proses` yang gede, pindahin Whisper ke GPU |
 | `cublas64_12.dll is not found` | Paket GPU belum kepasang: `pip install -e ".[gpu]"` |
 
+## Memori antar-sesi
+
+Agent inget kamu walaupun sudah restart. Dua lapis dengan umur beda, disimpan di
+`memory/` (gitignore):
+
+| File | Isi | Umur |
+|---|---|---|
+| `history.json` | Pesan mentah, buat nyambungin obrolan yang kepotong restart | Dibuang setelah `HISTORY_MAX_AGE_HOURS` (default 12 jam) |
+| `facts.md` | Hal yang layak diingat lama: nama, jurusan, preferensi | Sampai kamu hapus |
+
+Riwayat sengaja punya batas umur — nyambungin obrolan itu berguna dalam hitungan
+jam, tapi 20 pesan dari minggu lalu justru bikin salah konteks. Fakta yang bertahan.
+
+`facts.md` itu teks polos, boleh kamu baca dan sunting sendiri; suntingannya
+langsung kepakai tanpa restart. Jumlahnya dibatasi `FACTS_MAX_ITEMS` (default 30)
+karena semuanya ikut ke tiap permintaan.
+
+**Cara menghapus:** bilang *"lupakan semua"* atau *"hapus memori"*. Frasa ini
+dicocokkan lokal, bukan lewat LLM — perintah yang nggak bisa dibatalkan nggak
+boleh gantung pada tebakan model. Bisa juga hapus foldernya, atau matikan total
+dengan `MEMORY_ENABLED=false`.
+
+Penyaringan fakta itu satu panggilan API tambahan per obrolan, dijalanin di latar
+belakang **setelah** dia menjawab — jadi nggak nambah jeda yang kamu rasakan.
+
 ## Belum ada (tahap berikutnya)
 
-Wake word, memori antar-sesi (history sekarang hilang pas proses mati), notifikasi
-proaktif, integrasi kalender/LMS, baca daftar tugas otomatis.
+Wake word, notifikasi proaktif, integrasi kalender/LMS, baca daftar tugas otomatis.

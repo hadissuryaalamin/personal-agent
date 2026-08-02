@@ -94,11 +94,16 @@ elevasi karena backend `pynput` nggak butuh admin — tambahin `-Elevated` kalau
 kamu pindah ke `HOTKEY_BACKEND=keyboard`.
 
 ```powershell
-Start-ScheduledTask -TaskName PersonalAgent          # tes tanpa logout
-Get-Content logs\agent.log -Tail 20 -Wait            # lihat aktivitas
-Get-Process pythonw | Stop-Process                   # matiin
+powershell -File scripts\status.ps1                  # nyala atau nggak?
+Start-ScheduledTask -TaskName PersonalAgent          # nyalain
+Stop-ScheduledTask -TaskName PersonalAgent           # matiin
+Get-Content logs\agent.log -Tail 20 -Wait            # lihat aktivitas langsung
 powershell -File scripts\install-startup.ps1 -Uninstall   # hapus task
 ```
+
+`status.ps1` nunjukin: agent nyala/mati, PID, udah jalan berapa lama, autostart
+terpasang apa nggak, VRAM, model STT lagi dimuat apa dilepas, isi memori, dan
+kapan terakhir kamu ngomong sama dia.
 
 ## Konfigurasi
 

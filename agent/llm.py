@@ -231,12 +231,20 @@ class ClaudeConversation(_BaseConversation):
         self._selesai_giliran(text, reply)
         return _clean_for_speech(reply)
 
-    def _oneshot(self, system: str, user: str) -> str:
+    def _oneshot(self, system: str, user: str, skema: dict | None = None) -> str:
+        kwargs = {}
+        if skema is not None:
+            # Structured outputs: jawabannya dijamin JSON yang cocok skema, jadi
+            # nggak perlu bersihin teks pembuka atau pagar markdown.
+            kwargs["output_config"] = {
+                "format": {"type": "json_schema", "schema": skema}
+            }
         response = self._get_client().messages.create(
             model=config.CLAUDE_MODEL,
             max_tokens=config.CLAUDE_MAX_TOKENS,
             system=system,
             messages=[{"role": "user", "content": user}],
+            **kwargs,
         )
         return " ".join(b.text for b in response.content if b.type == "text")
 
@@ -279,20 +287,21 @@ class OllamaConversation(_BaseConversation):
         self._selesai_giliran(text, reply)
         return _clean_for_speech(reply)
 
-    def _oneshot(self, system: str, user: str) -> str:
+    def _oneshot(self, system: str, user: str, skema: dict | None = None) -> str:
         import requests
 
+        payload = {
+            "model": config.OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "stream": False,
+        }
+        if skema is not None:
+            payload["format"] = skema  # Ollama juga dukung JSON schema
         resp = requests.post(
-            config.OLLAMA_CHAT_URL,
-            json={
-                "model": config.OLLAMA_MODEL,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                "stream": False,
-            },
-            timeout=config.OLLAMA_TIMEOUT,
+            config.OLLAMA_CHAT_URL, json=payload, timeout=config.OLLAMA_TIMEOUT
         )
         resp.raise_for_status()
         return (resp.json().get("message") or {}).get("content", "")

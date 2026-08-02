@@ -229,8 +229,26 @@ def agenda() -> str:
     hari_ini = sekarang.date()
     batas = hari_ini + timedelta(days=config.CALENDAR_DAYS_AHEAD)
 
+    semua = list(_acara())
+
+    # Gabung acara pribadi dari Google. Kalau jadwal ANU juga udah diimpor ke
+    # Google, kosongin CALENDAR_ICS_URL — kalau nggak, tiap kelas kebaca dua kali.
+    from . import gcal
+
+    if gcal.aktif():
+        try:
+            semua += gcal.ambil_acara(config.CALENDAR_DAYS_AHEAD + 1)
+        except Exception:
+            log.warning("gagal ambil acara Google", exc_info=True)
+
+    semua.sort(
+        key=lambda e: (
+            e["mulai"].isoformat() if not e["sepanjang_hari"] else str(e["mulai"])
+        )
+    )
+
     per_hari: dict[date, list[dict]] = {}
-    for e in _acara():
+    for e in semua:
         d = e["mulai"].date() if not e["sepanjang_hari"] else e["mulai"]
         if hari_ini <= d < batas:
             per_hari.setdefault(d, []).append(e)
@@ -247,7 +265,7 @@ def agenda() -> str:
     # terdekat dari sekarang itu penalaran lintas-baris — persis hal yang bikin
     # model salah ambil data dari baris tetangga.
     berikutnya = None
-    for e in _acara():
+    for e in semua:
         if e["sepanjang_hari"]:
             continue
         if e["mulai"] > sekarang:

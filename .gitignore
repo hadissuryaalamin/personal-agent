@@ -23,5 +23,10 @@ logs/
 # memori antar-sesi (riwayat obrolan & fakta tentang user)
 memory/
 
+# kredensial OAuth Google — RAHASIA, jangan pernah ke-commit
+client_secret*.json
+credentials*.json
+*_oauth*.json
+
 # jupyter
 .ipynb_checkpoints/

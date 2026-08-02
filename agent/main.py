@@ -10,7 +10,7 @@ import threading
 import time
 from typing import Callable
 
-from . import audio, config, llm, stt, tts
+from . import audio, calendar, config, gcal, jadwal_baru, llm, stt, tts
 
 log = logging.getLogger("agent")
 
@@ -279,6 +279,68 @@ def _minta_dilupakan(text: str) -> bool:
     return any(f in bersih for f in _FRASA_LUPA)
 
 
+# Acara yang udah dibacain tapi belum disimpan. Sengaja nunggu konfirmasi:
+# salah dengar pas nulis ninggalin acara palsu yang baru ketahuan minggu depan.
+_acara_pending: dict | None = None
+
+
+def _mulai_bikin_acara(text: str) -> None:
+    """Urai ucapan jadi acara, lalu bacain ulang buat dikonfirmasi."""
+    global _acara_pending
+    try:
+        acara = jadwal_baru.urai(text, llm.get_conversation()._oneshot)
+    except Exception:
+        log.exception("gagal ngurai acara")
+        _say_safely("Maaf, aku nggak nangkep detail acaranya.")
+        return
+
+    if acara is None or not acara["yakin"]:
+        log.info("detail acara nggak jelas: %r", acara)
+        _say_safely("Maaf, tanggal atau jamnya kurang jelas. Coba ulangi lengkap ya.")
+        return
+
+    _acara_pending = acara
+    log.info("acara nunggu konfirmasi: %r", acara)
+    _say_safely(jadwal_baru.kalimat_konfirmasi(acara))
+
+
+def _tangani_konfirmasi(text: str) -> bool:
+    """True kalau ucapan ini dipakai sebagai jawaban konfirmasi."""
+    global _acara_pending
+    if _acara_pending is None:
+        return False
+
+    jawab = jadwal_baru.jawaban_ya(text)
+    if jawab is None:
+        # Nggak jelas ya/nggak — buang niatnya daripada nebak. Nebak salah di
+        # sini artinya nulis acara yang user nggak mau.
+        _acara_pending = None
+        log.info("konfirmasi nggak jelas, acara dibatalin")
+        _say_safely("Aku nggak yakin kamu bilang apa, jadi nggak aku simpan.")
+        return True
+
+    acara = _acara_pending
+    _acara_pending = None
+
+    if not jawab:
+        log.info("acara dibatalin user")
+        _say_safely("Oke, nggak jadi.")
+        return True
+
+    try:
+        gcal.bikin_acara(
+            acara["judul"], acara["mulai"], acara["selesai"], acara["lokasi"]
+        )
+    except Exception:
+        log.exception("gagal bikin acara di Google Calendar")
+        _say_safely("Maaf, gagal nyimpen ke kalender.")
+        return True
+
+    calendar.refresh(paksa=True)  # biar agenda langsung nunjukin acara baru
+    _say_safely("Sip, udah masuk kalender.")
+    return True
+
+
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
     """Satu putaran: rekam -> transcribe -> LLM -> ngomong."""
     # 0. Kalau model lagi terlepas, mulai muat SEKARANG — barengan sama user
@@ -332,6 +394,15 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
     if _minta_dilupakan(text):
         llm.get_conversation().forget()
         _say_safely("Oke, semua yang aku inget tentang kamu udah aku hapus.")
+        return
+
+    # 2c. Lagi nunggu konfirmasi acara? Jawaban ini buat itu, bukan buat LLM.
+    if _tangani_konfirmasi(text):
+        return
+
+    # 2d. Niat bikin acara baru
+    if gcal.aktif() and jadwal_baru.minta_bikin_acara(text):
+        _mulai_bikin_acara(text)
         return
 
     # 3. LLM

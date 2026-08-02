@@ -131,6 +131,14 @@ CALENDAR_DAYS_AHEAD = int(os.getenv("CALENDAR_DAYS_AHEAD", "7"))
 CALENDAR_CACHE_MINUTES = float(os.getenv("CALENDAR_CACHE_MINUTES", "60"))
 CALENDAR_TIMEOUT = float(os.getenv("CALENDAR_TIMEOUT", "20"))
 
+# --- Google Calendar (baca + tulis, lewat OAuth) ---
+# File client secret dari Google Cloud Console (Credentials > OAuth client ID >
+# Desktop app). Kosongin buat matiin. Token hasil login disimpan di memory/.
+GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "").strip()
+if GOOGLE_CREDENTIALS_FILE:
+    GOOGLE_CREDENTIALS_FILE = str(_path(GOOGLE_CREDENTIALS_FILE))
+GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
+
 SYSTEM_PROMPT = """Kamu asisten pribadi yang ngobrol dalam Bahasa Indonesia santai, kayak temen.
 
 Kamu lagi ngobrol LEWAT SUARA, bukan teks. Yang kamu terima itu hasil transkrip

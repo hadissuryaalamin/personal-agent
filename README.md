@@ -160,8 +160,19 @@ WHISPER_DEVICE=cuda
 WHISPER_COMPUTE=float16
 ```
 
-Makan ~2.5 GB VRAM. Kalau kamu juga pakai `LLM_BACKEND=ollama`, dua-duanya
-rebutan VRAM — di kartu 8 GB itu masih muat tapi mepet.
+Makan ~1.9 GB VRAM selama model dimuat. Kalau kamu juga pakai `LLM_BACKEND=ollama`,
+dua-duanya rebutan VRAM — di kartu 8 GB itu masih muat tapi mepet.
+
+**Model dilepas otomatis kalau nganggur.** Bobot model itu data diam, bukan proses —
+kepegang di VRAM sepanjang agent hidup walaupun cuma kepakai ~0.5 detik per kalimat.
+Di GPU pribadi yang dipakai buat hal lain, itu sayang. Jadi setelah
+`WHISPER_IDLE_UNLOAD_SECONDS` (default 900 = 15 menit) tanpa dipakai, modelnya
+dilepas dan VRAM balik; pertanyaan berikutnya kena muat ulang ~4 detik. Ollama
+melakukan hal yang sama secara default (keep-alive 5 menit). Set `0` kalau kamu
+mau model nempel terus.
+
+Catatan: yang balik ~1.9 GB dari 2.0 GB. Sisanya konteks CUDA yang baru lepas pas
+prosesnya mati — itu wajar dan nggak numpuk.
 
 **Catatan Windows:** DLL CUDA dari pip nggak ada di `PATH`, dan ctranslate2
 nyarinya lewat situ (bukan lewat `add_dll_directory`). [stt.py](agent/stt.py)

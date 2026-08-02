@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -15,6 +17,12 @@ log = logging.getLogger(__name__)
 
 _model = None  # faster_whisper.WhisperModel, di-load lazy
 _cuda_siap = False
+
+# Lindungi _model dari dilepas pas lagi dipakai transcribe(). Reentrant karena
+# transcribe() manggil get_model() yang juga ngambil lock ini.
+_lock = threading.RLock()
+_terakhir_dipakai = 0.0
+_pelepas_jalan = False
 
 
 def _daftarin_dll_cuda() -> None:
@@ -51,33 +59,81 @@ def _daftarin_dll_cuda() -> None:
 
 
 def get_model():
-    """Load model Whisper sekali aja (lazy singleton).
+    """Load model Whisper (lazy singleton).
 
     Download otomatis dari HuggingFace pas pertama kali dipanggil.
     """
-    global _model
-    if _model is not None:
+    global _model, _terakhir_dipakai
+
+    with _lock:
+        _terakhir_dipakai = time.monotonic()
+        if _model is not None:
+            return _model
+
+        if config.WHISPER_DEVICE.startswith("cuda"):
+            _daftarin_dll_cuda()
+
+        from faster_whisper import WhisperModel  # import lokal: berat
+
+        log.info(
+            "Load Whisper '%s' (device=%s, compute=%s)...",
+            config.WHISPER_MODEL,
+            config.WHISPER_DEVICE,
+            config.WHISPER_COMPUTE,
+        )
+        t0 = time.monotonic()
+        _model = WhisperModel(
+            config.WHISPER_MODEL,
+            device=config.WHISPER_DEVICE,
+            compute_type=config.WHISPER_COMPUTE,
+        )
+        log.info("Whisper siap dalam %.1f detik", time.monotonic() - t0)
+        _mulai_pelepas_idle()
         return _model
 
-    if config.WHISPER_DEVICE.startswith("cuda"):
-        _daftarin_dll_cuda()
 
-    from faster_whisper import WhisperModel  # import lokal: berat
+def unload_model() -> bool:
+    """Lepas model dari memori. Balikin True kalau tadinya emang ke-load.
 
+    ctranslate2 baru ngelepas alokasi GPU pas objeknya beneran dihancurkan,
+    jadi referensinya dibuang lalu gc dipaksa jalan.
+    """
+    global _model
+    with _lock:
+        if _model is None:
+            return False
+        _model = None
+        gc.collect()
+        log.info("Whisper dilepas dari memori (nganggur)")
+        return True
+
+
+def _pelepas_idle() -> None:
+    batas = config.WHISPER_IDLE_UNLOAD_SECONDS
+    # Cek agak sering biar pelepasannya nggak meleset jauh dari ambang
+    jeda = max(1.0, min(30.0, batas / 10))
+    while True:
+        time.sleep(jeda)
+        with _lock:
+            if _model is None:
+                continue
+            nganggur = time.monotonic() - _terakhir_dipakai
+        if nganggur >= batas:
+            unload_model()
+
+
+def _mulai_pelepas_idle() -> None:
+    """Nyalain pengawas idle sekali aja, pas model pertama kali ke-load."""
+    global _pelepas_jalan
+    if _pelepas_jalan or config.WHISPER_IDLE_UNLOAD_SECONDS <= 0:
+        return
+    _pelepas_jalan = True
+    threading.Thread(target=_pelepas_idle, name="whisper-idle", daemon=True).start()
+    batas = config.WHISPER_IDLE_UNLOAD_SECONDS
     log.info(
-        "Load Whisper '%s' (device=%s, compute=%s)...",
-        config.WHISPER_MODEL,
-        config.WHISPER_DEVICE,
-        config.WHISPER_COMPUTE,
+        "Model bakal dilepas kalau nganggur %s",
+        f"{batas:.0f} detik" if batas < 60 else f"{batas / 60:.0f} menit",
     )
-    t0 = time.monotonic()
-    _model = WhisperModel(
-        config.WHISPER_MODEL,
-        device=config.WHISPER_DEVICE,
-        compute_type=config.WHISPER_COMPUTE,
-    )
-    log.info("Whisper siap dalam %.1f detik", time.monotonic() - t0)
-    return _model
 
 
 def warmup() -> None:
@@ -91,6 +147,16 @@ def transcribe(audio: np.ndarray) -> str:
         return ""
 
     audio = np.asarray(audio, dtype=np.float32).reshape(-1)
+
+    # Lock ditahan selama transcribe biar pengawas idle nggak ngelepas model
+    # di tengah jalan. get_model() reentrant, jadi aman.
+    with _lock:
+        return _transcribe_terkunci(audio)
+
+
+def _transcribe_terkunci(audio: np.ndarray) -> str:
+    global _terakhir_dipakai
+
     model = get_model()
 
     t0 = time.monotonic()
@@ -111,6 +177,9 @@ def transcribe(audio: np.ndarray) -> str:
         time.monotonic() - t0,
         text,
     )
+    # Dicatat setelah selesai, bukan sebelum: hitungan nganggur harus mulai dari
+    # akhir pemakaian terakhir
+    _terakhir_dipakai = time.monotonic()
     return text
 
 

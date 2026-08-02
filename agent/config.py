@@ -53,6 +53,12 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8")
 WHISPER_LANG = os.getenv("WHISPER_LANG", "id")
+# Lepas model dari VRAM/RAM kalau nganggur selama ini (detik). 0 = nggak pernah.
+# Model medium megang ~2 GB VRAM terus-terusan padahal cuma kepakai 0.5 detik per
+# kalimat — di GPU pribadi yang dipakai buat hal lain, itu sayang. Ollama juga
+# begini defaultnya (keep-alive 5 menit). Bayarannya: muat ulang ~7 detik di
+# pertanyaan pertama setelah nganggur lama.
+WHISPER_IDLE_UNLOAD_SECONDS = float(os.getenv("WHISPER_IDLE_UNLOAD_SECONDS", "900"))
 # Contoh gaya bicara + kosakata yang sering kepakai. Whisper mencondongkan tebakannya
 # ke kata-kata di sini, jadi istilah teknis Inggris nggak dikira kata Indonesia.
 # Nol biaya waktu proses. Tambahin nama orang/tempat/tool yang sering kamu sebut.

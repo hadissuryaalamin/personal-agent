@@ -292,16 +292,28 @@ kalau mau instan (bayarannya model nempel di VRAM terus).
 
 ```
 agent/
-  config.py   konstanta + system prompt
-  audio.py    rekam mic, playback, beep
-  stt.py      faster-whisper
-  llm.py      Ollama chat + history (in-memory)
-  tts.py      Piper
-  main.py     hotkey + wiring pipeline + logging
-models/       voice Piper (gitignore)
-scripts/      setup.ps1, install-startup.ps1
-logs/         agent.log (rotating, 1 MB x 4)
+  main.py            hotkey, orkestrasi pipeline, percabangan niat
+  config.py          semua konstanta, dibaca dari .env
+  audio.py           rekam mic, playback, beep
+  stt.py             Whisper (muat/lepas otomatis)
+  tts.py             Piper
+  llm.py             otak: Claude API atau Ollama
+  calendar.py        susun agenda dari sumber yang aktif
+  kalender_lokal.py  kalender file .ics (baca + tulis)
+  gcal.py            Google Calendar (baca + tulis, OAuth)
+  jadwal_baru.py     ucapan -> acara/tugas + konfirmasi
+  waktu_id.py        urai frasa waktu Indonesia tanpa LLM
+  tugas.py           daftar tugas
+  memory.py          riwayat obrolan & fakta
+models/              voice Piper (gitignore)
+memory/              data lokal: fakta, riwayat, tugas, kalender (gitignore)
+scripts/             setup, autostart, status, login & impor kalender
+logs/                agent.log (rotating, 1 MB x 4)
 ```
+
+**[ARSITEKTUR.md](ARSITEKTUR.md)** menjelaskan cara kerjanya lebih dalam —
+alur satu percakapan, arah ketergantungan antar modul, dan alasan di balik tiap
+keputusan desain lengkap dengan angka pengukurannya.
 
 Tiap modul bisa dites sendiri:
 

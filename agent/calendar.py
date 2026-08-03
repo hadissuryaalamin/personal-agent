@@ -193,6 +193,11 @@ def _refresh_latar() -> None:
 
 def _acara() -> list[dict]:
     global _cache, _cache_time
+    # Wajib dicek: cache di disk tetep ada walau URL-nya dikosongin. Tanpa ini,
+    # acara yang udah dipindah ke Google kebaca dua kali — sekali dari cache
+    # basi, sekali dari Google.
+    if not config.CALENDAR_ICS_URL:
+        return []
     if _cache is None:
         with _lock:
             if _cache is None:
@@ -220,8 +225,14 @@ def _label_hari(d: date, hari_ini: date) -> str:
 
 
 def agenda() -> str:
-    """Teks jadwal buat diselipin ke system prompt. Kosong kalau fitur dimatiin."""
-    if not config.CALENDAR_ICS_URL:
+    """Teks jadwal buat diselipin ke system prompt. Kosong kalau nggak ada sumber.
+
+    Dua sumber, masing-masing opsional: feed ICS dan Google Calendar. Cukup
+    salah satu aktif.
+    """
+    from . import gcal
+
+    if not config.CALENDAR_ICS_URL and not gcal.aktif():
         return ""
 
     tz = ZoneInfo(config.CALENDAR_TZ)

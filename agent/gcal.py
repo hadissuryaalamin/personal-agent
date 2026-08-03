@@ -93,6 +93,24 @@ def service():
         return _service
 
 
+# Jenis kelas yang ditempel di judul waktu jadwal ICS disalin ke Google.
+_JENIS_DIKENAL = {"kuliah", "tutorial", "lab komputer", "lab", "workshop", "seminar", "sesi konsultasi"}
+
+
+def _pisah_jenis(judul: str) -> tuple[str, str]:
+    """'COMP4020 Agentic Coding Studio (kuliah)' -> ('COMP4020 ...', 'kuliah').
+
+    Cuma memisah kalau isi kurungnya memang nama jenis kelas — biar acara
+    pribadi kayak 'Makan siang (sama Budi)' nggak ikut terpotong.
+    """
+    import re
+
+    m = re.match(r"^(.*)\s*\(([^)]+)\)\s*$", judul)
+    if m and m.group(2).strip().lower() in _JENIS_DIKENAL:
+        return m.group(1).strip(), m.group(2).strip().lower()
+    return judul, ""
+
+
 def ambil_acara(hari_ke_depan: int) -> list[dict]:
     """Acara dari sekarang sampai N hari ke depan, bentuknya sama kayak calendar.py."""
     tz = ZoneInfo(config.CALENDAR_TZ)
@@ -128,13 +146,14 @@ def ambil_acara(hari_ke_depan: int) -> list[dict]:
                 if e.get("dateTime")
                 else None
             )
+        judul, jenis = _pisah_jenis((item.get("summary") or "(tanpa judul)").strip())
         acara.append(
             {
                 "mulai": mulai_dt,
                 "selesai": selesai_dt,
                 "sepanjang_hari": sepanjang_hari,
-                "judul": (item.get("summary") or "(tanpa judul)").strip(),
-                "jenis": "",
+                "judul": judul,
+                "jenis": jenis,
                 "kode": "",
                 "lokasi": (item.get("location") or "").strip(),
             }

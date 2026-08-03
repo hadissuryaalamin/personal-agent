@@ -14,7 +14,7 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from . import config, time_en
+from . import config, teks, time_en
 
 log = logging.getLogger(__name__)
 
@@ -93,8 +93,7 @@ Rules:
 
 def wants_event(text: str) -> bool:
     """Does this utterance ask to create an event?"""
-    t = re.sub(r"[^\w\s]", " ", text.lower())
-    t = re.sub(r"\s+", " ", t).strip()
+    t = teks.normal(text)
     if any(t.startswith(q) for q in _QUESTION):
         return False
     return any(k in t for k in _INTENT)
@@ -106,7 +105,7 @@ def answer_yes(text: str) -> bool | None:
     Unclear deliberately reads as None, not True. Guessing wrong here means
     writing an event the user never asked for — the expensive direction.
     """
-    flat = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
+    flat = teks.normal(text)
     words = flat.split()
     if not words:
         return None

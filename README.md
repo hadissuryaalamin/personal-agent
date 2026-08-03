@@ -93,6 +93,8 @@ semua soket non-localhost diblokir.
 Terus **pencet hotkey sekali** buat mulai, ngomong, **pencet lagi** buat berhenti.
 (Mau gaya tahan-sambil-ngomong? Set `HOTKEY_MODE=hold` di `.env`.)
 
+Nggak mau mencet tiap giliran? Lihat [Mode sesi](#mode-sesi-ngobrol-kontinu).
+
 Karena nggak ada window, feedback-nya bunyi:
 
 | Bunyi | Artinya |
@@ -161,6 +163,45 @@ Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file
 
 Daftar lengkapnya — 60 kunci, semuanya beneran dibaca kode — ada di
 [.env.example](.env.example).
+
+### Mode sesi (ngobrol kontinu)
+
+Sekali pencet hotkey buat **masuk sesi**, terus ngomong bolak-balik tanpa
+mencet lagi. Batas kalimat dideteksi suara, bukan tombol.
+
+```
+SESSION_MODE=true
+```
+
+Sesi tutup kalau: kamu pencet hotkey lagi, diam 30 detik, atau bilang
+*"goodbye"* / *"that's all"* / *"stop listening"*.
+
+Batas waktu diam itu **bukan kenyamanan, tapi pengaman**: tanpa itu, lupa
+menutup sesi berarti model nyangkut di memori seharian.
+
+**Mic ditutup selama agent ngomong.** Konsekuensinya: kamu nggak bisa motong
+omongannya di tengah. Untungnya sepadan — agent nggak mungkin denger suaranya
+sendiri, jadi nggak perlu peredam gema dan speaker biasa aman dipakai (nggak
+wajib headphone).
+
+Karena kamu nggak bisa motong, panjang balasan jadi soal serius. Itu sebabnya
+`REPLY_MAX_WORDS=25` nyala secara default — lihat [Batasan
+qwen2.5:7b](#batasan-qwen257b).
+
+**Deteksi suaranya pakai Silero VAD** lewat `onnx_asr` — model yang sama yang
+sudah dipakai Parakeet, jadi **nol paket pip baru**. Terukur di sini:
+
+| | Rata-rata peluang | Frame di atas ambang |
+|---|---:|---:|
+| Hening | 0,004 | 0/62 |
+| Desis keras | 0,011 | 0/62 |
+| Ucapan asli | 0,580 | 95/166 |
+
+Kecepatannya 0,17 ms per frame 32 ms — **190x realtime**, jadi CPU-nya praktis
+nol walaupun jalan terus selama sesi.
+
+**Kalau kalimatmu kepotong di tengah**, naikin `VAD_SILENCE_MS`. Kalau agent
+malah nyaut ke suara AC atau ketikan, naikin `VAD_THRESHOLD`.
 
 ### Pilih hotkey: pakai tombol tunggal
 
@@ -340,6 +381,18 @@ buat ngosongin riwayat, terus tanya lagi.
 ngasih 3–4, yang jadi ~20 detik audio. `OLLAMA_NUM_PREDICT=160` ada sebagai
 batas atas, tapi itu jaring pengaman buat yang benar-benar ngelantur — bukan
 pemaksa ringkas. Claude nurut sama batasan ini, qwen nggak.
+
+Yang **terbukti manjur** adalah batas kata eksplisit, bukan batas token:
+
+| | Kata | Audio |
+|---|---:|---:|
+| Apa adanya | 41,0 | 18,4 dtk |
+| `REPLY_MAX_WORDS=25` | 17,8 | 9,1 dtk |
+| + minta kalimat pendek | **13,0** | **7,1 dtk** |
+
+Cap token nggak nambah apa-apa di atas batas kata (17,0 vs 17,0) dan berisiko
+motong di tengah kata, jadi nggak dipakai. Keduanya nyala secara default —
+paling kerasa di mode sesi, di mana balasan panjang nggak bisa dipotong.
 
 **Ganti model Ollama:** `ollama pull <model>` terus set `OLLAMA_MODEL=<model>` di `.env`.
 

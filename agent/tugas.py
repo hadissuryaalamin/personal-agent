@@ -17,7 +17,7 @@ import threading
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from . import config
+from . import config, teks
 
 log = logging.getLogger(__name__)
 
@@ -38,9 +38,11 @@ _TASK_WORDS = (
 _ADD_INTENT = ("add", "create", "new", "remind me", "note", "put", "log", "track")
 # Spoken declarations carry no add verb — "I have an assignment due Monday" is
 # how a new task actually arrives, far more often than "add a task ...".
+# Bentuknya ngikutin teks.normal(): apostrof disambung, jadi "I've" -> "ive".
+# Sempat ketulis "i ve got" (apostrof jadi spasi) dan nggak pernah cocok.
 _ADD_DECLARE = (
-    "i have", "i ve got", "i got", "i need to", "i have to", "i must",
-    "there s a", "there is a", "gotta", "coming up", "handed out",
+    "i have", "ive got", "i got", "i need to", "i have to", "i must",
+    "theres a", "there is a", "gotta", "coming up", "handed out",
 )
 _DONE_INTENT = (
     "done", "finished", "complete", "completed", "submitted", "handed in",
@@ -102,7 +104,7 @@ def mark(rough_title: str, done: bool = True) -> dict | None:
     Returns the task when exactly one matches, None when nothing matches or the
     match is ambiguous — so the agent can ask instead of guessing which one.
     """
-    words = set(re.sub(r"[^\w\s]", " ", rough_title.lower()).split())
+    words = set(teks.kata(rough_title))
     with _lock:
         items = _load()
         scored = []
@@ -139,12 +141,12 @@ def clear_all() -> None:
 
 
 def _mentions_task(text: str) -> bool:
-    t = " " + re.sub(r"[^\w\s]", " ", text.lower()) + " "
+    t = " " + teks.normal(text) + " "
     return any(f" {k} " in t or k in t for k in _TASK_WORDS)
 
 
 def _flat(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
+    return teks.normal(text)
 
 
 # "what do I have due tomorrow" mentions a task and contains "i have", but it

@@ -50,6 +50,62 @@ def stop_playback() -> None:
     sd.stop()
 
 
+class Speaker:
+    """Mainin potongan WAV berturut-turut TANPA jeda di sambungannya.
+
+    Kenapa nggak play_wav() dipanggil berkali-kali: `_pad()` nyisipin hening di
+    dua ujung tiap potongan, jadi tiap sambungan kalimat kena 0,4 detik hening
+    dan balasan 4 kalimat kedengeran patah-patah. Di sini bantalannya cuma
+    ditaruh sekali di awal dan sekali di akhir seluruh ucapan.
+
+    Dipakai gini:
+        sp = Speaker()
+        for wav in potongan:
+            sp.add(wav)      # yang pertama langsung mulai bunyi
+        sp.finish()          # nunggu sampai bener-bener selesai
+    """
+
+    def __init__(self) -> None:
+        self._stream: sd.OutputStream | None = None
+        self._rate: int | None = None
+
+    def add(self, wav_bytes: bytes) -> None:
+        data, rate = sf.read(io.BytesIO(wav_bytes), dtype="float32")
+        if data.ndim > 1:
+            data = data[:, 0]
+
+        if self._stream is None:
+            self._rate = rate
+            self._stream = sd.OutputStream(samplerate=rate, channels=1, dtype="float32")
+            self._stream.start()
+            n = int(rate * config.PLAYBACK_PAD_SECONDS)
+            if n > 0:
+                self._stream.write(np.zeros(n, dtype=np.float32))
+        elif rate != self._rate:
+            # Nggak kejadian selama satu backend TTS dipakai sepanjang ucapan,
+            # tapi kalau kejadian, diam-diam ngubah laju bikin suaranya jadi
+            # chipmunk — mending kedengeran salahnya.
+            log.warning("laju sampel berubah di tengah ucapan: %s -> %s", self._rate, rate)
+
+        self._stream.write(np.ascontiguousarray(data, dtype=np.float32))
+
+    def finish(self) -> None:
+        if self._stream is None:
+            return
+        n = int((self._rate or 0) * config.PLAYBACK_PAD_SECONDS)
+        if n > 0:
+            self._stream.write(np.zeros(n, dtype=np.float32))
+        self._stream.stop()
+        self._stream.close()
+        self._stream = None
+
+    def abort(self) -> None:
+        if self._stream is not None:
+            self._stream.abort()
+            self._stream.close()
+            self._stream = None
+
+
 # --- Beep feedback ----------------------------------------------------------
 
 

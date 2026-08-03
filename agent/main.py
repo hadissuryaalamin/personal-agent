@@ -22,7 +22,9 @@ from . import (
     llm,
     stt,
     tts,
+    teks,
     tugas,
+    vad,
 )
 
 log = logging.getLogger("agent")
@@ -445,20 +447,27 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         audio.beep_error()
         return
     log.info("User: %s", text)
+    _route_and_reply(text)
 
-    # 2b. Memory wipe — handled locally, never sent to the LLM
+
+def _route_and_reply(text: str) -> None:
+    """Percabangan niat + jawaban. Dipakai bareng mode pencet dan mode sesi.
+
+    Urutannya PENTING dan nggak boleh diubah — lihat komentar tiap cabang.
+    """
+    # a. Memory wipe — handled locally, never sent to the LLM
     if _wants_forget(text):
         llm.get_conversation().forget()
         _say_safely("Okay, I've erased everything I knew about you.")
         return
 
-    # 2c. Waiting on an event confirmation? This answer belongs to that.
+    # b. Waiting on an event confirmation? This answer belongs to that.
     if _handle_confirmation(text):
         return
 
-    # 2d. Tasks. MUST be checked before the event intent: "add a task ..." also
-    #     matches the "add ..." pattern, and taking the wrong branch turns the
-    #     user's task into a calendar event.
+    # c. Tasks. MUST be checked before the event intent: "add a task ..." also
+    #    matches the "add ..." pattern, and taking the wrong branch turns the
+    #    user's task into a calendar event.
     if tugas.wants_mark_done(text):
         _mark_task_done(text)
         return
@@ -466,25 +475,135 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         _add_task(text)
         return
 
-    # 2e. Create a new event
+    # d. Create a new event
     if (kalender_lokal.aktif() or gcal.aktif()) and jadwal_baru.wants_event(text):
         _start_event(text)
         return
 
-    # 3. LLM
-    try:
-        reply = llm.chat(text)
-    except Exception:
-        log.exception("LLM call failed (%s)", config.LLM_BACKEND)
-        _say_safely("Sorry, my brain isn't reachable right now.")
-        return
+    # e. LLM + ngomong, kalimat per kalimat
+    _speak_streaming(text)
 
-    # 4. TTS + playback
+
+def _speak_streaming(text: str) -> None:
+    """Jawab sambil ngomong: kalimat pertama dibunyiin selagi model masih
+    ngarang kalimat berikutnya.
+
+    Terukur: waktu sampai bunyi pertama turun 53-71% dibanding nunggu seluruh
+    jawaban jadi. Yang dipangkas bukan waktu totalnya, tapi diamnya — dan itu
+    yang bikin percakapan kerasa hidup atau kerasa nge-lag.
+    """
+    conv = llm.get_conversation()
+    sp = audio.Speaker()
+    ada = False
     try:
-        audio.play_wav(tts.speak(reply))
+        for kalimat in conv.chat_stream(text):
+            sp.add(tts.speak(kalimat))
+            ada = True
+        sp.finish()
     except Exception:
-        log.exception("gagal ngomong")
-        audio.beep_error()
+        # Yang udah kebunyiin biarin selesai; jangan motong di tengah kata.
+        try:
+            sp.finish()
+        except Exception:
+            log.debug("gagal nutup playback", exc_info=True)
+        log.exception("gagal jawab (%s)", config.LLM_BACKEND)
+        if not ada:
+            _say_safely("Sorry, my brain isn't reachable right now.")
+
+
+def handle_session(is_active: Callable[[], bool]) -> None:
+    """Mode sesi: sekali pencet hotkey, terus ngobrol tanpa mencet lagi.
+
+    Batas kalimat ditentuin VAD, bukan tombol. Sesi tutup kalau kamu mencet
+    hotkey lagi ATAU diam selama SESSION_IDLE_SECONDS.
+
+    Mic ditutup selama agent ngomong — itu konsekuensi sadar dari nggak ada
+    barge-in. Untungnya: agent nggak mungkin denger suaranya sendiri, jadi
+    nggak perlu peredam gema dan speaker biasa aman dipakai.
+    """
+    if not stt.is_loaded():
+        threading.Thread(target=stt.warmup, name="muat-duluan", daemon=True).start()
+
+    audio.beep_start()
+    log.info("sesi dibuka (tutup: hotkey lagi, atau diam %.0f detik)",
+             config.SESSION_IDLE_SECONDS)
+    giliran = 0
+    mulai = time.monotonic()
+
+    try:
+        while is_active():
+            try:
+                clip, alasan = vad.rekam_ucapan(berhenti=lambda: not is_active())
+            except Exception:
+                log.exception("gagal merekam mic")
+                audio.beep_error()
+                return
+
+            if clip is None:
+                log.info("sesi ditutup: %s", alasan)
+                break
+
+            if not stt.is_loaded():
+                log.info("model masih dimuat, kabarin user dulu")
+                _say_safely("One moment, just getting ready.")
+
+            try:
+                text = stt.transcribe(clip)
+            except Exception:
+                log.exception("gagal transcribe")
+                audio.beep_error()
+                continue  # satu ucapan gagal nggak boleh nutup sesi
+
+            if not text:
+                log.info("transcript kosong, lanjut nunggu")
+                continue
+
+            giliran += 1
+            log.info("User (giliran %d): %s", giliran, text)
+
+            if _wants_end_session(text):
+                log.info("sesi ditutup lewat ucapan")
+                _say_safely("Okay, talk to you later.")
+                break
+
+            try:
+                _route_and_reply(text)
+            except Exception:
+                # Satu giliran yang gagal jangan ngebunuh sesinya — user tinggal
+                # ngomong lagi. Yang fatal cuma mic-nya yang nggak bisa dibuka.
+                log.exception("giliran %d gagal", giliran)
+                audio.beep_error()
+    finally:
+        audio.beep_stop()
+        log.info("sesi selesai: %d giliran, %.0f detik", giliran,
+                 time.monotonic() - mulai)
+
+
+# Frasa penutup sesi. Dicocokin lokal, bukan lewat LLM — sama alasannya kayak
+# "forget everything": perintah kontrol nggak boleh gantung pada tebakan model.
+# Dua tingkat, dan pemisahannya penting.
+#
+# KUAT = nggak mungkin punya arti lain, jadi boleh cocok di mana pun kalimat.
+_END_STRONG = (
+    "goodbye", "good bye", "bye bye", "talk to you later", "see you later",
+    "stop listening", "end session", "end the session",
+)
+# LEMAH = cuma nutup kalau berdiri di UJUNG ucapan. "I'm done" nutup sesi, tapi
+# "I'm done with assignment one" itu laporan tugas selesai — kalau dicocokin di
+# mana pun, tugasmu nggak akan pernah ketandai karena sesinya keburu tutup.
+_END_WEAK = (
+    "bye", "stop", "thanks", "thank you", "see you",
+    "thats all", "thats it", "were done", "im done", "we are done", "i am done",
+)
+
+
+def _wants_end_session(text: str) -> bool:
+    t = teks.normal(text)
+    if not t:
+        return False
+    if any(f in t for f in _END_STRONG):
+        return True
+    return any(t == f or t.endswith(" " + f) for f in _END_WEAK)
 
 
 def _say_safely(text: str) -> None:
@@ -499,20 +618,25 @@ def _say_safely(text: str) -> None:
 def warmup() -> None:
     """Load model di background biar pencetan pertama nggak lama.
 
-    Piper selalu dimuat: CPU-only, 0 VRAM, cuma ~1.5 detik. Whisper tergantung
+    TTS selalu dimuat: CPU-only, 0 VRAM, cuma ~1,5-2,7 detik. STT tergantung
     WHISPER_WARMUP — kalau modelnya toh bakal dilepas pas nganggur, muat di awal
-    cuma nahan ~1.9 GB VRAM percuma sampai ambang idle kelewat.
+    cuma nahan memori percuma sampai ambang idle kelewat.
+
+    VAD ikut dimuat cuma di mode sesi, dan selalu: 0 VRAM, ~1 detik, tapi kalau
+    baru dimuat pas hotkey dipencet, kata pertamamu kepotong.
     """
 
     def _run():
         try:
             tts.get_voice()
+            if config.SESSION_MODE:
+                vad._model()
             if config.WHISPER_WARMUP:
                 stt.warmup()
             else:
                 log.info(
-                    "Whisper nggak di-warmup; dimuat pas pertanyaan pertama "
-                    "(+~4 detik sekali)"
+                    "STT (%s) nggak di-warmup; dimuat pas pertanyaan pertama",
+                    config.STT_BACKEND,
                 )
             log.info("Warmup selesai, siap dipakai.")
         except Exception:
@@ -533,7 +657,7 @@ def main() -> int:
         config.LANGUAGE,
         config.OFFLINE_MODE,
         config.HOTKEY,
-        config.HOTKEY_MODE,
+        "SESI" if config.SESSION_MODE else config.HOTKEY_MODE,
         config.HOTKEY_BACKEND,
         config.STT_BACKEND,
         config.STT_DEVICE,
@@ -551,7 +675,9 @@ def main() -> int:
         return 2
 
     warmup()
-    backend = make_backend(handle_utterance)
+    # Mode sesi ganti seluruh gaya interaksinya, bukan sekadar setelan:
+    # hotkey jadi pembuka sesi, bukan tombol rekam.
+    backend = make_backend(handle_session if config.SESSION_MODE else handle_utterance)
 
     try:
         backend.run()

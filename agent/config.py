@@ -125,6 +125,32 @@ KOKORO_LANG = os.getenv("KOKORO_LANG", "en-us")
 PIPER_VOICE = _path(os.getenv("PIPER_VOICE", "models/id_ID-news_tts-medium.onnx"))
 
 # --- Audio ---
+# Batas kata yang ditempel ke system prompt. Beda dari OLLAMA_NUM_PREDICT: itu
+# motong paksa di tengah kata, ini bikin modelnya sendiri yang ngerem.
+# Terukur di qwen2.5:7b — 41 kata jadi 17, audio 18,4 detik jadi 9,3. Penting
+# banget di mode sesi: tanpa barge-in, balasan panjang nggak bisa dipotong.
+# 0 = matiin.
+REPLY_MAX_WORDS = int(os.getenv("REPLY_MAX_WORDS", "25"))
+
+# --- Mode sesi (ngobrol kontinu) ---
+# Sekali pencet hotkey buat masuk sesi, terus ngomong bebas tanpa mencet lagi.
+# Batas kalimat dideteksi VAD, bukan tombol.
+SESSION_MODE = os.getenv("SESSION_MODE", "false").lower() in ("1", "true", "yes")
+# Sesi nutup sendiri kalau sekian detik nggak ada suara. Wajib ada: tanpa ini,
+# lupa nutup berarti model nyangkut di memori seharian.
+SESSION_IDLE_SECONDS = float(os.getenv("SESSION_IDLE_SECONDS", "30"))
+# Peluang minimum sebuah frame dianggap suara (0..1). Naikin kalau kebisingan
+# ruangan kebaca sebagai omongan.
+VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
+# Sepi selama ini = kalimatmu dianggap selesai. Kekecilan bikin kalimat
+# kepotong di jeda alami; kegedean bikin agent kerasa lelet nyaut.
+VAD_SILENCE_MS = float(os.getenv("VAD_SILENCE_MS", "800"))
+# Suara lebih pendek dari ini diabaikan — batuk, ketukan keyboard, decak.
+VAD_MIN_SPEECH_MS = float(os.getenv("VAD_MIN_SPEECH_MS", "250"))
+# Audio sebelum suara kedeteksi yang tetap disimpen. VAD selalu telat sedikit
+# ngenalin awal kata; tanpa ini konsonan pertama kepotong.
+VAD_SPEECH_PAD_MS = float(os.getenv("VAD_SPEECH_PAD_MS", "300"))
+
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
 CHANNELS = 1
 # Rekaman lebih pendek dari ini dianggap salah pencet dan dibuang

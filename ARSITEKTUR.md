@@ -61,16 +61,18 @@ menit sehari, jadi menahan model di memori sepanjang hari itu pemborosan.
 | `waktu_id.py` | 153 | Versi Indonesia — disimpan, tidak dipanggil |
 | `tts.py` | 142 | Kokoro / Piper: teks → WAV |
 | `memory.py` | 136 | Riwayat obrolan & fakta ke disk |
+| `vad.py` | 226 | Deteksi suara buat mode sesi (Silero, per frame) |
 | `cek_offline.py` | 128 | Verifikasi kesiapan jalan tanpa jaringan |
 | `kalender_lokal.py` | 102 | Kalender file `.ics` (baca + tulis) |
+| `teks.py` | 55 | Penormal teks buat semua pencocokan niat |
 
 ### Arah ketergantungan
 
 ```
-main ──▶ audio, stt, tts, llm, calendar, tugas, jadwal_baru, kalender_lokal, gcal
+main ──▶ audio, vad, stt, tts, llm, calendar, tugas, jadwal_baru, kalender_lokal, gcal, teks
 llm  ──▶ calendar, memory, tugas
 calendar ──▶ gcal, kalender_lokal
-jadwal_baru ──▶ waktu_id
+jadwal_baru, tugas ──▶ teks, time_en
 semuanya ──▶ config
 ```
 
@@ -101,8 +103,21 @@ diimpor siapa pun. Modul sumber data (`gcal`, `kalender_lokal`) diimpor
    e. bikin acara             → urai, bacakan ulang, tunggu konfirmasi
    f. selain itu              → kirim ke LLM
 
-5. Jawaban → Kokoro → speaker
+5. Jawaban → Kokoro → speaker, KALIMAT PER KALIMAT (§4.20)
 6. Latar belakang: simpan riwayat (+ saring fakta kalau dinyalakan)
+```
+
+Dalam **mode sesi** (`SESSION_MODE=true`), langkah 1–2 diganti: hotkey membuka
+sesi sekali, lalu batas tiap ucapan ditentukan VAD. Langkah 3–6 sama persis —
+percabangan niatnya dipakai bareng lewat `_route_and_reply()`.
+
+```
+1. Hotkey ditekan → sesi terbuka
+2. Ulang sampai tutup:
+   └─ tunggu suara, rekam sampai diam 800 ms
+   └─ langkah 3-6 di atas
+   └─ mic DITUTUP selama agent bicara (§4.18)
+3. Tutup kalau: hotkey ditekan lagi, diam 30 detik, atau "goodbye"
 ```
 
 ### Kenapa urutan percabangan penting
@@ -343,6 +358,99 @@ Perbaikannya dua lapis, dan keduanya perlu:
 `gcal.py` sempat punya daftar jenis kembar. Sekarang meminjam dari `calendar.py`:
 daftar kembar berarti satu jalur mengenali label yang jalur lain tolak.
 
+### 4.18 Mode sesi: mic ditutup selama agent bicara
+
+Dalam mode sesi, batas kalimat ditentukan VAD (Silero, lewat `onnx_asr` —
+model yang sama dengan Parakeet, jadi nol paket baru). Konsekuensinya: mic
+hidup terus, dan mic yang hidup saat speaker berbunyi akan **mendengar agent
+sendiri**, lalu mentranskripnya sebagai ucapan user. Agent mengobrol dengan
+dirinya sendiri sampai sesi ditutup paksa.
+
+Tiga jalan keluar; yang dipilih paling sederhana:
+
+| | Bisa memotong? | Butuh headphone? | Risiko |
+|---|---|---|---|
+| **Mic ditutup saat bicara** | tidak | tidak | nyaris nol |
+| Mic hidup terus | ya | **ya** | pakai speaker = kacau |
+| Peredam gema | ya | tidak | paling rumit, paling rawan |
+
+Yang dipilih baris pertama. Harganya nyata: balasan panjang tidak bisa
+dipotong, kamu terkunci mendengarkan sampai habis. Itulah sebabnya
+`REPLY_MAX_WORDS` menjadi wajib, bukan pemanis — lihat §4.19.
+
+VAD-nya juga membedakan **tiga** alasan berhenti, bukan satu. "User menutup
+sesi", "sesi mati sendiri karena sepi", dan "suaranya terlalu pendek" harus
+terpisah: kalau ketiganya dibaca sama, batuk sekali akan menutup sesi.
+Suara terlalu pendek ditelan di dalam VAD dan tidak pernah sampai ke pemanggil.
+
+Tenggat sepi dihitung dari awal dan **tidak** di-reset oleh suara pendek. Kalau
+di-reset, ruangan berisik bisa menahan sesi terbuka selamanya tanpa kamu bicara
+sekali pun — dan model ikut tertahan di memori selama itu.
+
+### 4.19 Panjang balasan: batas kata, bukan batas token
+
+Terukur pada qwen2.5:7b:
+
+| | Kata | Audio |
+|---|---:|---:|
+| Apa adanya | 41,0 | 18,4 dtk |
+| Batas 25 kata di prompt | 17,8 | 9,1 dtk |
+| + minta kalimat pendek | **13,0** | **7,1 dtk** |
+| Batas 25 kata + cap 60 token | 17,0 | 9,5 dtk |
+
+Cap token (`num_predict`) **tidak menambah apa pun** di atas batas kata — 17,0
+lawan 17,0 — dan memotong paksa di tengah kata, yang terdengar seperti agent
+tercekik. Jadi yang dipakai batas kata; `num_predict` tetap ada tapi hanya
+sebagai jaring pengaman untuk yang benar-benar mengigau.
+
+Panjang **kalimat** diatur terpisah dari panjang **jawaban**, dan itu bukan
+duplikasi: TTS baru bisa mulai berbunyi setelah satu kalimat utuh, jadi satu
+kalimat 36 kata menunda bunyi pertama sama saja dengan tidak streaming.
+
+### 4.20 Streaming: yang dipangkas diamnya, bukan totalnya
+
+Jawaban dipotong per kalimat dan langsung disintesis, sementara model masih
+mengarang kalimat berikutnya.
+
+| Pertanyaan | Bunyi pertama, tunggu selesai | Bunyi pertama, streaming |
+|---|---:|---:|
+| "What classes do I have today?" | 17,4 dtk | 8,2 dtk |
+| "What should I work on today?" | 11,8 dtk | 3,4 dtk |
+
+Turun 53–71%. Waktu totalnya nyaris tidak berubah — yang hilang adalah
+diamnya, dan itu yang membedakan percakapan terasa hidup atau terasa nge-lag.
+
+Pemotongnya harus tahu bahwa `3 p.m.` bukan akhir kalimat. Tanpa itu, TTS
+mengucapkan "three pee." lalu berhenti sejenak sebelum "em." — dan `3 p.m.`
+justru bentuk yang dikeluarkan Parakeet.
+
+Playback-nya lewat `audio.Speaker`, bukan `play_wav()` berulang. `play_wav()`
+menyisipkan bantalan hening di **kedua** ujung tiap potongan, jadi tiap
+sambungan kalimat kena 0,4 detik hening — terukur 0,83 detik hening berlebih
+pada balasan tiga kalimat. `Speaker` memberi bantalan sekali di awal dan sekali
+di akhir seluruh ucapan.
+
+### 4.21 Satu penormal teks untuk semua pencocokan niat
+
+Tiap modul dulu menormalkan teksnya sendiri, dan semuanya mengganti apostrof
+dengan **spasi**. Akibatnya `"don't save it"` pecah menjadi `don | t | save |
+it`: tidak ada yang cocok dengan daftar penolakan, lalu kata `save` tertangkap
+sebagai persetujuan.
+
+Jadi **`answer_yes("don't save it")` mengembalikan `True`** — agent menyimpan
+acara padahal user bilang jangan, persis kebalikan dari yang diminta, dan
+persis kegagalan yang seluruh mekanisme konfirmasi ini ada untuk mencegahnya.
+
+`teks.py` menjadi satu-satunya sumber: apostrof **dibuang** (menyambung), tanda
+baca lain menjadi spasi. Ini kelas bug yang sama dengan frasa dua kata di
+`_YES`/`_NO` yang tidak pernah cocok — dan itu alasan normalisasi tidak boleh
+ditulis ulang per modul.
+
+Pencocok frasa penutup sesi punya **dua tingkat** karena alasan serupa. "I'm
+done" menutup sesi, tapi "I'm done with assignment one" adalah laporan tugas
+selesai — kalau dicocokkan di mana pun, tugasmu tidak pernah tertandai karena
+sesinya keburu tutup.
+
 ---
 
 ## 5. Penyimpanan
@@ -390,11 +498,16 @@ acara yang sama, hasilnya dobel — karena itu hanya satu yang dinyalakan.
 **Backend hotkey** — `pynput` (default) atau `keyboard`, dan mode `toggle`
 atau `hold`.
 
+**Gaya interaksi** — `SESSION_MODE=false` (pencet tiap giliran) atau `true`
+(sekali pencet, terus ngobrol). Yang berganti cuma handler-nya; percabangan
+niat, memori, dan kalender dipakai bareng lewat `_route_and_reply()`.
+
 ---
 
 ## 7. Yang belum ada
 
-- **Wake word** — panggil tanpa menyentuh tombol
+- **Wake word** — masuk sesi tanpa menyentuh tombol sama sekali
+- **Memotong agent** — butuh peredam gema, lihat §4.18
 - **Notifikasi proaktif** — agent bicara duluan, misalnya mengingatkan tenggat
 - **Ubah/hapus acara lewat suara** — sekarang hanya bisa membuat
 - **Integrasi LMS** — tenggat tugas masih dicatat manual

@@ -44,6 +44,29 @@ def _clean_for_speech(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+# Titik yang BUKAN akhir kalimat. Tanpa ini, "3 p.m." — bentuk yang justru
+# dikeluarkan Parakeet — kepotong jadi dua, dan TTS ngomong "three pee." terus
+# berhenti sejenak sebelum "em."
+_BUKAN_AKHIR = re.compile(
+    r"(?:\b(?:[a-z]|mr|mrs|ms|dr|prof|st|vs|etc|e\.g|i\.e|a\.m|p\.m|no)\.)\s*$",
+    re.I,
+)
+_AKHIR_KALIMAT = re.compile(r"[.!?]+[\"')\]]*\s")
+
+
+def _potong_kalimat(buf: str) -> tuple[str | None, str]:
+    """Ambil satu kalimat utuh dari depan `buf`.
+
+    Balikin `(kalimat, sisa)`, atau `(None, buf)` kalau belum ada kalimat utuh.
+    """
+    for m in _AKHIR_KALIMAT.finditer(buf):
+        potong = buf[: m.end()]
+        if _BUKAN_AKHIR.search(potong):
+            continue  # singkatan, bukan akhir kalimat
+        return potong.strip(), buf[m.end() :]
+    return None, buf
+
+
 FACTS_PROMPT = """You filter long-term memory for a personal assistant. Decide \
 what is worth remembering about the user from one exchange.
 
@@ -128,7 +151,30 @@ class _BaseConversation:
                 "pressing, not the whole list."
             )
 
+        # Ditaruh paling belakang bagian stabil, persis sebelum jam. Instruksi
+        # panjang-jawaban gampang tenggelam kalau ketimbun jadwal & tugas.
+        if config.REPLY_MAX_WORDS > 0:
+            bagian.append(
+                f"HARD LIMIT: answer in {config.REPLY_MAX_WORDS} words or fewer. "
+                "Never exceed it. Give the single most useful fact; if they want "
+                "more, they will ask.\n"
+                # Panjang kalimat diatur terpisah dari panjang jawaban: satu
+                # kalimat panjang nunda bunyi pertama, karena TTS baru mulai
+                # setelah kalimatnya utuh.
+                "Use SHORT sentences, at most 12 words each. Two short sentences "
+                "beat one long one."
+            )
+
         return "\n\n".join(bagian), calendar.konteks_waktu()
+
+    def chat_stream(self, text: str):
+        """Sama kayak chat(), tapi ngeluarin KALIMAT satu per satu pas jadi.
+
+        Default-nya: nggak ada backend yang wajib streaming, jadi yang nggak
+        dukung cukup ngeluarin satu potong utuh. Pemanggilnya nggak perlu tau
+        bedanya.
+        """
+        yield self.chat(text)
 
     def reset(self) -> None:
         self.messages = []
@@ -343,6 +389,78 @@ class OllamaConversation(_BaseConversation):
         log.info("LLM ollama (%d chars): %s", len(reply), reply)
         self._selesai_giliran(text, reply)
         return _clean_for_speech(reply)
+
+    def chat_stream(self, text: str):
+        """Keluarin kalimat begitu jadi, jangan nunggu paragrafnya selesai.
+
+        Ini yang bikin mode sesi kerasa hidup: TTS bisa mulai ngomong di
+        kalimat pertama sementara model masih ngarang kalimat kedua. Yang
+        kepotong bukan waktu totalnya, tapi **waktu sampai bunyi pertama** —
+        dan itu yang dirasain user.
+        """
+        import json as _json
+
+        import requests
+
+        self.messages.append({"role": "user", "content": text})
+        payload = {
+            "model": config.OLLAMA_MODEL,
+            "messages": [{"role": "system", "content": self.system_prompt}]
+            + self.messages,
+            "stream": True,
+            "options": {
+                "temperature": 0.7,
+                "num_predict": config.OLLAMA_NUM_PREDICT,
+                "num_ctx": config.OLLAMA_NUM_CTX,
+            },
+        }
+
+        penuh: list[str] = []
+        sisa = ""
+        try:
+            with requests.post(
+                config.OLLAMA_CHAT_URL,
+                json=payload,
+                timeout=config.OLLAMA_TIMEOUT,
+                stream=True,
+            ) as resp:
+                resp.raise_for_status()
+                for baris in resp.iter_lines():
+                    if not baris:
+                        continue
+                    potong = (_json.loads(baris).get("message") or {}).get("content", "")
+                    if not potong:
+                        continue
+                    penuh.append(potong)
+                    sisa += potong
+                    # Pecah di batas kalimat. Nunggu kalimat utuh itu sengaja:
+                    # ngirim potongan setengah kalimat ke TTS bikin intonasinya
+                    # ngawur dan jedanya kedengeran di tempat yang salah.
+                    while True:
+                        kal, sisa_baru = _potong_kalimat(sisa)
+                        if kal is None:
+                            break
+                        sisa = sisa_baru
+                        bersih = _clean_for_speech(kal)
+                        if bersih:
+                            yield bersih
+        except Exception:
+            self.messages.pop()
+            raise
+
+        ekor = _clean_for_speech(sisa)
+        if ekor:
+            yield ekor
+
+        reply = "".join(penuh).strip()
+        if not reply:
+            self.messages.pop()
+            raise RuntimeError("Ollama balikin respons kosong")
+
+        self.messages.append({"role": "assistant", "content": reply})
+        self._trim()
+        log.info("LLM ollama stream (%d chars): %s", len(reply), reply)
+        self._selesai_giliran(text, reply)
 
     def _oneshot(self, system: str, user: str, skema: dict | None = None) -> str:
         import requests

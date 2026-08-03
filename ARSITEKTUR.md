@@ -419,6 +419,40 @@ kalimat; qwen kerap memberi 3–4, yang menjadi ~20 detik audio.
 `OLLAMA_NUM_PREDICT=160` adalah batas atas untuk yang benar-benar mengigau,
 bukan pemaksa ringkas. Claude menuruti batasan ini, qwen tidak.
 
+### ISU TERBUKA: label hari sesekali meleset
+
+**Status: belum diperbaiki, belum bisa direproduksi.** Dicatat di sini supaya
+tidak hilang, bukan karena sudah dipahami.
+
+Terjadi 4 Agustus 2026, 06:54. Ditanya *"Do I have assignment for this week?"*,
+qwen menjawab:
+
+> *"Your next classes are **tomorrow** from nine to eleven for COMP4620 ..."*
+
+COMP4620 09:00–11:00 itu **hari itu juga**, bukan besok. Model mengambil isi
+baris `TODAY` lalu melabelinya "tomorrow". Satu menit kemudian, pertanyaan lain
+dijawab benar (*"Today is Tuesday 4 August ..."*).
+
+Yang sudah dipastikan **bukan** penyebabnya:
+
+- **Bukan cache agenda.** `agenda()` menghitung `hari_ini` dari `datetime.now()`
+  setiap giliran; tidak ada teks prompt yang disimpan. Diverifikasi dengan
+  membuang isi prompt saat itu juga — isinya `TODAY (Tuesday August 4)`, benar.
+- **Bukan temperature.** 12 percobaan di 0,7 dan 12 di 0,2: 0 salah.
+- **Bukan riwayat lintas tengah malam.** Hipotesis awalnya: kalimat "besok" yang
+  diucapkan tanggal 3 menjadi salah setelah tanggal berganti, dan agent memang
+  hidup terus sejak 20:23 tanggal 3. Diuji dengan menyuntikkan riwayat kemarin
+  yang persis begitu — 5 percobaan, 0 salah.
+
+Total 22 percobaan tanpa satu pun berhasil menirukan. Sesi live punya riwayat
+yang tidak bisa direkonstruksi, jadi pemicunya masih terbuka.
+
+**Arah perbaikan yang disarankan** — bukan menambal prompt, tapi mengikuti §4.9:
+rutekan pertanyaan jadwal ke jawaban yang dihitung Python, sebagaimana tanggal
+sudah diurai tanpa LLM. Baris `NEXT UP` / `TODAY` / `TOMORROW` sudah dihitung
+Python; model tidak menambahkan apa pun di situ selain risiko. Untungnya
+ganda: benar 100%, dan hilang satu panggilan LLM (~5 detik).
+
 ---
 
 ## 8. Cara mengukur ulang

@@ -288,6 +288,21 @@ def agenda() -> str:
     if berikutnya is not None:
         baris.append("KELAS BERIKUTNYA: " + _satu_baris(berikutnya, hari_ini))
 
+    # Dua pertanyaan paling sering ("hari ini apa", "besok apa") dijawab di sini
+    # juga, dalam bentuk jadi. Model kecil sering salah hari atau cuma nyebut
+    # satu dari beberapa kelas kalau disuruh baca tabelnya sendiri.
+    for offset, nama in ((0, "HARI INI"), (1, "BESOK")):
+        d = hari_ini + timedelta(days=offset)
+        isi = per_hari.get(d, [])
+        tgl = f"{HARI[d.weekday()]} {d.day} {BULAN[d.month]}"
+        if not isi:
+            baris.append(f"{nama} ({tgl}): tidak ada jadwal")
+        else:
+            ringkas = "; ".join(
+                _satu_baris(e, hari_ini, dengan_hari=False) for e in isi
+            )
+            baris.append(f"{nama} ({tgl}): {len(isi)} jadwal -> {ringkas}")
+
     baris.append("")
     baris.append("Format tiap baris: jam | kode & nama | jenis | lokasi")
     for d in sorted(per_hari):
@@ -341,19 +356,33 @@ def _di_luar_pola(
     return hasil
 
 
+def _jam_ucap(e: dict) -> str:
+    """Jam dalam bentuk yang enak dibacakan, bukan '09:00-11:00'.
+
+    Model cenderung nyalin format yang dia lihat, dan Piper ngeja angka
+    berformat jam apa adanya — 'pukul 09:00 sampai 11:00' makan 4,1 detik
+    dibanding 3,0 detik buat kalimat yang sama artinya. Tetap 24 jam supaya
+    'jam 2' nggak ambigu siang/malam.
+    """
+    if e["sepanjang_hari"]:
+        return "seharian"
+
+    def satu(dt) -> str:
+        return f"jam {dt.hour}" + (f" lewat {dt.minute}" if dt.minute else "")
+
+    teks = satu(e["mulai"])
+    if isinstance(e["selesai"], datetime):
+        teks += " sampai " + satu(e["selesai"]).replace("jam ", "", 1)
+    return teks
+
+
 def _satu_baris(e: dict, hari_ini: date, dengan_hari: bool = True) -> str:
     """Satu acara jadi satu baris berkolom.
 
     Kolomnya dipisah '|' dengan sengaja: tanpa batas yang jelas, model gampang
     ngambil nama matkul dari baris ini tapi lokasinya dari baris sebelahnya.
     """
-    if e["sepanjang_hari"]:
-        jam = "seharian"
-    else:
-        jam = e["mulai"].strftime("%H:%M")
-        if isinstance(e["selesai"], datetime):
-            jam += "-" + e["selesai"].strftime("%H:%M")
-
+    jam = _jam_ucap(e)
     nama = f"{e['kode']} {e['judul']}".strip() if e["kode"] else e["judul"]
     kolom = [jam, nama, e["jenis"] or "-", e["lokasi"] or "lokasi tidak tercantum"]
     teks = " | ".join(kolom)

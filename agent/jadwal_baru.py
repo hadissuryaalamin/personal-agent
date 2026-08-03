@@ -1,9 +1,9 @@
-"""Ubah ucapan jadi acara kalender, dengan konfirmasi sebelum disimpan.
+"""Turn speech into a calendar event or task, with confirmation before saving.
 
-Kenapa harus dikonfirmasi: STT punya angka salah dengar yang nyata (WER ~8%).
-Buat pertanyaan, salah dengar cuma bikin jawaban ngawur dan langsung ketahuan.
-Buat penulisan, salah dengar ninggalin acara palsu di kalender yang baru
-ketahuan minggu depan. Jadi agent selalu bacain ulang dulu dan nunggu "ya".
+Why confirmation: STT has a real error rate. For a *question*, a misheard word
+just produces a wrong answer you notice immediately. For a *write*, it leaves a
+bogus event in your calendar that you only discover next week. So the agent
+always reads the parsed event back and waits for a yes.
 """
 
 from __future__ import annotations
@@ -14,263 +14,264 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from . import config, waktu_id
+from . import config, time_en
 
 log = logging.getLogger(__name__)
 
-HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
 
-# Kata kunci niat bikin acara. Dicocokkan lokal buat mutusin apakah ucapan ini
-# perlu diproses jadi acara â€” bukan buat nentuin isinya (itu tugas LLM).
-_NIAT = (
-    "catat", "catetin", "jadwalin", "jadwalkan", "tambahin acara", "tambah acara",
-    "bikin acara", "buat acara", "masukin ke kalender", "masukkan ke kalender",
-    "ingetin aku tanggal", "set jadwal", "atur jadwal",
+# Intent keywords for creating an event. Matched locally just to decide whether
+# this utterance needs event parsing — the content itself is the LLM's job.
+# Bare "schedule" and "book" are deliberately absent: they are nouns at least
+# as often as verbs ("what's my schedule", "read a book"), and "what is my
+# schedule tomorrow" matching here would try to write an event for a question.
+_INTENT = (
+    "create an event", "create event", "add an event", "add event",
+    "schedule a", "schedule an", "schedule my", "schedule it", "schedule that",
+    "book a", "book an", "book the", "book me",
+    "put in my calendar", "put it in my calendar", "put that in my calendar",
+    "add to my calendar", "add it to my calendar", "new event",
+    "set up a meeting", "make an event", "set a reminder for",
 )
 
-# "ya" sengaja NGGAK di sini: dia sering nempel di akhir kalimat tanya
-# ("hmm apa ya", "gimana ya") dan itu keraguan, bukan persetujuan. Dia cuma
-# dihitung kalau jadi kata pertama â€” lihat jawaban_ya().
-_YA = ("iya", "betul", "bener", "benar", "oke", "ok", "sip", "simpan", "lanjut", "gas", "yoi")
-_TIDAK = ("nggak", "ngga", "gak", "tidak", "bukan", "batal", "salah", "jangan", "no")
+# Openers that make the utterance a question about the calendar, not a request
+# to write to it. Checked before _INTENT so "when should I schedule a break"
+# doesn't silently create an event.
+_QUESTION = (
+    "what", "when", "where", "which", "who", "how", "do i", "did i",
+    "is there", "are there", "am i", "tell me", "read me", "anything",
+)
 
-SKEMA = {
+# Single words, matched against the word list. "yeah"/"yes" are handled
+# separately below — see answer_yes().
+_YES = (
+    "yep", "yup", "correct", "right", "sure", "ok", "okay", "confirm",
+    "save", "perfect", "exactly",
+)
+_NO = (
+    "no", "nope", "cancel", "wrong", "dont", "nevermind", "stop",
+    "incorrect", "nah",
+)
+# Multi-word forms, matched against the whole utterance. Kept apart because a
+# per-word check can never match them — that silently killed "go ahead" and
+# "never mind" once already.
+_YES_PHRASES = ("please do", "go ahead", "sounds good", "do it", "that works")
+_NO_PHRASES = ("never mind", "forget it", "do not", "hold on", "not right")
+
+SCHEMA = {
     "type": "object",
     "properties": {
-        "judul": {"type": "string", "description": "Nama acaranya, ringkas"},
-        "tanggal": {"type": "string", "description": "Tanggal mulai, format YYYY-MM-DD"},
-        "jam_mulai": {"type": "string", "description": "Jam mulai, format HH:MM 24 jam"},
-        "durasi_menit": {"type": "integer", "description": "Lama acara dalam menit"},
-        "lokasi": {"type": "string", "description": "Lokasi, boleh string kosong"},
-        "yakin": {
+        "title": {"type": "string", "description": "Short name for the event"},
+        "date": {"type": "string", "description": "Start date, format YYYY-MM-DD"},
+        "start_time": {"type": "string", "description": "Start time, 24h HH:MM"},
+        "duration_minutes": {"type": "integer", "description": "Length in minutes"},
+        "location": {"type": "string", "description": "Location, empty string if none"},
+        "confident": {
             "type": "boolean",
-            "description": "false kalau tanggal/jam-nya nggak jelas dari ucapan user",
+            "description": "false if the date or time is unclear from the utterance",
         },
     },
-    "required": ["judul", "tanggal", "jam_mulai", "durasi_menit", "lokasi", "yakin"],
+    "required": ["title", "date", "start_time", "duration_minutes", "location", "confident"],
     "additionalProperties": False,
 }
 
-PROMPT = """Ubah permintaan user jadi satu acara kalender.
+PROMPT = """Turn the user's request into a single calendar event.
 
-Aturan:
-- Pakai tanggal & jam sekarang buat ngartiin "besok", "Kamis depan", "lusa".
-- Kalau user nggak nyebut durasi, pakai 60 menit.
-- Kalau user nyebut jam tanpa keterangan pagi/siang/malam, pilih yang paling
-  masuk akal buat mahasiswa (jam 3 = 15:00, jam 8 = 08:00).
-- Set yakin=false kalau tanggal atau jamnya nggak bisa ditentukan dari ucapan.
-- Teks user berasal dari pengenalan suara, jadi mungkin ada salah dengar.
-  Tebak maksud yang paling masuk akal, tapi jangan ngarang detail yang
-  nggak disebut sama sekali."""
-
-
-def minta_bikin_acara(teks: str) -> bool:
-    """Ucapan ini niatnya bikin acara?"""
-    bersih = re.sub(r"[^\w\s]", " ", teks.lower())
-    return any(k in bersih for k in _NIAT)
+Rules:
+- Use the current date and time to resolve "tomorrow", "next Friday", "in two days".
+- If no duration is given, use 60 minutes.
+- If an hour is given with no am/pm, pick what makes sense for a student
+  (3 = 15:00, 8 = 08:00).
+- Set confident=false if the date or time cannot be determined from the request.
+- The text came from speech recognition, so it may contain mishearings. Guess the
+  most plausible meaning, but do not invent details that were never mentioned."""
 
 
-def jawaban_ya(teks: str) -> bool | None:
-    """True=setuju, False=tolak, None=nggak jelas.
-
-    Ragu-ragu sengaja dibaca None, bukan True. Salah tebak di sini artinya
-    nulis acara yang user nggak minta â€” arah salah yang paling mahal.
-    """
-    kata = re.sub(r"[^\w\s]", " ", teks.lower()).split()
-    if not kata:
-        return None
-    # Cek penolakan duluan: "ya nggak usah" itu penolakan, bukan persetujuan
-    if any(k in _TIDAK for k in kata):
+def wants_event(text: str) -> bool:
+    """Does this utterance ask to create an event?"""
+    t = re.sub(r"[^\w\s]", " ", text.lower())
+    t = re.sub(r"\s+", " ", t).strip()
+    if any(t.startswith(q) for q in _QUESTION):
         return False
-    if any(k in _YA for k in kata):
+    return any(k in t for k in _INTENT)
+
+
+def answer_yes(text: str) -> bool | None:
+    """True=agree, False=refuse, None=unclear.
+
+    Unclear deliberately reads as None, not True. Guessing wrong here means
+    writing an event the user never asked for — the expensive direction.
+    """
+    flat = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
+    words = flat.split()
+    if not words:
+        return None
+    # Check refusal first: "yeah no, cancel that" is a refusal
+    if any(w in _NO for w in words) or any(p in flat for p in _NO_PHRASES):
+        return False
+    if any(w in _YES for w in words) or any(p in flat for p in _YES_PHRASES):
         return True
-    # "ya" cuma sah sebagai kata pertama ("ya simpan"), bukan ekor kalimat
-    # tanya ("hmm apa ya")
-    if kata[0] == "ya":
+    # Bare "yes"/"yeah" only counts as the opening word — it trails questions
+    # too often ("that's right, yeah?") to trust anywhere else.
+    if words[0] in ("yes", "yeah", "yea", "aye"):
         return True
     return None
 
 
-def _rakit_waktu(data: dict, tz) -> datetime | None:
-    """Gabungin tanggal + jam jadi datetime, toleran sama format menyimpang.
+def _build_time(data: dict, tz) -> datetime | None:
+    """Combine date + time, tolerating format drift.
 
-    Model kecil sering ngembaliin ISO penuh ('2026-08-10T10:00:00+10:00') di
-    kolom tanggal, atau jam berisi detik dan offset. Isinya bener, cuma
-    formatnya beda â€” nolak mentah-mentah cuma bikin gagal tanpa alasan.
+    Small models often return a full ISO string in the date field, or a time
+    with seconds and an offset. The content is right, only the shape differs —
+    rejecting outright just fails for no reason.
     """
-    tgl_mentah = str(data.get("tanggal") or "").strip()
-    jam_mentah = str(data.get("jam_mulai") or "").strip()
-    if not tgl_mentah:
+    raw_date = str(data.get("date") or "").strip()
+    raw_time = str(data.get("start_time") or "").strip()
+    if not raw_date:
         return None
 
-    tgl = tgl_mentah.split("T")[0].split(" ")[0]
+    day = raw_date.split("T")[0].split(" ")[0]
     try:
-        tanggal = datetime.strptime(tgl, "%Y-%m-%d").date()
+        d = datetime.strptime(day, "%Y-%m-%d").date()
     except ValueError:
         return None
 
-    jam_bersih = re.split(r"[+Z]", jam_mentah)[0].strip()
-    potong = jam_bersih.split(":")
+    clean = re.split(r"[+Z]", raw_time)[0].strip()
+    parts = clean.split(":")
     try:
-        jam = int(potong[0])
-        menit = int(potong[1]) if len(potong) > 1 else 0
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
     except (ValueError, IndexError):
         return None
-    if not (0 <= jam <= 23 and 0 <= menit <= 59):
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return None
 
-    return datetime(tanggal.year, tanggal.month, tanggal.day, jam, menit, tzinfo=tz)
+    return datetime(d.year, d.month, d.day, hour, minute, tzinfo=tz)
 
 
-def _tabel_tanggal(sekarang: datetime) -> str:
-    """Daftar tanggal siap pakai buat 14 hari ke depan.
-
-    Model kecil sering salah pas disuruh ngitung sendiri 'hari Jumat' itu
-    tanggal berapa â€” terukur 0 dari 6 benar. Ngasih tabelnya langsung jauh
-    lebih andal daripada berharap dia hitung.
-    """
-    baris = []
-    for i in range(15):
-        d = (sekarang + timedelta(days=i)).date()
-        label = HARI[d.weekday()]
-        if i == 0:
-            label += " (hari ini)"
-        elif i == 1:
-            label += " (besok)"
-        elif i == 2:
-            label += " (lusa)"
-        elif i >= 8:
-            label += " (minggu depan)"
-        baris.append(f"  {d.isoformat()} = {label}")
-    return "Tanggal 15 hari ke depan:\n" + "\n".join(baris)
-
-
-def urai(teks: str, oneshot) -> dict | None:
-    """Ucapan -> dict acara. `oneshot(system, user) -> str` dari backend LLM."""
+def parse_event(text: str, oneshot) -> dict | None:
+    """Utterance -> event dict. `oneshot(system, user, schema) -> str`."""
     tz = ZoneInfo(config.CALENDAR_TZ)
-    sekarang = datetime.now(tz)
-    konteks = (
-        f"Sekarang {sekarang.strftime('%A, %Y-%m-%d, %H:%M')} "
-        f"({config.CALENDAR_TZ}).\n\n"
-        f"{_tabel_tanggal(sekarang)}\n\nUcapan user: {teks}"
+    now = datetime.now(tz)
+    context = (
+        f"Current date and time: {now.strftime('%A, %Y-%m-%d, %H:%M')} "
+        f"({config.CALENDAR_TZ}).\n\nUser said: {text}"
     )
 
-    mentah = oneshot(PROMPT, konteks, SKEMA)
+    raw = oneshot(PROMPT, context, SCHEMA)
     try:
-        data = json.loads(mentah)
+        data = json.loads(raw)
     except Exception:
-        log.warning("hasil urai bukan JSON: %r", mentah)
+        log.warning("event parse was not JSON: %r", raw)
         return None
 
-    # Tanggal & jam diurai sendiri dan MENIMPA jawaban model. Frasa waktu itu
-    # himpunan tertutup dengan aturan kaku, sementara model kecil terbukti
-    # nggak bisa diandalkan di sini (qwen2.5:7b: 2 dari 10 benar, bahkan
-    # setelah dikasih tabel tanggal). Model cukup ngurus judul & lokasi.
-    pasti = waktu_id.urai(teks, sekarang)
-    mulai = pasti or _rakit_waktu(data, tz)
-    if mulai is None:
-        log.warning("tanggal/jam nggak kebaca: %r", data)
+    # Date and time are parsed here and OVERRIDE the model. Time phrases are a
+    # closed set with rigid rules, and small models proved unreliable at date
+    # arithmetic (2 of 10 correct even with a date table). The model only needs
+    # to handle the title and location.
+    exact = time_en.parse(text, now)
+    start = exact or _build_time(data, tz)
+    if start is None:
+        log.warning("could not read date/time: %r", data)
         return None
-    if pasti is not None and _rakit_waktu(data, tz) != pasti:
-        log.info("tanggal/jam dari model dikoreksi jadi %s", pasti)
+    if exact is not None and _build_time(data, tz) != exact:
+        log.info("model's date/time corrected to %s", exact)
 
-    durasi = int(data.get("durasi_menit") or 60)
+    minutes = int(data.get("duration_minutes") or 60)
     return {
-        "judul": (data.get("judul") or "Acara").strip(),
-        "mulai": mulai,
-        "selesai": mulai + timedelta(minutes=max(5, durasi)),
-        "lokasi": (data.get("lokasi") or "").strip(),
-        "yakin": bool(data.get("yakin", True)),
+        "title": (data.get("title") or "Event").strip(),
+        "start": start,
+        "end": start + timedelta(minutes=max(5, minutes)),
+        "location": (data.get("location") or "").strip(),
+        "confident": bool(data.get("confident", True)),
     }
 
 
-SKEMA_TUGAS = {
+TASK_SCHEMA = {
     "type": "object",
     "properties": {
-        "judul": {"type": "string", "description": "Nama tugasnya, ringkas"},
-        "matkul": {
+        "title": {"type": "string", "description": "Short name for the task"},
+        "course": {
             "type": "string",
-            "description": "Kode mata kuliah kalau disebut, contoh COMP4020. Boleh kosong.",
+            "description": "Course code if mentioned, e.g. COMP4020. May be empty.",
         },
-        "tenggat": {
+        "due": {
             "type": "string",
-            "description": "Tenggat format YYYY-MM-DD. String kosong kalau nggak disebut.",
+            "description": "Due date, YYYY-MM-DD. Empty string if not mentioned.",
         },
-        "perkiraan_jam": {
+        "estimate_hours": {
             "type": "number",
-            "description": "Perkiraan lama ngerjain dalam jam. 0 kalau nggak disebut.",
+            "description": "Rough hours needed. 0 if not mentioned.",
         },
     },
-    "required": ["judul", "matkul", "tenggat", "perkiraan_jam"],
+    "required": ["title", "course", "due", "estimate_hours"],
     "additionalProperties": False,
 }
 
-PROMPT_TUGAS = """Ubah permintaan user jadi satu tugas kuliah.
+TASK_PROMPT = """Turn the user's request into a single coursework task.
 
-Aturan:
-- Pakai tanggal sekarang buat ngartiin "Jumat", "minggu depan", "besok".
-- Kalau tenggatnya nggak disebut sama sekali, isi tenggat dengan string kosong.
-  JANGAN ngarang tanggal.
-- Judulnya ringkas, jangan sertakan kata "tugas" kalau nggak perlu.
-- Teks user berasal dari pengenalan suara, jadi mungkin ada salah dengar."""
+Rules:
+- Use the current date to resolve "Friday", "next week", "tomorrow".
+- If no due date is mentioned at all, set due to an empty string.
+  DO NOT invent a date.
+- Keep the title short; drop the word "task" unless it belongs.
+- The text came from speech recognition, so it may contain mishearings."""
 
 
-def urai_tugas(teks: str, oneshot) -> dict | None:
-    """Ucapan -> dict tugas."""
+def parse_task(text: str, oneshot) -> dict | None:
+    """Utterance -> task dict."""
     tz = ZoneInfo(config.CALENDAR_TZ)
-    sekarang = datetime.now(tz)
-    konteks = (
-        f"Sekarang {sekarang.strftime('%A, %Y-%m-%d, %H:%M')} "
-        f"({config.CALENDAR_TZ}).\n\nUcapan user: {teks}"
+    now = datetime.now(tz)
+    context = (
+        f"Current date and time: {now.strftime('%A, %Y-%m-%d, %H:%M')} "
+        f"({config.CALENDAR_TZ}).\n\nUser said: {text}"
     )
     try:
-        data = json.loads(oneshot(PROMPT_TUGAS, konteks, SKEMA_TUGAS))
+        data = json.loads(oneshot(TASK_PROMPT, context, TASK_SCHEMA))
     except Exception:
-        log.warning("hasil urai tugas nggak kebaca", exc_info=True)
+        log.warning("task parse failed", exc_info=True)
         return None
 
-    # Sama kayak acara: tanggal diurai sendiri, jangan diserahin ke model
-    pasti = waktu_id.cari_tanggal(teks, sekarang.date())
-    if pasti is not None:
-        tenggat = pasti.isoformat()
+    # Same as events: parse the date ourselves, don't trust the model
+    exact = time_en.find_date(text, now.date())
+    if exact is not None:
+        due = exact.isoformat()
     else:
-        tenggat = (data.get("tenggat") or "").strip().split("T")[0]
-        if tenggat:
+        due = (data.get("due") or "").strip().split("T")[0]
+        if due:
             try:
-                datetime.strptime(tenggat, "%Y-%m-%d")
+                datetime.strptime(due, "%Y-%m-%d")
             except ValueError:
-                log.warning("tenggat nggak valid: %r", tenggat)
-                tenggat = ""
+                log.warning("invalid due date: %r", due)
+                due = ""
 
-    judul = (data.get("judul") or "").strip()
-    if not judul:
+    title = (data.get("title") or "").strip()
+    if not title:
         return None
     return {
-        "judul": judul,
-        "matkul": (data.get("matkul") or "").strip(),
-        "tenggat": tenggat,
-        "perkiraan_jam": float(data.get("perkiraan_jam") or 0),
+        "title": title,
+        "course": (data.get("course") or "").strip(),
+        "due": due,
+        "estimate_hours": float(data.get("estimate_hours") or 0),
     }
 
 
-BULAN = [
-    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-]
+def confirmation_line(event: dict) -> str:
+    """Read-back for the user to confirm.
 
-
-def kalimat_konfirmasi(acara: dict) -> str:
-    """Bacaan ulang buat dikonfirmasi user.
-
-    Sengaja nyebut hari DAN tanggal: kalau agent salah denger "Kamis" jadi
-    "Kemis" lalu meleset harinya, user langsung denger ketidakcocokannya.
+    Says the weekday AND the date on purpose: if the recogniser misheard
+    "Thursday" as "Tuesday", the mismatch is audible immediately.
     """
-    m = acara["mulai"]
-    tanggal = f"{HARI[m.weekday()]} {m.day} {BULAN[m.month]}"
-    # Ditulis kata, bukan "7:44" â€” Piper bakal bacain titik dua itu apa adanya.
-    # Tetep pakai format 24 jam: "jam 2" ambigu siang/malam, "jam 14" nggak.
-    jam = f"jam {m.hour}" + (f" lewat {m.minute}" if m.minute else "")
-    teks = f"{acara['judul']}, {tanggal}, {jam}"
-    if acara["lokasi"]:
-        teks += f", di {acara['lokasi']}"
-    return f"Aku catat: {teks}. Bener?"
+    s = event["start"]
+    when = f"{DAYS[s.weekday()]} {MONTHS[s.month]} {s.day}"
+    # Spelled out rather than "15:30" — the synthesiser reads the colon aloud.
+    # 24-hour form, because "at 2" is ambiguous between day and night.
+    time_part = f"at {s.hour}" + (f" {s.minute}" if s.minute else "")
+    text = f"{event['title']}, {when}, {time_part}"
+    if event["location"]:
+        text += f", at {event['location']}"
+    return f"I'll save: {text}. Is that right?"

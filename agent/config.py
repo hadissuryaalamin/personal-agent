@@ -52,8 +52,34 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
 OLLAMA_CHAT_URL = f"{OLLAMA_URL}/api/chat"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
+# Batas panjang balasan. Bukan buat maksa pendek — prompt-nya udah minta 1-2
+# kalimat — tapi jaring pengaman: qwen kadang ngelantur jadi paragraf, dan tiap
+# token nyangkut jadi ~0.4 detik audio yang harus didengerin sampai habis.
+OLLAMA_NUM_PREDICT = int(os.getenv("OLLAMA_NUM_PREDICT", "160"))
+# Ollama defaultnya 4096 kalau nggak diminta. System prompt aja udah ~850 token
+# (jadwal + fakta), jadi 4096 kepakai riwayat beberapa giliran doang, dan yang
+# kebuang duluan justru jadwalnya.
+OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
 
-# --- Whisper (STT) ---
+# --- Bahasa ---
+# Menentukan pengurai tanggal, kata kunci niat, dan prompt yang dipakai.
+LANGUAGE = os.getenv("LANGUAGE", "en").lower()
+
+# --- Mode offline ---
+# Kalau true, backend yang butuh internet ditolak saat startup — bukan dibiarkan
+# gagal diam-diam pas dipakai.
+OFFLINE_MODE = os.getenv("OFFLINE_MODE", "true").lower() in ("1", "true", "yes")
+
+# --- STT ---
+# "parakeet" = onnx-asr, CPU, nol VRAM, English saja
+# "whisper"  = faster-whisper, 99 bahasa, butuh VRAM kalau di GPU
+STT_BACKEND = os.getenv("STT_BACKEND", "parakeet").lower()
+STT_MODEL = os.getenv("STT_MODEL", "nemo-parakeet-tdt-0.6b-v2")
+# cpu / cuda. Parakeet di CPU secepat Whisper di GPU dan nggak makan VRAM sama
+# sekali, jadi VRAM-nya bisa dipakai penuh sama LLM.
+STT_DEVICE = os.getenv("STT_DEVICE", "cpu").lower()
+
+# --- Whisper (dipakai kalau STT_BACKEND=whisper) ---
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 WHISPER_COMPUTE = os.getenv("WHISPER_COMPUTE", "int8")
@@ -70,18 +96,32 @@ WHISPER_IDLE_UNLOAD_SECONDS = float(os.getenv("WHISPER_IDLE_UNLOAD_SECONDS", "90
 WHISPER_WARMUP = os.getenv(
     "WHISPER_WARMUP", "false" if WHISPER_IDLE_UNLOAD_SECONDS > 0 else "true"
 ).lower() in ("1", "true", "yes")
-# Contoh gaya bicara + kosakata yang sering kepakai. Whisper mencondongkan tebakannya
-# ke kata-kata di sini, jadi istilah teknis Inggris nggak dikira kata Indonesia.
-# Nol biaya waktu proses. Tambahin nama orang/tempat/tool yang sering kamu sebut.
+# Contoh gaya bicara + kosakata yang sering kepakai. Whisper mencondongkan
+# tebakannya ke kata-kata di sini, jadi nama matkul & istilah teknis nggak
+# dikira kata lain. Nol biaya waktu proses. Tambahin nama orang/tempat/tool
+# yang sering kamu sebut. Cuma kepakai kalau STT_BACKEND=whisper — Parakeet
+# nggak nerima prompt.
 WHISPER_PROMPT = os.getenv(
     "WHISPER_PROMPT",
-    "Ngobrol santai campur istilah teknis: Git, commit, push, pull request, branch, "
-    "merge, repo, Python, JavaScript, Whisper, Ollama, Piper, VS Code, terminal, "
-    "API, database, deploy, debug, error, laptop, kampus, ANU, dosen pembimbing, "
-    "tugas kuliah, deadline, meeting, jadwal.",
+    "Casual conversation with technical terms: Git, commit, push, pull request, "
+    "branch, merge, repo, Python, JavaScript, Whisper, Ollama, Kokoro, Parakeet, "
+    "VS Code, terminal, API, database, deploy, debug, laptop, campus, ANU, "
+    "supervisor, assignment, tutorial, lecture, deadline, meeting, schedule.",
 )
 
-# --- Piper (TTS) ---
+# --- TTS ---
+# "kokoro" = kokoro-onnx, 54 suara, 24 kHz, CPU
+# "piper"  = piper-tts, suara per-bahasa, CPU
+TTS_BACKEND = os.getenv("TTS_BACKEND", "kokoro").lower()
+
+# --- Kokoro (dipakai kalau TTS_BACKEND=kokoro) ---
+KOKORO_MODEL = _path(os.getenv("KOKORO_MODEL", "models/kokoro-v1.0.onnx"))
+KOKORO_VOICES = _path(os.getenv("KOKORO_VOICES", "models/voices-v1.0.bin"))
+KOKORO_VOICE = os.getenv("KOKORO_VOICE", "af_heart")
+KOKORO_SPEED = float(os.getenv("KOKORO_SPEED", "1.0"))
+KOKORO_LANG = os.getenv("KOKORO_LANG", "en-us")
+
+# --- Piper (dipakai kalau TTS_BACKEND=piper) ---
 PIPER_VOICE = _path(os.getenv("PIPER_VOICE", "models/id_ID-news_tts-medium.onnx"))
 
 # --- Audio ---
@@ -157,18 +197,70 @@ if GOOGLE_CREDENTIALS_FILE:
     GOOGLE_CREDENTIALS_FILE = str(_path(GOOGLE_CREDENTIALS_FILE))
 GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
 
-SYSTEM_PROMPT = """Kamu asisten pribadi yang ngobrol dalam Bahasa Indonesia santai, kayak temen.
+SYSTEM_PROMPT = """You are a personal assistant. Speak casually, like a friend.
 
-Kamu lagi ngobrol LEWAT SUARA, bukan teks. Yang kamu terima itu hasil transkrip
-omongan user dari mikrofon, dan jawabanmu dibacakan balik lewat speaker. Jadi kamu
-memang "dengar" dan "ngomong" — jangan pernah bilang kamu nggak bisa mendengar atau
-minta user ngetik. Kalau transkripnya kelihatan salah dengar atau kepotong, tebak
-maksudnya dari konteks, atau minta user ngulang.
+You are talking BY VOICE, not text. What you receive is a transcript of the
+user speaking into a microphone, and your reply is read back through a speaker.
+So you really do "hear" and "speak" — never say you cannot hear, and never ask
+the user to type. If a transcript looks misheard or cut off, guess the most
+sensible meaning from context, or ask them to repeat it.
 
-Aturan penting:
-- Jawabanmu DIBACAKAN lewat speaker, jadi WAJIB singkat: maksimal 1-2 kalimat.
-- Jangan pakai bullet point, nomor, markdown, emoji, atau format apa pun. Teks polos aja.
-- Jangan pakai singkatan aneh atau simbol yang susah dibaca suara.
-- Kalau nggak tahu, bilang nggak tahu. Jangan ngarang.
-- Kalau butuh jawaban panjang, kasih intinya dulu terus tawarin lanjut.
+Important rules:
+- Your reply is READ ALOUD, so keep it short: one or two sentences at most.
+- No bullet points, numbering, markdown, emoji, or formatting of any kind.
+  Plain sentences only.
+- No abbreviations or symbols that are awkward to say out loud.
+- If you don't know, say so. Don't make things up.
+- If something needs a long answer, give the gist first and offer to go on.
 """
+
+
+# --- Penegakan mode offline ---------------------------------------------------
+# Ditaruh di config, bukan di main.py, biar skrip dan tes ikut kena — setelan
+# yang cuma diperiksa di satu entry point itu setelan yang gampang bocor.
+
+
+class OfflineViolation(RuntimeError):
+    """Setelan minta jaringan padahal OFFLINE_MODE=true."""
+
+
+def _cek_offline() -> list[str]:
+    """Daftar setelan yang bentrok sama mode offline. Kosong = aman."""
+    if not OFFLINE_MODE:
+        return []
+
+    masalah = []
+    if LLM_BACKEND == "claude":
+        masalah.append(
+            "LLM_BACKEND=claude butuh Anthropic API. Pakai LLM_BACKEND=ollama, "
+            "atau matikan OFFLINE_MODE."
+        )
+    if STT_BACKEND not in ("parakeet", "whisper"):
+        masalah.append(f"STT_BACKEND={STT_BACKEND!r} bukan backend lokal.")
+    if TTS_BACKEND not in ("kokoro", "piper"):
+        masalah.append(f"TTS_BACKEND={TTS_BACKEND!r} bukan backend lokal.")
+    if CALENDAR_ICS_URL:
+        masalah.append(
+            "CALENDAR_ICS_URL nunjuk ke feed jaringan. Kosongin dan pakai file "
+            ".ics lokal."
+        )
+    if GOOGLE_CREDENTIALS_FILE:
+        masalah.append(
+            "GOOGLE_CREDENTIALS_FILE nyalain Google Calendar (butuh jaringan). "
+            "Kosongin buat jalan offline."
+        )
+    return masalah
+
+
+def wajib_offline() -> None:
+    """Berhenti sekarang kalau setelannya butuh jaringan.
+
+    Sengaja gagal di startup, bukan pas dipakai: agent jalan tanpa jendela,
+    jadi kegagalan di tengah percakapan cuma kedengeran kayak agent bisu.
+    """
+    masalah = _cek_offline()
+    if masalah:
+        raise OfflineViolation(
+            "OFFLINE_MODE=true tapi setelannya butuh jaringan:\n"
+            + "\n".join(f"  - {m}" for m in masalah)
+        )

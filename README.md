@@ -1,16 +1,24 @@
 # personal-agent
 
 Voice assistant lokal buat Windows. Jalan diam-diam di background, nggak ada window.
-Tahan hotkey → ngomong → lepas → dia jawab lewat speaker. Semua Bahasa Indonesia,
-semua diproses di mesin sendiri (nggak ada yang dikirim ke cloud).
+Pencet hotkey → ngomong → pencet lagi → dia jawab lewat speaker. **Bahasa Inggris,
+sepenuhnya offline** — nol byte keluar dari mesin ini.
 
 ```
-pencet hotkey → rekam mic → faster-whisper (id) → Claude API atau Ollama → Piper (id_ID) → speaker
+pencet hotkey → rekam mic → Parakeet TDT 0.6B → qwen2.5:7b (Ollama) → Kokoro-82M → speaker
 ```
 
-Otaknya bisa dipilih: **Claude API** (default — lebih pintar dan cepat, butuh internet
-dan kunci berbayar) atau **Ollama lokal** (gratis, jalan offline, lebih lambat).
-STT dan TTS selalu lokal, jadi suaramu nggak pernah keluar dari mesin ini.
+Setelan bawaan nggak nyentuh jaringan sama sekali: `OFFLINE_MODE=true` bikin
+backend yang butuh internet **ditolak pas startup**, bukan dibiarin gagal
+diam-diam di tengah percakapan. Buktinya bisa dijalanin sendiri — lihat
+[Bukti offline](#bukti-offline).
+
+Backend cloud masih ada dan bisa dinyalain (Claude API buat otak, Google
+Calendar buat jadwal), tapi harus barengan `OFFLINE_MODE=false`.
+
+> **Bahasa:** cuma Inggris yang didukung penuh. Pengurai tanggal Bahasa
+> Indonesia masih ada di [agent/waktu_id.py](agent/waktu_id.py) — sengaja
+> nggak dihapus — tapi nggak kepanggil di jalur mana pun.
 
 ## Yang dibutuhin
 
@@ -34,11 +42,14 @@ mise where python@3.11   # catat path-nya
 # 2. Dependencies
 .\.venv-agent\Scripts\python.exe -m pip install -e .
 
-# 3. Model Ollama + voice Piper (~4.7 GB + 60 MB)
+# 3. Semua bobot model (~5.7 GB: qwen 4.7 GB + Kokoro 337 MB + Parakeet 660 MB)
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
 # 4. (opsional) konfigurasi
 copy .env.example .env
+
+# 5. Pastikan beneran siap offline
+.\.venv-agent\Scripts\python.exe -m agent.cek_offline
 ```
 
 <details>
@@ -52,10 +63,26 @@ py -3.11 -m venv .venv-agent
 ```
 
 Python 3.13+ belum dipakai karena `ctranslate2` (mesinnya faster-whisper) belum
-punya wheel yang stabil di situ.
+punya wheel yang stabil di situ. faster-whisper cuma kepakai kalau
+`STT_BACKEND=whisper`, tapi dependensinya tetap ikut terinstall.
 </details>
 
-Model Whisper (~460 MB) ke-download otomatis pas pertama kali dipakai.
+`scripts\setup.ps1` narik semuanya di muka. Kalau dilewat, tiap model bakal
+ke-download sendiri pas pertama dipakai — yang artinya pemakaian pertama butuh
+jaringan, dan itu persis yang bikin mode offline kelihatan "rusak".
+
+### Bukti offline
+
+`cek_offline` ngecek setelan, bobot di disk, model beneran kemuat, dan Ollama
+nyaut:
+
+```powershell
+.\.venv-agent\Scripts\python.exe -m agent.cek_offline
+```
+
+Terukur di mesin ini (RTX 8 GB, Ollama warm): STT muat 7.7 s, TTS muat 2.7 s,
+dan **nol** percobaan koneksi keluar selama pipeline penuh dijalanin dengan
+semua soket non-localhost diblokir.
 
 ## Jalanin
 
@@ -76,7 +103,7 @@ Karena nggak ada window, feedback-nya bunyi:
 | beep rendah panjang (240 Hz) | ada yang gagal — cek `logs/agent.log` |
 
 Kalau modelnya lagi terlepas (lihat bagian memori GPU di bawah), dia bakal ngomong
-*"sebentar ya, lagi nyiapin"* dulu — pemuatan bisa makan 13–35 detik kalau file-nya
+*"One moment, just getting ready."* dulu — pemuatan bisa makan 13–35 detik kalau file-nya
 dingin, dan diam selama itu nggak bisa dibedain dari mati.
 
 Pertanyaan pertama agak lama (Ollama naikin model ke VRAM). Selanjutnya cepet.
@@ -115,16 +142,25 @@ Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file
 | `HOTKEY` | `ctrl+space` | Lihat catatan di bawah — **pakai tombol tunggal** |
 | `HOTKEY_MODE` | `toggle` | `toggle` = pencet-pencet, `hold` = tahan sambil ngomong |
 | `HOTKEY_BACKEND` | `pynput` | Alternatif: `keyboard` (butuh admin, tapi bisa nelen hotkey) |
-| `LLM_BACKEND` | `claude` | `claude` (API) atau `ollama` (lokal) |
+| `LANGUAGE` | `en` | Cuma `en` yang didukung penuh |
+| `OFFLINE_MODE` | `true` | Tolak backend jaringan pas startup |
+| `LLM_BACKEND` | `ollama` | `ollama` (lokal) atau `claude` (API, butuh `OFFLINE_MODE=false`) |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
+| `OLLAMA_NUM_CTX` | `8192` | Default Ollama 4096 kekecilan buat prompt + riwayat |
+| `OLLAMA_NUM_PREDICT` | `160` | Jaring pengaman panjang balasan |
+| `STT_BACKEND` | `parakeet` | `parakeet` (Inggris, 0 VRAM) atau `whisper` (multibahasa) |
+| `STT_DEVICE` | `cpu` | Lihat [catatan resource](#catatan-resource-8-gb-vram) |
+| `TTS_BACKEND` | `kokoro` | `kokoro` (24 kHz, 54 suara) atau `piper` |
+| `KOKORO_VOICE` | `af_heart` | Nama suara Kokoro |
 | `ANTHROPIC_API_KEY` | — | Wajib kalau `LLM_BACKEND=claude` |
-| `CLAUDE_MODEL` | `claude-opus-5` | Mau lebih murah: `claude-haiku-4-5` |
+| `CLAUDE_MODEL` | `claude-opus-5` | Lebih murah: `claude-sonnet-5`, `claude-haiku-4-5` |
 | `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`/`xhigh`/`max` |
 | `CLAUDE_THINKING` | `disabled` | Jangan diubah tanpa alasan — lihat catatan di bawah |
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
-| `WHISPER_MODEL` | `small` | Lihat perbandingan di bawah |
-| `WHISPER_DEVICE` | `cpu` | `cuda` **jauh** lebih cepat — lihat di bawah |
-| `WHISPER_COMPUTE` | `int8` | `float16` kalau pakai `cuda` |
-| `PIPER_VOICE` | `models/id_ID-news_tts-medium.onnx` | Path voice `.onnx` |
+| `WHISPER_MODEL` | `small` | Cuma kalau `STT_BACKEND=whisper` |
+| `PIPER_VOICE` | — | Cuma kalau `TTS_BACKEND=piper` |
+
+Daftar lengkapnya — 60 kunci, semuanya beneran dibaca kode — ada di
+[.env.example](.env.example).
 
 ### Pilih hotkey: pakai tombol tunggal
 
@@ -141,7 +177,27 @@ Makanya default lokalnya `right ctrl`. Pilihan bagus lain: `f8`, `right shift`,
 distop kalau tombol kedeteksi lepas selama segitu lama. Kalau kamu tetap mau pakai
 kombinasi dan rekamannya kepotong, naikin angka ini — tapi lepasnya jadi terasa lelet.
 
-### Akurasi transkrip
+### Akurasi transkrip: Parakeet (default)
+
+Parakeet TDT 0.6B v2 jalan lewat [onnx-asr](https://github.com/istupakov/onnx-asr)
+— tanpa NeMo, tanpa PyTorch. Nol paket baru ditambahin waktu dipasang.
+
+Diukur di sini: **~0.40 detik per kalimat** di CPU, 0 VRAM, ~2.2 GB RAM, muat
+5–8 detik. WER pada uji tertutup praktis 0%.
+
+Dua hal yang perlu dicatat jujur:
+
+- Parakeet **menormalkan** keluarannya — "three PM" jadi `3 p.m.`. Itu benar,
+  bukan salah; [time_en.py](agent/time_en.py) memang dibikin buat menerima
+  bentuk itu. (Pengukuran WER pertama sempat menghukum ini sebagai kesalahan.)
+- Parakeet **nggak nerima prompt kosakata**. Nggak ada padanan `WHISPER_PROMPT`,
+  jadi nama tempat yang tidak lazim bisa lebih sering meleset dibanding Whisper
+  yang sudah di-bias.
+- **Inggris saja.** Butuh bahasa lain → `STT_BACKEND=whisper`.
+
+### Akurasi transkrip: Whisper (`STT_BACKEND=whisper`)
+
+Bagian ini dan dua bagian berikutnya cuma relevan kalau kamu balik ke Whisper.
 
 `WHISPER_PROMPT` berisi daftar kosakata yang sering kamu pakai. Whisper mencondongkan
 tebakannya ke situ, **tanpa biaya waktu**. Diukur di rekaman asli, ini nurunin WER dari
@@ -186,7 +242,7 @@ dilepas dan VRAM balik. Ollama melakukan hal yang sama secara default (keep-aliv
 nganggur berjam-jam — dan nganggur lama persis kondisi yang memicu pelepasan.
 Jadi yang kamu bayar hampir selalu kasus terburuknya. Tiga hal meredamnya:
 model mulai dimuat begitu kamu menekan hotkey (barengan kamu ngomong), dia
-ngomong *"sebentar ya"* supaya diamnya nggak terasa seperti mati, dan pencetan
+ngomong *"One moment"* supaya diamnya nggak terasa seperti mati, dan pencetan
 ulang dijawab dua ketuk. Kalau tetap kerasa lama, `WHISPER_IDLE_UNLOAD_SECONDS=0`.
 
 Catatan: yang balik ~1.9 GB dari 2.0 GB. Sisanya konteks CUDA yang baru lepas pas
@@ -223,12 +279,23 @@ Kalau masih kurang akurat, coba `large-v3`. Buat ngukur sendiri, nyalain
 `SAVE_RECORDINGS=true` — tiap rekaman disimpan ke `logs/rec/*.wav`, jadi setelan bisa
 diuji ulang di suara asli tanpa perlu ngomong berkali-kali. Matiin lagi kalau selesai.
 
-### Pilih otak: Claude API atau Ollama
+### Pilih otak: Ollama lokal atau Claude API
 
-Default `claude`. Ambil kunci di
-[console.anthropic.com](https://console.anthropic.com/settings/keys), taruh di `.env`:
+Default `ollama` — gratis, offline, dan diukur di mesin ini **1,8–2,2 detik**
+saat warm. Angka itu bukan salah ketik: waktu Ollama pertama diukur dan dapat
+"2x lebih lambat", yang sebenarnya keukur adalah **pemuatan model**, bukan
+inferensinya. Ollama pakai keep-alive 5 menit; begitu warm, dia justru lebih
+cepat daripada Claude (~2,8 detik) karena nggak ada perjalanan jaringan.
+
+Yang benar-benar dibayar dengan Ollama bukan kecepatan, tapi ketepatan:
+qwen2.5:7b lebih sering ngelantur dan lebih boros kata. Lihat
+[Batasan qwen2.5:7b](#batasan-qwen257b).
+
+Mau pakai Claude? Ambil kunci di
+[console.anthropic.com](https://console.anthropic.com/settings/keys):
 
 ```
+OFFLINE_MODE=false          # wajib, kalau nggak ditolak pas startup
 LLM_BACKEND=claude
 ANTHROPIC_API_KEY=sk-ant-...
 ```
@@ -236,9 +303,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 Ini **berbayar per pakai** — tiap pertanyaan kena tarif token. Buat obrolan pendek
 biayanya kecil, tapi tetap ada. `CLAUDE_EFFORT=low` dipakai sebagai default karena
 balasan 1–2 kalimat nggak butuh mikir dalam, dan effort rendah bikin jeda lebih pendek.
-
-Mau gratis dan offline? Ganti ke `LLM_BACKEND=ollama` — nggak perlu kunci, tapi
-jawabannya lebih lemot dan kurang nyambung.
 
 **`CLAUDE_THINKING=disabled` itu disengaja.** Sonnet 5 dan Opus 5 menyalakan
 adaptive thinking kalau parameternya nggak dikirim, dan `max_tokens` membatasi
@@ -259,6 +323,24 @@ Jedanya praktis sama. Sonnet menang di keringkasan jawaban (enak buat
 dibacakan), Haiku menang telak di biaya. Beban kerja di sini — balasan pendek,
 konteks kecil — nggak memberi Sonnet ruang buat unggul jauh.
 
+### Batasan qwen2.5:7b
+
+Dua hal terukur yang perlu kamu tau sebelum percaya penuh sama jawaban lokal.
+
+**1. Jawaban salah meracuni giliran berikutnya.** Ditanya lokasi kelas dengan
+riwayat kosong: **0 dari 8 salah**. Tapi begitu satu jawaban keliru masuk
+riwayat ("Engineering Lecture Theatre 2.04" padahal datanya "Fulton Muir,
+Rm 2.04"), giliran berikutnya nyalin kekeliruan itu — model lebih percaya
+ucapannya sendiri daripada jadwal di system prompt.
+
+Kalau dia nyebut lokasi yang kedengeran aneh, bilang **"forget everything"**
+buat ngosongin riwayat, terus tanya lagi.
+
+**2. Balasannya kepanjangan.** System prompt minta 1–2 kalimat; qwen sering
+ngasih 3–4, yang jadi ~20 detik audio. `OLLAMA_NUM_PREDICT=160` ada sebagai
+batas atas, tapi itu jaring pengaman buat yang benar-benar ngelantur — bukan
+pemaksa ringkas. Claude nurut sama batasan ini, qwen nggak.
+
 **Ganti model Ollama:** `ollama pull <model>` terus set `OLLAMA_MODEL=<model>` di `.env`.
 
 **Ganti voice Piper:** ambil dari
@@ -276,17 +358,24 @@ sekali. Kalau mau coba: set `HOTKEY_BACKEND=keyboard` dan pasang startup task pa
 
 ## Catatan resource (8 GB VRAM)
 
-Ini tergantung otak mana yang dipakai:
+Susunan bawaan sengaja naruh **cuma satu model di GPU**:
 
-**Pakai Claude API (default).** GPU-nya bebas buat Whisper sendirian — pakai
-`cuda` + `float16` (~2.5 GB). Piper CPU-only, 0 VRAM. Ini kombinasi tercepat:
-STT ~0.5 detik, LLM ~1 detik.
+| Bagian | Di mana | VRAM | RAM | Kecepatan |
+|---|---|---|---|---|
+| Parakeet TDT 0.6B (STT) | CPU | 0 | ~2.2 GB | ~0.4 dtk/kalimat |
+| qwen2.5:7b (LLM) | GPU | ~5 GB | — | ~2–4 dtk |
+| Kokoro-82M (TTS) | CPU | 0 | ~0.4 GB | ~4x realtime |
 
-**Pakai Ollama lokal.** `qwen2.5:7b` makan ~5 GB, Whisper `medium` di GPU ~2.5 GB —
-total 7.5 GB dari 8 GB. Muat, tapi mepet. Kalau mulai bermasalah, turunin Whisper
-ke `WHISPER_DEVICE=cpu` atau pakai model Ollama yang lebih kecil. Ollama juga pakai
-keep-alive 5 menit, jadi pertanyaan pertama kena warmup — set `OLLAMA_KEEP_ALIVE=-1`
-kalau mau instan (bayarannya model nempel di VRAM terus).
+Parakeet ditaruh di CPU **dengan sengaja**. Di GPU dia cuma ~0.2 detik lebih
+cepat, tapi ngerebut VRAM dari qwen — dan qwen yang kegeser ke RAM jauh lebih
+mahal daripada 0.2 detik itu. Susunan ini nyisain ~3 GB VRAM nganggur.
+
+Ollama pakai keep-alive 5 menit, jadi pertanyaan pertama setelah nganggur lama
+kena muat ulang (~7 detik). Set `OLLAMA_KEEP_ALIVE=-1` kalau mau selalu instan —
+bayarannya model nempel di VRAM terus.
+
+Kalau `STT_BACKEND=whisper` dipakai: Whisper `medium` di GPU ~2.5 GB, jadi
+totalnya 7.5 GB dari 8 GB. Muat, tapi mepet.
 
 ## Struktur
 
@@ -295,17 +384,19 @@ agent/
   main.py            hotkey, orkestrasi pipeline, percabangan niat
   config.py          semua konstanta, dibaca dari .env
   audio.py           rekam mic, playback, beep
-  stt.py             Whisper (muat/lepas otomatis)
-  tts.py             Piper
-  llm.py             otak: Claude API atau Ollama
+  stt.py             Parakeet / Whisper (muat & lepas otomatis)
+  tts.py             Kokoro / Piper
+  llm.py             otak: Ollama lokal atau Claude API
+  cek_offline.py     cek kesiapan jalan tanpa jaringan
   calendar.py        susun agenda dari sumber yang aktif
   kalender_lokal.py  kalender file .ics (baca + tulis)
   gcal.py            Google Calendar (baca + tulis, OAuth)
   jadwal_baru.py     ucapan -> acara/tugas + konfirmasi
-  waktu_id.py        urai frasa waktu Indonesia tanpa LLM
+  time_en.py         urai frasa waktu Inggris tanpa LLM
+  waktu_id.py        versi Indonesia — disimpan, nggak kepakai
   tugas.py           daftar tugas
   memory.py          riwayat obrolan & fakta
-models/              voice Piper (gitignore)
+models/              bobot Kokoro & Piper (gitignore)
 memory/              data lokal: fakta, riwayat, tugas, kalender (gitignore)
 scripts/             setup, autostart, status, login & impor kalender
 logs/                agent.log (rotating, 1 MB x 4)
@@ -355,7 +446,7 @@ jam, tapi 20 pesan dari minggu lalu justru bikin salah konteks. Fakta yang berta
 langsung kepakai tanpa restart. Jumlahnya dibatasi `FACTS_MAX_ITEMS` (default 30)
 karena semuanya ikut ke tiap permintaan.
 
-**Cara menghapus:** bilang *"lupakan semua"* atau *"hapus memori"*. Frasa ini
+**Cara menghapus:** bilang *"forget everything"* atau *"clear your memory"*. Frasa ini
 dicocokkan lokal, bukan lewat LLM — perintah yang nggak bisa dibatalkan nggak
 boleh gantung pada tebakan model. Bisa juga hapus foldernya, atau matikan total
 dengan `MEMORY_ENABLED=false`.
@@ -388,10 +479,10 @@ memakan token untuk mengulang informasi yang sudah ada.
 Aturan pembatasnya: memori menyimpan hal tentang **kamu** yang nggak punya
 sumber lain. Nama, panggilan, preferensi, alergi, proyek yang lagi dikerjain.
 
-## Kalender (baca aja)
+## Kalender
 
-Agent bisa jawab *"besok ada kelas apa?"*, *"kelas berikutnya di mana?"* kalau
-kamu kasih link ICS di `.env`:
+Agent bisa jawab *"what classes do I have tomorrow?"*, *"where is my next
+class?"* kalau ada sumber jadwal yang aktif:
 
 ```
 CALENDAR_ICS_URL=https://...
@@ -491,23 +582,31 @@ Backup `memory/` kalau itu penting.
 
 ### Tanggal diurai tanpa LLM
 
-[waktu_id.py](agent/waktu_id.py) mengurai frasa waktu Bahasa Indonesia secara
+[time_en.py](agent/time_en.py) mengurai frasa waktu Bahasa Inggris secara
 deterministik, dan hasilnya **menimpa** jawaban model. Alasannya diukur:
 
 | | qwen2.5:7b lokal | Sonnet 5 |
 |---|---|---|
 | Tanggal diserahkan ke model | 2/10 benar | 10/10 |
-| Tanggal diurai `waktu_id` | **5/5** | **5/5** |
+| Tanggal diurai pengurai sendiri | **5/5** | **5/5** |
 
 Model kecil salah "besok" jadi lusa, "hari Jumat" jadi Senin, bahkan setelah
 dikasih tabel tanggal siap pakai. Frasa waktu itu himpunan tertutup dengan
 aturan kaku — lebih tepat dikerjakan kode. Model cukup mengurus judul dan
 lokasi, yang memang butuh pemahaman bahasa.
 
+`time_en` menangani 33 bentuk (lolos 33/33), termasuk `3 p.m.` — bentuk
+ternormalisasi yang dikeluarkan Parakeet — plus `half past two`, `quarter to
+five`, `noon`, `midnight`, dan jebakan 12 AM/PM.
+
+Versi Indonesianya, [waktu_id.py](agent/waktu_id.py), sengaja **nggak dihapus**
+walaupun nggak kepanggil. Kalau suatu saat mau balik ke dua bahasa, yang perlu
+dibangun ulang cuma perutean bahasanya, bukan penguraiannya.
+
 ## Google Calendar (baca + bikin acara)
 
-Bikin acara lewat suara: *"catat meeting sama dosen besok jam 2 siang"*. Agent
-membacakan ulang, kamu bilang "iya", baru tersimpan.
+Bikin acara lewat suara: *"schedule a meeting with my supervisor tomorrow at
+2 pm"*. Agent membacakan ulang, kamu bilang *"yes"*, baru tersimpan.
 
 ### Setup sekali
 
@@ -549,13 +648,16 @@ kalender yang baru ketahuan minggu depan. Jadi agent selalu membacakan ulang
 dan menunggu persetujuan, dan tiga hal condong ke arah aman:
 
 - **Jawaban ragu = batal**, bukan simpan
-- Kata **"ya" hanya dihitung setuju kalau jadi kata pertama** — *"hmm apa ya"*
-  itu keraguan, dan sempat terbaca sebagai persetujuan sebelum diperbaiki
+- Kata **"yes"/"yeah" hanya dihitung setuju kalau jadi kata pertama** —
+  *"that's right, yeah?"* itu pertanyaan, bukan persetujuan
+- **"yeah no, cancel"** terbaca sebagai penolakan: penolakan dicek duluan
+- Frasa dua kata (*"go ahead"*, *"never mind"*) dicocokkan ke kalimat utuh,
+  bukan per kata — sempat nggak pernah cocok sama sekali sebelum diperbaiki
 - Kalau tanggal/jamnya nggak jelas dari ucapan, acaranya **ditolak** dan kamu
   diminta mengulang, bukan disimpan dengan tebakan
 
-Konfirmasinya pakai format 24 jam (*"jam 14"*, bukan *"jam 2"*) karena
-ambiguitas siang/malam paling mahal justru di titik ini.
+Konfirmasinya pakai format 24 jam (*"14"*, bukan *"2"*) karena ambiguitas
+siang/malam paling mahal justru di titik ini.
 
 ### Mencabut akses
 
@@ -592,7 +694,7 @@ Remove-Item e:\personal-agent\memory -Recurse   # riwayat, fakta, token, cache k
 Remove-Item e:\personal-agent\logs -Recurse     # log aktivitas
 ```
 
-Bilang *"lupakan semua"* ke agent juga menghapus riwayat dan fakta, tapi tidak
+Bilang *"forget everything"* ke agent juga menghapus riwayat dan fakta, tapi tidak
 menyentuh token Google maupun log.
 
 ### Kalau jadwal kuliah diimpor ke Google
@@ -623,8 +725,8 @@ Disimpan di `memory/tugas.json` — teks polos, boleh disunting manual.
 **Kenapa tugas nggak jadi acara kalender:** tugas nggak nempatin slot waktu,
 punya status selesai/belum, dan bisa dicicil. Kalender nggak punya konsep itu.
 
-**Urutan pengecekan penting.** *"catat tugas ..."* juga cocok sama pola
-*"catat ..."* buat bikin acara, jadi niat tugas dicek **duluan** di
+**Urutan pengecekan penting.** *"add a task ..."* juga cocok sama pola
+*"add ..."* buat bikin acara, jadi niat tugas dicek **duluan** di
 [main.py](agent/main.py) — kalau kebalik, tugasmu malah nyasar jadi acara
 kalender.
 

@@ -11,7 +11,7 @@ Angkanya disertakan supaya bisa ditinjau ulang kalau keadaan berubah.
 ## 1. Gambaran besar
 
 Asisten suara yang jalan diam di latar belakang Windows. Tekan hotkey, ngomong,
-tekan lagi — dia menjawab lewat speaker. Semua Bahasa Indonesia.
+tekan lagi — dia menjawab lewat speaker. Bahasa Inggris, sepenuhnya offline.
 
 ```
                     ┌──────────────────────────────────────┐
@@ -22,22 +22,23 @@ tekan lagi — dia menjawab lewat speaker. Semua Bahasa Indonesia.
         ▼                           ▼                           ▼
    ┌─────────┐                ┌──────────┐                ┌──────────┐
    │ audio   │  rekam ───────▶│   stt    │ suara→teks ───▶│   llm    │
-   │ mic     │                │ Whisper  │                │  otak    │
+   │ mic     │                │ Parakeet │                │  qwen2.5 │
    └─────────┘                └──────────┘                └────┬─────┘
         ▲                                                      │
         │                     ┌──────────┐                     │
         └──── speaker ────────│   tts    │◀── teks→suara ──────┘
-                              │  Piper   │
+                              │  Kokoro  │
                               └──────────┘
 ```
 
-Tiga model berbeda untuk tiga tugas berbeda: **Whisper mendengar**, **LLM
-berpikir**, **Piper berbicara**.
+Tiga model berbeda untuk tiga tugas berbeda: **Parakeet mendengar** (CPU,
+0 VRAM), **qwen2.5:7b berpikir** (GPU, ~5 GB), **Kokoro berbicara** (CPU,
+0 VRAM). Cuma satu yang menempati GPU — lihat §4.15.
 
 ### Dua lapis, bukan satu
 
 Yang jalan terus-menerus hanyalah **listener hotkey** — 28 MB RAM, 0,02% CPU,
-nol VRAM. Semua yang berat (Whisper, LLM) baru dimuat saat dipakai dan dilepas
+nol VRAM. Semua yang berat (STT, LLM) baru dimuat saat dipakai dan dilepas
 lagi saat nganggur. Ini disengaja: agent hidup 24 jam tapi dipakai beberapa
 menit sehari, jadi menahan model di memori sepanjang hari itu pemborosan.
 
@@ -47,19 +48,21 @@ menit sehari, jadi menahan model di memori sepanjang hari itu pemborosan.
 
 | Modul | Baris | Tanggung jawab |
 |---|---:|---|
-| `main.py` | 453 | Listener hotkey, orkestrasi pipeline, percabangan niat, logging |
-| `calendar.py` | 356 | Susun agenda dari sumber ICS/Google, format untuk prompt |
-| `llm.py` | 320 | Dua backend otak (Claude/Ollama), susun system prompt |
-| `jadwal_baru.py` | 233 | Ucapan → acara/tugas terstruktur, kalimat konfirmasi |
-| `gcal.py` | 173 | Google Calendar (baca + tulis, OAuth) |
-| `stt.py` | 168 | Whisper: muat, transkrip, lepas saat nganggur |
-| `audio.py` | 159 | Rekam mic, playback, beep |
-| `tugas.py` | 153 | Daftar tugas: simpan, tandai selesai, ringkas |
-| `config.py` | 151 | Semua konstanta, dibaca dari `.env` |
-| `waktu_id.py` | 126 | Urai frasa waktu Indonesia **tanpa LLM** |
-| `memory.py` | 104 | Riwayat obrolan & fakta ke disk |
-| `kalender_lokal.py` | 78 | Kalender file `.ics` (baca + tulis) |
-| `tts.py` | 50 | Piper: teks → WAV |
+| `main.py` | 570 | Listener hotkey, orkestrasi pipeline, percabangan niat, logging |
+| `calendar.py` | 457 | Susun agenda dari sumber yang aktif, format untuk prompt |
+| `llm.py` | 396 | Dua backend otak (Ollama/Claude), susun system prompt |
+| `jadwal_baru.py` | 277 | Ucapan → acara/tugas terstruktur, kalimat konfirmasi |
+| `stt.py` | 275 | Parakeet / Whisper: muat, transkrip, lepas saat nganggur |
+| `config.py` | 266 | Semua konstanta dari `.env` + penegakan mode offline |
+| `tugas.py` | 222 | Daftar tugas: simpan, tandai selesai, ringkas |
+| `gcal.py` | 217 | Google Calendar (baca + tulis, OAuth) |
+| `audio.py` | 215 | Rekam mic, playback, beep |
+| `time_en.py` | 195 | Urai frasa waktu Inggris **tanpa LLM** |
+| `waktu_id.py` | 153 | Versi Indonesia — disimpan, tidak dipanggil |
+| `tts.py` | 142 | Kokoro / Piper: teks → WAV |
+| `memory.py` | 136 | Riwayat obrolan & fakta ke disk |
+| `cek_offline.py` | 128 | Verifikasi kesiapan jalan tanpa jaringan |
+| `kalender_lokal.py` | 102 | Kalender file `.ics` (baca + tulis) |
 
 ### Arah ketergantungan
 
@@ -87,25 +90,25 @@ diimpor siapa pun. Modul sumber data (`gcal`, `kalender_lokal`) diimpor
 2. Hotkey ditekan lagi
    └─ rekaman berhenti
 
-3. Transkrip (Whisper)
-   └─ jika model belum siap: ucapkan "sebentar ya, lagi nyiapin"
+3. Transkrip (Parakeet)
+   └─ jika model belum siap: ucapkan "One moment, just getting ready."
 
 4. Percabangan niat — dicek berurutan, urutannya PENTING:
-   a. "lupakan semua"        → hapus memori
+   a. "forget everything"     → hapus memori
    b. jawaban konfirmasi      → simpan/batalkan acara yang menunggu
    c. tugas selesai           → tandai selesai
    d. tambah tugas            → catat tugas
    e. bikin acara             → urai, bacakan ulang, tunggu konfirmasi
    f. selain itu              → kirim ke LLM
 
-5. Jawaban → Piper → speaker
+5. Jawaban → Kokoro → speaker
 6. Latar belakang: simpan riwayat (+ saring fakta kalau dinyalakan)
 ```
 
 ### Kenapa urutan percabangan penting
 
-*"catat tugas assignment Jumat"* juga cocok dengan pola *"catat ..."* untuk
-membuat acara. Kalau acara dicek lebih dulu, tugasmu berakhir sebagai acara
+*"add a task to finish the assignment on Friday"* juga cocok dengan pola
+*"add ..."* untuk membuat acara. Kalau acara dicek lebih dulu, tugasmu berakhir sebagai acara
 kalender. Karena itu tugas dicek **sebelum** acara.
 
 ---
@@ -164,7 +167,7 @@ hangat di cache, tapi **13–35 detik** setelah nganggur berjam-jam — dan ngan
 lama persis kondisi yang memicu pelepasan. Tiga hal meredamnya:
 
 1. Model mulai dimuat begitu hotkey ditekan (paralel dengan user bicara)
-2. Agent mengucapkan *"sebentar ya"* supaya diamnya tidak terasa seperti mati
+2. Agent mengucapkan *"One moment"* supaya diamnya tidak terasa seperti mati
 3. Penekanan ulang dijawab dua ketuk pendek
 
 ### 4.7 Agenda berformat berkolom, dengan baris hitungan
@@ -175,9 +178,9 @@ tapi lokasi dari baris tetangga. Sekarang kolom dipisah `|`.
 Tiga baris dihitung di Python, bukan diserahkan ke model:
 
 ```
-KELAS BERIKUTNYA: ...
-HARI INI (Senin 3 Agustus): 1 jadwal -> ...
-BESOK (Selasa 4 Agustus): 2 jadwal -> ...
+NEXT UP: ...
+TODAY (Monday August 3): 1 scheduled -> ...
+TOMORROW (Tuesday August 4): 2 scheduled -> ...
 ```
 
 Mencari acara terdekat dan menjumlahkan per hari itu penalaran lintas baris —
@@ -193,7 +196,7 @@ persis yang bikin model kecil meleset. Terukur pada qwen2.5:7b:
 
 `jam 9 sampai 11`, bukan `09:00-11:00`. Dua alasan:
 
-- Piper mengeja angka berformat jam apa adanya — kalimat yang sama makan
+- TTS mengeja angka berformat jam apa adanya — kalimat yang sama makan
   4,1 detik lawan 3,0 detik
 - Model **menyalin format yang dilihatnya**: begitu baris hitungan memakai
   `09:00`, Claude pun ikut mengucapkan `09:00` padahal sebelumnya "jam sembilan"
@@ -202,18 +205,25 @@ Tetap 24 jam supaya "jam 2" tidak ambigu siang/malam.
 
 ### 4.9 Tanggal diurai tanpa LLM
 
-`waktu_id.py` mengurai frasa waktu Indonesia secara deterministik, dan hasilnya
+`time_en.py` mengurai frasa waktu Inggris secara deterministik, dan hasilnya
 **menimpa** jawaban model. Alasannya terukur:
 
 | | qwen2.5:7b | Sonnet 5 |
 |---|---|---|
 | Tanggal diserahkan ke model | 2/10 | 10/10 |
-| Tanggal diurai `waktu_id` | **5/5** | **5/5** |
+| Tanggal diurai `time_en` | **5/5** | **5/5** |
 
 Model kecil menjawab "besok" dengan lusa dan "hari Jumat" dengan Senin, dan
 tetap begitu setelah diberi tabel tanggal siap pakai di prompt. Frasa waktu itu
 himpunan tertutup dengan aturan kaku — lebih tepat dikerjakan kode. Model cukup
 mengurus judul dan lokasi, yang memang butuh pemahaman bahasa.
+
+`time_en` lolos 33/33 bentuk, termasuk `3 p.m.` — bentuk ternormalisasi yang
+dikeluarkan Parakeet — plus `half past two`, `quarter to five`, `noon`,
+`midnight`, dan jebakan 12 AM/PM.
+
+Versi Indonesianya (`waktu_id.py`) sengaja **tidak dihapus**. Kalau suatu saat
+kembali ke dua bahasa, yang perlu dibangun ulang hanya perutean bahasanya.
 
 ### 4.10 Menulis kalender selalu dikonfirmasi
 
@@ -275,6 +285,64 @@ login browser, agent akan menggantung menunggu jendela yang mungkin tidak
 disadari user — gejalanya persis seperti mati. `gcal.aktif()` ikut memeriksa
 keberadaan token, dan login dipisah ke `scripts/login_google.py`.
 
+### 4.15 Hanya satu model yang menempati GPU
+
+GPU di mesin ini 8 GB. qwen2.5:7b sendiri sudah ~5 GB. Kalau STT ikut naik ke
+GPU, sisanya tinggal ~1 GB dan qwen mulai kegeser ke RAM — yang jauh lebih mahal
+daripada waktu yang dihemat.
+
+| Bagian | Di mana | VRAM | RAM | Kecepatan |
+|---|---|---:|---:|---|
+| Parakeet TDT 0.6B | CPU | 0 | ~2,2 GB | ~0,40 dtk/kalimat |
+| qwen2.5:7b | GPU | ~5 GB | — | ~2–4 dtk |
+| Kokoro-82M | CPU | 0 | ~0,4 GB | ~4x realtime |
+
+Parakeet di GPU hanya ~0,2 detik lebih cepat. Menukar 0,2 detik dengan tekanan
+VRAM pada qwen itu perdagangan yang rugi, jadi Parakeet sengaja dikunci di CPU.
+
+**Ollama warm lebih cepat daripada Claude.** Pengukuran pertama menyimpulkan
+Ollama "2x lebih lambat"; yang sebenarnya terukur adalah **pemuatan model**,
+bukan inferensi. Ollama memakai keep-alive 5 menit. Saat warm: 1,8–2,2 detik,
+melawan ~2,8 detik untuk Claude yang harus menempuh jaringan.
+
+### 4.16 Mode offline ditegakkan saat startup, di `config`
+
+`OFFLINE_MODE=true` menolak backend yang butuh jaringan — `LLM_BACKEND=claude`,
+`CALENDAR_ICS_URL`, `GOOGLE_CREDENTIALS_FILE` — dan agent berhenti dengan kode 2.
+
+Dua keputusan kecil di sini penting:
+
+**Ditegakkan saat startup, bukan saat dipakai.** Agent jalan tanpa window.
+Kegagalan jaringan di tengah percakapan hanya terdengar seperti agent membisu;
+kegagalan di startup tercatat jelas di log.
+
+**Diletakkan di `config.py`, bukan `main.py`.** Pemeriksaan yang cuma ada di satu
+entry point akan bocor lewat skrip dan tes. `config.wajib_offline()` bisa
+dipanggil siapa saja.
+
+Buktinya bisa dijalankan: `python -m agent.cek_offline` memverifikasi setelan,
+bobot di disk, model benar-benar termuat, dan Ollama menyahut. Diuji dengan
+seluruh soket non-localhost diblokir, pipeline penuh berjalan 8/8 langkah dengan
+**nol** percobaan koneksi keluar.
+
+### 4.17 Data lama tidak boleh membuat parser gagal
+
+Judul acara yang ditulis sebelum pindah ke Inggris membawa label Indonesia —
+`COMP4620 ... (kuliah)`. Setelah `KINDS` berganti ke Inggris, parser berhenti
+mengenalinya: label itu bocor utuh ke prompt sebagai bagian dari nama matkul,
+dan kolom jenisnya jadi kosong.
+
+Perbaikannya dua lapis, dan keduanya perlu:
+
+1. `LEGACY_KINDS` di `calendar.py` **menerjemahkan** label lama saat dibaca, jadi
+   file lama tetap terbaca benar tanpa disentuh.
+2. `scripts/migrasi_jenis_ics.py` menulis ulang datanya sekali (36 `kuliah`,
+   20 `lab komputer`), dengan cadangan, dan **tidak menyentuh** judul buatan user
+   sendiri — `Bayar Rego` itu isi, bukan label sistem.
+
+`gcal.py` sempat punya daftar jenis kembar. Sekarang meminjam dari `calendar.py`:
+daftar kembar berarti satu jalur mengenali label yang jalur lain tolak.
+
 ---
 
 ## 5. Penyimpanan
@@ -285,7 +353,7 @@ Semua di `memory/` (gitignore):
 |---|---|---|
 | `facts.md` | Hal tentang user | Sampai dihapus |
 | `history.json` | 20 pesan terakhir | Dibuang setelah 12 jam |
-| `tugas.json` | Daftar tugas | Sampai ditandai selesai |
+| `tasks.json` | Daftar tugas | Sampai ditandai selesai |
 | `kalender.ics` | Kalender lokal | Permanen |
 | `google_token.json` | Token OAuth | Diperbarui otomatis |
 | `calendar.ics` | Cache feed ICS | Disegarkan tiap 60 menit |
@@ -301,10 +369,19 @@ salah konteks. Fakta yang bertahan.
 
 ## 6. Bagian yang bisa ditukar
 
-Tiga titik dirancang bisa diganti lewat `.env` tanpa menyentuh kode:
+Lima titik dirancang bisa diganti lewat `.env` tanpa menyentuh kode:
 
-**Otak** — `LLM_BACKEND=claude|ollama`. Keduanya mengimplementasikan antarmuka
+**Otak** — `LLM_BACKEND=ollama|claude`. Keduanya mengimplementasikan antarmuka
 sama (`chat()`, `_oneshot()`), jadi seluruh fitur jalan di dua-duanya.
+
+**Pendengaran** — `STT_BACKEND=parakeet|whisper`. Keduanya di balik
+`get_model()` / `transcribe()` / `unload_model()` yang sama. Parakeet cuma
+Inggris dan tidak menerima prompt kosakata; Whisper multibahasa tapi menuntut
+VRAM kalau dinaikkan ke GPU.
+
+**Suara** — `TTS_BACKEND=kokoro|piper`, keduanya di balik `speak(text) -> WAV`.
+Sample rate berbeda (24 kHz vs 22,05 kHz) tapi tidak jadi masalah: `_ke_wav()`
+menulis header WAV, dan pemutarnya membaca laju dari header, bukan dari konstanta.
 
 **Sumber kalender** — file `.ics` lokal, feed ICS jarak jauh, atau Google
 Calendar. `calendar.py` menggabungkan yang aktif; kalau lebih dari satu berisi
@@ -321,6 +398,26 @@ atau `hold`.
 - **Notifikasi proaktif** — agent bicara duluan, misalnya mengingatkan tenggat
 - **Ubah/hapus acara lewat suara** — sekarang hanya bisa membuat
 - **Integrasi LMS** — tenggat tugas masih dicatat manual
+- **Dua bahasa** — `waktu_id.py` masih ada tapi tidak ada perutean bahasanya
+
+### Batasan yang diketahui pada qwen2.5:7b
+
+Dua hal terukur, bukan dugaan:
+
+**Jawaban salah meracuni giliran berikutnya.** Ditanya lokasi kelas dengan
+riwayat kosong: 0 dari 8 salah. Tetapi begitu satu jawaban keliru masuk riwayat
+(`Engineering Lecture Theatre 2.04` padahal datanya `Fulton Muir, Rm 2.04`),
+giliran berikutnya menyalin kekeliruan itu — model lebih memercayai ucapannya
+sendiri daripada jadwal di system prompt. `"forget everything"` mengosongkannya.
+
+Ini juga alasan `OLLAMA_NUM_CTX` dinaikkan ke 8192: pada default Ollama 4096,
+system prompt (~850 token) plus riwayat yang menumpuk bisa menggeser justru
+jadwalnya keluar konteks.
+
+**Balasannya lebih panjang dari yang diminta.** System prompt meminta 1–2
+kalimat; qwen kerap memberi 3–4, yang menjadi ~20 detik audio.
+`OLLAMA_NUM_PREDICT=160` adalah batas atas untuk yang benar-benar mengigau,
+bukan pemaksa ringkas. Claude menuruti batasan ini, qwen tidak.
 
 ---
 

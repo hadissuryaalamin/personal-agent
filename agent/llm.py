@@ -44,25 +44,26 @@ def _clean_for_speech(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-PROMPT_FAKTA = """Kamu penyaring memori buat asisten pribadi. Tugasmu mutusin apa \
-yang layak diingat jangka panjang tentang user dari satu tukar obrolan.
+FACTS_PROMPT = """You filter long-term memory for a personal assistant. Decide \
+what is worth remembering about the user from one exchange.
 
-Yang LAYAK diingat: nama, panggilan, kuliah/kerja di mana, orang penting di \
-hidupnya, preferensi yang bakal kepakai lagi (cara dipanggil, gaya jawaban yang \
-disuka), proyek yang lagi dikerjain, kondisi yang perlu diperhatiin.
+WORTH remembering: name, what they like to be called, where they study or work, \
+important people in their life, preferences that will come up again (how they \
+want to be addressed, what answer style they like), projects they are working \
+on, conditions worth being aware of.
 
-Yang TIDAK layak: obrolan sekali lewat, pertanyaan pengetahuan umum, hal yang \
-cuma berlaku hari itu, dan apa pun yang udah ada di daftar.
+NOT worth it: one-off chatter, general knowledge questions, things true only \
+today, and anything already on the list.
 
-JANGAN PERNAH simpan jadwal kelas, jam kuliah, lokasi ruangan, tanggal acara, \
-atau daftar tugas. Semua itu udah punya sumber sendiri yang selalu terbaru, dan \
-salinan di sini bakal jadi basi lalu membantah sumber aslinya.
+NEVER store class schedules, lecture times, room locations, event dates, or \
+tasks. All of those have their own always-current source, and a copy here goes \
+stale and starts contradicting it.
 
-Balas dengan daftar fakta LENGKAP yang terbaru, satu per baris, diawali "- ". \
-Gabung atau perbarui yang sudah ada daripada bikin duplikat. Buang yang ternyata \
-sudah nggak berlaku. Kalau nggak ada yang perlu diubah, balas persis: TIDAK ADA
+Reply with the COMPLETE updated list of facts, one per line, each starting with \
+"- ". Merge or update existing entries rather than duplicating. Drop anything no \
+longer true. If nothing needs to change, reply exactly: NO CHANGE
 
-Jangan nulis penjelasan apa pun di luar daftar."""
+Do not write any explanation outside the list."""
 
 
 class _BaseConversation:
@@ -91,8 +92,8 @@ class _BaseConversation:
         fakta = memory.read_facts()
         if fakta:
             bagian.append(
-                f"Yang kamu inget tentang user dari obrolan sebelumnya:\n{fakta}\n"
-                "Pakai ini kalau relevan, tapi jangan disebut-sebut kecuali ditanya."
+                f"What you remember about the user from earlier conversations:\n{fakta}\n"
+                "Use it when relevant, but don't bring it up unless asked."
             )
 
         try:
@@ -103,28 +104,28 @@ class _BaseConversation:
         if jadwal:
             bagian.append(
                 f"{jadwal}\n"
-                "Kalau ditanya soal jadwal, jawab HANYA dari daftar di atas. "
-                "Baca satu baris utuh dari kiri ke kanan — jangan campur nama "
-                "matkul dari satu baris dengan lokasi dari baris lain. Kalau "
-                "ditanya kelas berikutnya, pakai baris KELAS BERIKUTNYA.\n"
-                "Sebut jam persis: 09:00 = 'jam sembilan pagi', 15:30 = 'jam "
-                "tiga lewat tiga puluh sore'. JANGAN pakai bentuk 'setengah "
-                "sembilan' — itu gampang meleset setengah jam.\n"
-                "Jangan bacakan semuanya kecuali user emang minta semua."
+                "For schedule questions, answer ONLY from the list above. Read each "
+                "line whole, left to right — never mix a course name from one "
+                "line with a location from another. For 'what's next', use the "
+                "NEXT UP line; for today or tomorrow, use the TODAY and "
+                "TOMORROW lines, which already include the count.\n"
+                "Say times naturally: 9 becomes 'nine', 15 30 becomes 'half "
+                "past three'. Add am or pm so it is never ambiguous.\n"
+                "Don't read the whole list unless the user asks for all of it."
             )
 
         try:
-            daftar_tugas = tugas.ringkasan()
+            task_list = tugas.summary()
         except Exception:
             log.warning("gagal nyusun daftar tugas", exc_info=True)
-            daftar_tugas = ""
-        if daftar_tugas:
+            task_list = ""
+        if task_list:
             bagian.append(
-                f"{daftar_tugas}\n"
-                "Kalau user nanya harus ngerjain apa, pertimbangkan tenggat "
-                "terdekat, perkiraan lamanya, dan jadwal kuliah di atas (waktu "
-                "yang kepakai kelas nggak bisa dipakai ngerjain tugas). Kasih "
-                "satu atau dua yang paling mendesak, jangan bacakan semuanya."
+                f"{task_list}\n"
+                "If the user asks what to work on, weigh the nearest deadline, the "
+                "estimated hours, and the schedule above (hours spent in class "
+                "aren't available for coursework). Name one or two of the most "
+                "pressing, not the whole list."
             )
 
         return "\n\n".join(bagian), calendar.konteks_waktu()
@@ -161,16 +162,15 @@ class _BaseConversation:
 
     def _saring_fakta(self, user_text: str, reply: str) -> None:
         try:
-            lama = memory.read_facts() or "(masih kosong)"
+            lama = memory.read_facts() or "(empty so far)"
             hasil = self._oneshot(
-                PROMPT_FAKTA,
-                f"Daftar fakta sekarang:\n{lama}\n\n"
-                f"Obrolan terbaru:\nUser: {user_text}\nAsisten: {reply}",
+                FACTS_PROMPT,
+                f"Current fact list:\n{lama}\n\n"
+                f"Latest exchange:\nUser: {user_text}\nAssistant: {reply}",
             ).strip()
 
-            if not hasil or hasil.upper().startswith("TIDAK ADA"):
+            if not hasil or hasil.upper().startswith("NO CHANGE"):
                 return
-            # Jaga-jaga kalau modelnya ngoceh di luar format daftar
             # Baris harus punya isi setelah tanda hubungnya. Tanpa ini, model
             # kecil yang balas '-' doang bakal ngehapus seluruh fakta.
             baris = [
@@ -316,7 +316,11 @@ class OllamaConversation(_BaseConversation):
             "messages": [{"role": "system", "content": self.system_prompt}]
             + self.messages,
             "stream": False,
-            "options": {"temperature": 0.7},
+            "options": {
+                "temperature": 0.7,
+                "num_predict": config.OLLAMA_NUM_PREDICT,
+                "num_ctx": config.OLLAMA_NUM_CTX,
+            },
         }
 
         try:

@@ -1,9 +1,10 @@
-"""Daftar tugas: simpan, tandai selesai, dan susun jadi teks buat agent.
+"""Task list: store, mark done, and render for the prompt.
 
-Disimpan sebagai JSON di memory/tugas.json. Teks polos, boleh disunting manual.
+Kept in memory/tasks.json. Plain JSON, editable by hand.
 
-Beda dari acara kalender: tugas nggak nempatin slot waktu, punya status
-selesai/belum, dan bisa dicicil. Makanya disimpan terpisah, bukan jadi acara.
+Deliberately separate from the calendar: a task doesn't occupy a time slot, it
+has a done/not-done state, and it can be worked on in pieces. Calendars have no
+concept of any of that.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import logging
 import os
 import re
 import threading
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from . import config
@@ -22,173 +23,200 @@ log = logging.getLogger(__name__)
 
 _lock = threading.Lock()
 
-HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
-BULAN = [
-    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
 ]
 
-# Kata yang nandain ini tugas, bukan acara kalender. Dicek DULUAN sebelum
-# niat bikin acara, karena "catat tugas..." juga cocok sama pola "catat ...".
-_KATA_TUGAS = ("tugas", "assignment", "pr ", "deadline", "tenggat", "quiz", "ujian",
-               "laporan", "esai", "essay", "makalah")
-_NIAT_TAMBAH = ("catat", "tambah", "ada", "inget", "ingat", "simpan")
-_NIAT_SELESAI = ("selesai", "beres", "kelar", "udah ngerjain", "sudah ngerjain",
-                 "done", "rampung")
+# Words marking this as a task rather than a calendar event. Checked FIRST,
+# because "add a task ..." also matches the "add ..." pattern for events.
+_TASK_WORDS = (
+    "task", "assignment", "homework", "deadline", "due", "quiz", "exam",
+    "report", "essay", "paper", "lab report", "problem set", "readings",
+)
+_ADD_INTENT = ("add", "create", "new", "remind me", "note", "put", "log", "track")
+# Spoken declarations carry no add verb — "I have an assignment due Monday" is
+# how a new task actually arrives, far more often than "add a task ...".
+_ADD_DECLARE = (
+    "i have", "i ve got", "i got", "i need to", "i have to", "i must",
+    "there s a", "there is a", "gotta", "coming up", "handed out",
+)
+_DONE_INTENT = (
+    "done", "finished", "complete", "completed", "submitted", "handed in",
+    "turned in", "wrapped up",
+)
 
 
 def _path():
-    return config.MEMORY_DIR / "tugas.json"
+    return config.MEMORY_DIR / "tasks.json"
 
 
-def _muat() -> list[dict]:
+def _load() -> list[dict]:
     p = _path()
     if not p.exists():
         return []
     try:
-        return json.loads(p.read_text(encoding="utf-8")).get("tugas", [])
+        return json.loads(p.read_text(encoding="utf-8")).get("tasks", [])
     except Exception:
-        log.warning("daftar tugas nggak kebaca", exc_info=True)
+        log.warning("task list unreadable", exc_info=True)
         return []
 
 
-def _simpan(daftar: list[dict]) -> None:
+def _save(items: list[dict]) -> None:
     p = _path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     tmp.write_text(
-        json.dumps({"tugas": daftar}, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps({"tasks": items}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     os.replace(tmp, p)
 
 
-def semua(termasuk_selesai: bool = False) -> list[dict]:
-    daftar = _muat()
-    return daftar if termasuk_selesai else [t for t in daftar if not t.get("selesai")]
+def all_tasks(include_done: bool = False) -> list[dict]:
+    items = _load()
+    return items if include_done else [t for t in items if not t.get("done")]
 
 
-def tambah(judul: str, tenggat: str = "", matkul: str = "", perkiraan_jam: float = 0) -> dict:
-    """Tambah tugas. `tenggat` format YYYY-MM-DD, boleh kosong."""
+def add(title: str, due: str = "", course: str = "", estimate_hours: float = 0) -> dict:
+    """Add a task. `due` is YYYY-MM-DD, may be empty."""
     t = {
-        "judul": judul.strip(),
-        "tenggat": tenggat,
-        "matkul": matkul.strip(),
-        "perkiraan_jam": perkiraan_jam,
-        "selesai": False,
-        "dibuat": datetime.now().isoformat(timespec="seconds"),
+        "title": title.strip(),
+        "due": due,
+        "course": course.strip(),
+        "estimate_hours": estimate_hours,
+        "done": False,
+        "created": datetime.now().isoformat(timespec="seconds"),
     }
     with _lock:
-        daftar = _muat()
-        daftar.append(t)
-        _simpan(daftar)
-    log.info("tugas ditambah: %r", t)
+        items = _load()
+        items.append(t)
+        _save(items)
+    log.info("task added: %r", t)
     return t
 
 
-def tandai(judul_kira: str, selesai: bool = True) -> dict | None:
-    """Tandai tugas selesai/belum berdasarkan kecocokan kata.
+def mark(rough_title: str, done: bool = True) -> dict | None:
+    """Mark a task done/undone by word overlap.
 
-    Balikin tugasnya kalau ketemu tepat satu, None kalau nggak ketemu atau
-    ambigu — biar agent bisa minta perjelas, bukan nebak tugas mana.
+    Returns the task when exactly one matches, None when nothing matches or the
+    match is ambiguous — so the agent can ask instead of guessing which one.
     """
-    kata = set(re.sub(r"[^\w\s]", " ", judul_kira.lower()).split())
+    words = set(re.sub(r"[^\w\s]", " ", rough_title.lower()).split())
     with _lock:
-        daftar = _muat()
-        skor = []
-        for i, t in enumerate(daftar):
-            if t.get("selesai") == selesai:
+        items = _load()
+        scored = []
+        for i, t in enumerate(items):
+            if t.get("done") == done:
                 continue
-            teks = set(
-                re.sub(r"[^\w\s]", " ", f"{t['judul']} {t.get('matkul','')}".lower()).split()
+            text = set(
+                re.sub(r"[^\w\s]", " ", f"{t['title']} {t.get('course','')}".lower()).split()
             )
-            cocok = len(kata & teks)
-            if cocok:
-                skor.append((cocok, i))
-        if not skor:
+            overlap = len(words & text)
+            if overlap:
+                scored.append((overlap, i))
+        if not scored:
             return None
-        skor.sort(reverse=True)
-        # Ambigu kalau dua tugas sama-sama cocok terbanyak
-        if len(skor) > 1 and skor[0][0] == skor[1][0]:
-            log.info("tugas ambigu buat %r", judul_kira)
+        scored.sort(reverse=True)
+        # Ambiguous when two tasks tie for the best match
+        if len(scored) > 1 and scored[0][0] == scored[1][0]:
+            log.info("ambiguous task for %r", rough_title)
             return None
-        idx = skor[0][1]
-        daftar[idx]["selesai"] = selesai
-        _simpan(daftar)
-        log.info("tugas ditandai selesai=%s: %r", selesai, daftar[idx]["judul"])
-        return daftar[idx]
+        idx = scored[0][1]
+        items[idx]["done"] = done
+        _save(items)
+        log.info("task marked done=%s: %r", done, items[idx]["title"])
+        return items[idx]
 
 
-def hapus_semua() -> None:
+def clear_all() -> None:
     with _lock:
-        _simpan([])
-    log.info("semua tugas dihapus")
+        _save([])
+    log.info("all tasks cleared")
 
 
-# --- Deteksi niat ----------------------------------------------------------
+# --- Intent detection ------------------------------------------------------
 
 
-def _mengandung_kata_tugas(teks: str) -> bool:
-    t = " " + re.sub(r"[^\w\s]", " ", teks.lower()) + " "
-    return any(k in t for k in _KATA_TUGAS)
+def _mentions_task(text: str) -> bool:
+    t = " " + re.sub(r"[^\w\s]", " ", text.lower()) + " "
+    return any(f" {k} " in t or k in t for k in _TASK_WORDS)
 
 
-def minta_tambah_tugas(teks: str) -> bool:
-    if not _mengandung_kata_tugas(teks):
+def _flat(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
+
+
+# "what do I have due tomorrow" mentions a task and contains "i have", but it
+# is a question about the list, not a new entry. Same guard as jadwal_baru.
+_QUESTION = (
+    "what", "when", "where", "which", "who", "how", "do i", "did i",
+    "is there", "are there", "am i", "tell me", "read me", "anything",
+    "should i", "remind me what",
+)
+
+
+def wants_add_task(text: str) -> bool:
+    if not _mentions_task(text):
         return False
-    t = re.sub(r"[^\w\s]", " ", teks.lower())
-    if any(k in t for k in _NIAT_SELESAI):
-        return False  # itu laporan selesai, bukan tugas baru
-    return any(k in t for k in _NIAT_TAMBAH)
-
-
-def minta_tandai_selesai(teks: str) -> bool:
-    if not _mengandung_kata_tugas(teks):
+    t = _flat(text)
+    if any(t.startswith(q) for q in _QUESTION):
         return False
-    t = re.sub(r"[^\w\s]", " ", teks.lower())
-    return any(k in t for k in _NIAT_SELESAI)
+    if any(k in t for k in _DONE_INTENT):
+        return False  # that's a completion report, not a new task
+    return any(k in t for k in _ADD_INTENT) or any(k in t for k in _ADD_DECLARE)
 
 
-# --- Teks buat system prompt ----------------------------------------------
+def wants_mark_done(text: str) -> bool:
+    if not _mentions_task(text):
+        return False
+    t = _flat(text)
+    if any(t.startswith(q) for q in _QUESTION):
+        return False
+    return any(k in t for k in _DONE_INTENT)
 
 
-def _label_tenggat(tenggat: str, hari_ini: date) -> str:
-    """Sisa hari dihitung di sini, bukan diserahin ke model — sama alasannya
-    kayak KELAS BERIKUTNYA: hitung tanggal lintas baris itu rawan meleset."""
+# --- Prompt rendering ------------------------------------------------------
+
+
+def _due_label(due: str, today: date) -> str:
+    """Days remaining computed here, not left to the model — same reason as
+    NEXT CLASS: cross-row date arithmetic is where models slip."""
     try:
-        d = datetime.strptime(tenggat, "%Y-%m-%d").date()
+        d = datetime.strptime(due, "%Y-%m-%d").date()
     except Exception:
         return ""
-    sisa = (d - hari_ini).days
-    tgl = f"{HARI[d.weekday()]} {d.day} {BULAN[d.month]}"
-    if sisa < 0:
-        return f"tenggat {tgl} (LEWAT {abs(sisa)} hari)"
-    if sisa == 0:
-        return f"tenggat {tgl} (HARI INI)"
-    if sisa == 1:
-        return f"tenggat {tgl} (BESOK)"
-    return f"tenggat {tgl} ({sisa} hari lagi)"
+    left = (d - today).days
+    when = f"{DAYS[d.weekday()]} {MONTHS[d.month]} {d.day}"
+    if left < 0:
+        return f"due {when} (OVERDUE by {abs(left)} days)"
+    if left == 0:
+        return f"due {when} (TODAY)"
+    if left == 1:
+        return f"due {when} (TOMORROW)"
+    return f"due {when} ({left} days left)"
 
 
-def ringkasan() -> str:
-    """Daftar tugas buat diselipin ke system prompt."""
-    belum = semua()
-    if not belum:
+def summary() -> str:
+    """Task list for the system prompt."""
+    pending = all_tasks()
+    if not pending:
         return ""
 
-    hari_ini = datetime.now(ZoneInfo(config.CALENDAR_TZ)).date()
+    today = datetime.now(ZoneInfo(config.CALENDAR_TZ)).date()
 
-    def kunci(t):
-        # Yang punya tenggat duluan, urut dari yang paling dekat
-        return (0, t["tenggat"]) if t.get("tenggat") else (1, "")
+    def key(t):
+        # Dated tasks first, soonest deadline first
+        return (0, t["due"]) if t.get("due") else (1, "")
 
-    baris = ["Daftar tugas user yang belum selesai:"]
-    for t in sorted(belum, key=kunci):
-        bagian = [t["judul"]]
-        if t.get("matkul"):
-            bagian.append(t["matkul"])
-        label = _label_tenggat(t.get("tenggat", ""), hari_ini)
-        bagian.append(label if label else "tanpa tenggat")
-        if t.get("perkiraan_jam"):
-            bagian.append(f"perkiraan {t['perkiraan_jam']:g} jam")
-        baris.append("  - " + " | ".join(bagian))
-    return "\n".join(baris)
+    lines = ["User's outstanding tasks:"]
+    for t in sorted(pending, key=key):
+        parts = [t["title"]]
+        if t.get("course"):
+            parts.append(t["course"])
+        label = _due_label(t.get("due", ""), today)
+        parts.append(label if label else "no deadline")
+        if t.get("estimate_hours"):
+            parts.append(f"about {t['estimate_hours']:g} hours")
+        lines.append("  - " + " | ".join(parts))
+    return "\n".join(lines)

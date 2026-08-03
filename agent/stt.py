@@ -1,4 +1,14 @@
-"""Wrapper faster-whisper (speech-to-text)."""
+"""Speech-to-text. Dua backend di balik antarmuka yang sama.
+
+- **Parakeet** (default) — nvidia/parakeet-tdt-0.6b-v2 lewat onnx-asr.
+  English saja. Terukur di mesin ini: 0,40 detik/kalimat di CPU, **nol VRAM**,
+  ~2,2 GB RAM. Secepat Whisper di GPU tanpa memakan VRAM sama sekali, jadi
+  VRAM-nya bisa dipakai penuh sama LLM.
+- **Whisper** — faster-whisper, 99 bahasa. Dipertahankan buat non-Inggris.
+
+Antarmuka publiknya dijaga tetap: get_model(), is_loaded(), unload_model(),
+warmup(), transcribe(). main.py nggak tahu backend mana yang dipakai.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +25,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-_model = None  # faster_whisper.WhisperModel, di-load lazy
+_model = None
 _cuda_siap = False
 
 # Lindungi _model dari dilepas pas lagi dipakai transcribe(). Reentrant karena
@@ -53,27 +63,54 @@ def _daftarin_dll_cuda() -> None:
         _cuda_siap = True
     except ImportError:
         log.warning(
-            "paket CUDA dari pip nggak ketemu. Kalau WHISPER_DEVICE=cuda gagal, "
-            "jalanin: pip install nvidia-cublas-cu12 nvidia-cudnn-cu12"
+            "paket CUDA dari pip nggak ketemu. Kalau device=cuda gagal, "
+            "jalanin: pip install -e \".[gpu]\""
         )
 
 
-def get_model():
-    """Load model Whisper (lazy singleton).
+# --- Backend ---------------------------------------------------------------
 
-    Download otomatis dari HuggingFace pas pertama kali dipanggil.
-    """
-    global _model, _terakhir_dipakai
 
-    with _lock:
-        _terakhir_dipakai = time.monotonic()
-        if _model is not None:
-            return _model
+class _Parakeet:
+    nama = "parakeet"
 
+    def __init__(self) -> None:
+        import onnx_asr
+
+        if config.STT_DEVICE.startswith("cuda"):
+            _daftarin_dll_cuda()
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        else:
+            providers = ["CPUExecutionProvider"]
+
+        log.info(
+            "Load %s (device=%s)...", config.STT_MODEL, config.STT_DEVICE
+        )
+        self._m = onnx_asr.load_model(config.STT_MODEL, providers=providers)
+
+        # onnxruntime diam-diam jatuh ke CPU kalau provider yang diminta nggak
+        # ada. Lebih baik dikabari daripada bingung kenapa lambat.
+        if config.STT_DEVICE.startswith("cuda"):
+            import onnxruntime as ort
+
+            if "CUDAExecutionProvider" not in ort.get_available_providers():
+                log.warning(
+                    "CUDA diminta tapi onnxruntime yang terpasang CPU-only — "
+                    "jalan di CPU. Pasang onnxruntime-gpu kalau mau GPU."
+                )
+
+    def transcribe(self, audio: np.ndarray) -> str:
+        return (self._m.recognize(audio, sample_rate=config.SAMPLE_RATE) or "").strip()
+
+
+class _Whisper:
+    nama = "whisper"
+
+    def __init__(self) -> None:
         if config.WHISPER_DEVICE.startswith("cuda"):
             _daftarin_dll_cuda()
 
-        from faster_whisper import WhisperModel  # import lokal: berat
+        from faster_whisper import WhisperModel
 
         log.info(
             "Load Whisper '%s' (device=%s, compute=%s)...",
@@ -81,13 +118,53 @@ def get_model():
             config.WHISPER_DEVICE,
             config.WHISPER_COMPUTE,
         )
-        t0 = time.monotonic()
-        _model = WhisperModel(
+        self._m = WhisperModel(
             config.WHISPER_MODEL,
             device=config.WHISPER_DEVICE,
             compute_type=config.WHISPER_COMPUTE,
         )
-        log.info("Whisper siap dalam %.1f detik", time.monotonic() - t0)
+
+    def transcribe(self, audio: np.ndarray) -> str:
+        segments, info = self._m.transcribe(
+            audio,
+            language=config.WHISPER_LANG,
+            initial_prompt=config.WHISPER_PROMPT or None,
+            beam_size=5,
+            # Buang bagian hening biar halusinasi berkurang
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 400},
+            condition_on_previous_text=False,
+        )
+        teks = " ".join(seg.text.strip() for seg in segments).strip()
+        log.debug("Whisper: %.1f detik audio", info.duration)
+        return teks
+
+
+def _bikin_backend():
+    if config.STT_BACKEND == "whisper":
+        return _Whisper()
+    if config.STT_BACKEND != "parakeet":
+        log.warning(
+            "STT_BACKEND %r nggak dikenal, pakai 'parakeet'", config.STT_BACKEND
+        )
+    return _Parakeet()
+
+
+# --- Siklus hidup ----------------------------------------------------------
+
+
+def get_model():
+    """Muat model STT (lazy singleton)."""
+    global _model, _terakhir_dipakai
+
+    with _lock:
+        _terakhir_dipakai = time.monotonic()
+        if _model is not None:
+            return _model
+
+        t0 = time.monotonic()
+        _model = _bikin_backend()
+        log.info("%s siap dalam %.1f detik", _model.nama, time.monotonic() - t0)
         _mulai_pelepas_idle()
         return _model
 
@@ -97,25 +174,25 @@ def is_loaded() -> bool:
     return _model is not None
 
 
-def unload_model() -> bool:
-    """Lepas model dari memori. Balikin True kalau tadinya emang ke-load.
+def warmup() -> None:
+    """Panggil pas startup biar pertanyaan pertama nggak kena delay muat."""
+    get_model()
 
-    ctranslate2 baru ngelepas alokasi GPU pas objeknya beneran dihancurkan,
-    jadi referensinya dibuang lalu gc dipaksa jalan.
-    """
+
+def unload_model() -> bool:
+    """Lepas model dari memori. Balikin True kalau tadinya emang ke-load."""
     global _model
     with _lock:
         if _model is None:
             return False
         _model = None
         gc.collect()
-        log.info("Whisper dilepas dari memori (nganggur)")
+        log.info("model STT dilepas dari memori (nganggur)")
         return True
 
 
 def _pelepas_idle() -> None:
     batas = config.WHISPER_IDLE_UNLOAD_SECONDS
-    # Cek agak sering biar pelepasannya nggak meleset jauh dari ambang
     jeda = max(1.0, min(30.0, batas / 10))
     while True:
         time.sleep(jeda)
@@ -133,7 +210,7 @@ def _mulai_pelepas_idle() -> None:
     if _pelepas_jalan or config.WHISPER_IDLE_UNLOAD_SECONDS <= 0:
         return
     _pelepas_jalan = True
-    threading.Thread(target=_pelepas_idle, name="whisper-idle", daemon=True).start()
+    threading.Thread(target=_pelepas_idle, name="stt-idle", daemon=True).start()
     batas = config.WHISPER_IDLE_UNLOAD_SECONDS
     log.info(
         "Model bakal dilepas kalau nganggur %s",
@@ -141,13 +218,11 @@ def _mulai_pelepas_idle() -> None:
     )
 
 
-def warmup() -> None:
-    """Panggil pas startup biar pertanyaan pertama nggak kena delay load model."""
-    get_model()
+# --- Transkripsi -----------------------------------------------------------
 
 
 def transcribe(audio: np.ndarray) -> str:
-    """Transcribe audio float32 mono 16 kHz jadi teks Bahasa Indonesia."""
+    """Transcribe audio float32 mono 16 kHz jadi teks."""
     if audio is None or len(audio) == 0:
         return ""
 
@@ -163,27 +238,17 @@ def _transcribe_terkunci(audio: np.ndarray) -> str:
     global _terakhir_dipakai
 
     model = get_model()
+    durasi = len(audio) / config.SAMPLE_RATE
 
     t0 = time.monotonic()
-    segments, info = model.transcribe(
-        audio,
-        language=config.WHISPER_LANG,
-        initial_prompt=config.WHISPER_PROMPT or None,
-        beam_size=5,
-        # Buang bagian hening biar halusinasi ("Terima kasih", dst) berkurang
-        vad_filter=True,
-        vad_parameters={"min_silence_duration_ms": 400},
-        condition_on_previous_text=False,
-    )
-    text = " ".join(seg.text.strip() for seg in segments).strip()
+    text = model.transcribe(audio)
     log.info(
         "STT %.1f detik audio -> %.1f detik proses: %r",
-        info.duration,
+        durasi,
         time.monotonic() - t0,
         text,
     )
-    # Dicatat setelah selesai, bukan sebelum: hitungan nganggur harus mulai dari
-    # akhir pemakaian terakhir
+    # Dicatat setelah selesai: hitungan nganggur mulai dari akhir pemakaian
     _terakhir_dipakai = time.monotonic()
     return text
 
@@ -196,16 +261,15 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     if len(sys.argv) > 1:
-        # decode_audio sekalian resample ke 16 kHz mono
         from faster_whisper import decode_audio
 
         print(transcribe(decode_audio(sys.argv[1], sampling_rate=config.SAMPLE_RATE)))
     else:
         seconds = 5
         warmup()
-        print(f"Ngomong sekarang ({seconds} detik)...")
+        print(f"Speak now ({seconds} seconds)...")
         audio_io.beep_start()
         deadline = time.monotonic() + seconds
         clip = audio_io.record_until_release(lambda: time.monotonic() < deadline)
         audio_io.beep_stop()
-        print("Hasil:", transcribe(clip))
+        print("Result:", transcribe(clip))

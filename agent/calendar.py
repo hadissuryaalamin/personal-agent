@@ -26,22 +26,40 @@ _cache: list[dict] | None = None
 _cache_time = 0.0
 _refresh_jalan = False
 
-HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
-BULAN = [
-    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
 ]
 
 # Kode jenis kelas di feed ANU: LecA, TutA, ComA, ...
-JENIS = {
-    "lec": "kuliah",
+KINDS = {
+    "lec": "lecture",
     "tut": "tutorial",
-    "com": "lab komputer",
+    "com": "computer lab",
     "lab": "lab",
     "wor": "workshop",
     "sem": "seminar",
-    "dro": "sesi konsultasi",
+    "dro": "drop-in",
 }
+
+# Judul yang ditulis sebelum pindah ke Inggris masih bawa label Indonesia.
+# Tetap dikenali biar file .ics lama nggak jadi '(kuliah)' bocor ke prompt —
+# lihat ARSITEKTUR.md soal kenapa data lama nggak boleh bikin parser gagal.
+LEGACY_KINDS = {
+    "kuliah": "lecture",
+    "tutorial": "tutorial",
+    "lab komputer": "computer lab",
+    "lab": "lab",
+    "workshop": "workshop",
+    "seminar": "seminar",
+    "sesi konsultasi": "drop-in",
+}
+
+
+def _kind_names() -> set[str]:
+    """Semua bentuk label jenis yang boleh muncul di dalam kurung."""
+    return set(KINDS.values()) | set(LEGACY_KINDS)
 
 
 def _cache_path():
@@ -65,7 +83,7 @@ def _bersihin_judul(summary: str) -> str:
     # kalau isinya memang nama jenis kelas, biar 'Makan siang (sama Budi)'
     # nggak ikut terpotong.
     m = re.match(r"^(.*)\(([^)]+)\)\s*$", teks)
-    if m and m.group(2).strip().lower() in set(JENIS.values()):
+    if m and m.group(2).strip().lower() in _kind_names():
         teks = m.group(1)
     if "_" in teks:
         bagian = [b.strip() for b in teks.split("_") if b.strip()]
@@ -77,12 +95,18 @@ def _bersihin_judul(summary: str) -> str:
 def _jenis_kelas(summary: str) -> str:
     m = re.search(r"\\?,\s*(Lec|Tut|Com|Lab|Wor|Sem|Dro)\w*\s*$", summary.strip())
     if m:
-        return JENIS.get(m.group(1).lower(), "")
+        return KINDS.get(m.group(1).lower(), "")
     # Bentuk kedua: '... (kuliah)' — muncul di acara yang pernah disalin dari
     # feed ANU ke Google atau ke file lokal, di mana jenisnya ikut ke judul.
     m = re.match(r"^.*\(([^)]+)\)\s*$", summary.strip())
-    if m and m.group(1).strip().lower() in set(JENIS.values()):
-        return m.group(1).strip().lower()
+    if m:
+        isi = m.group(1).strip().lower()
+        # Label lama diterjemahkan di sini, bukan disimpan apa adanya, biar
+        # yang sampai ke prompt selalu satu bahasa.
+        if isi in LEGACY_KINDS:
+            return LEGACY_KINDS[isi]
+        if isi in set(KINDS.values()):
+            return isi
     return ""
 
 
@@ -240,13 +264,13 @@ def _acara() -> list[dict]:
 
 def _label_hari(d: date, hari_ini: date) -> str:
     beda = (d - hari_ini).days
-    nama = f"{HARI[d.weekday()]} {d.day} {BULAN[d.month]}"
+    nama = f"{DAYS[d.weekday()]} {d.day} {MONTHS[d.month]}"
     if beda == 0:
-        return f"Hari ini ({nama})"
+        return f"Today ({nama})"
     if beda == 1:
-        return f"Besok ({nama})"
+        return f"Tomorrow ({nama})"
     if beda == 2:
-        return f"Lusa ({nama})"
+        return f"Day after tomorrow ({nama})"
     return nama
 
 
@@ -299,11 +323,11 @@ def agenda() -> str:
 
     if not per_hari:
         return (
-            f"Jadwal kuliah user {config.CALENDAR_DAYS_AHEAD} hari ke depan: "
-            "kosong, nggak ada kelas."
+            f"User's schedule for the next {config.CALENDAR_DAYS_AHEAD} days: "
+            "nothing, no classes."
         )
 
-    baris = [f"Jadwal kuliah user {config.CALENDAR_DAYS_AHEAD} hari ke depan."]
+    baris = [f"User's schedule for the next {config.CALENDAR_DAYS_AHEAD} days."]
 
     # Hitung "kelas berikutnya" di sini, jangan diserahin ke model. Nyari acara
     # terdekat dari sekarang itu penalaran lintas-baris — persis hal yang bikin
@@ -316,25 +340,25 @@ def agenda() -> str:
             berikutnya = e
             break
     if berikutnya is not None:
-        baris.append("KELAS BERIKUTNYA: " + _satu_baris(berikutnya, hari_ini))
+        baris.append("NEXT UP: " + _satu_baris(berikutnya, hari_ini))
 
     # Dua pertanyaan paling sering ("hari ini apa", "besok apa") dijawab di sini
     # juga, dalam bentuk jadi. Model kecil sering salah hari atau cuma nyebut
     # satu dari beberapa kelas kalau disuruh baca tabelnya sendiri.
-    for offset, nama in ((0, "HARI INI"), (1, "BESOK")):
+    for offset, label in ((0, "TODAY"), (1, "TOMORROW")):
         d = hari_ini + timedelta(days=offset)
         isi = per_hari.get(d, [])
-        tgl = f"{HARI[d.weekday()]} {d.day} {BULAN[d.month]}"
+        when = f"{DAYS[d.weekday()]} {MONTHS[d.month]} {d.day}"
         if not isi:
-            baris.append(f"{nama} ({tgl}): tidak ada jadwal")
+            baris.append(f"{label} ({when}): nothing scheduled")
         else:
             ringkas = "; ".join(
                 _satu_baris(e, hari_ini, dengan_hari=False) for e in isi
             )
-            baris.append(f"{nama} ({tgl}): {len(isi)} jadwal -> {ringkas}")
+            baris.append(f"{label} ({when}): {len(isi)} scheduled -> {ringkas}")
 
     baris.append("")
-    baris.append("Format tiap baris: jam | kode & nama | jenis | lokasi")
+    baris.append("Each line: time | code & name | kind | location")
     for d in sorted(per_hari):
         baris.append(_label_hari(d, hari_ini) + ":")
         for e in per_hari[d]:
@@ -344,8 +368,8 @@ def agenda() -> str:
     if luar:
         baris.append("")
         baris.append(
-            f"Di luar {config.CALENDAR_DAYS_AHEAD} hari itu, yang menyimpang dari "
-            "pola mingguan (kelas rutin nggak diulang di sini):"
+            f"Beyond those {config.CALENDAR_DAYS_AHEAD} days, only what breaks the "
+            "weekly pattern (routine classes are not repeated here):"
         )
         baris.extend("  " + b for b in luar)
     return "\n".join(baris)
@@ -387,23 +411,22 @@ def _di_luar_pola(
 
 
 def _jam_ucap(e: dict) -> str:
-    """Jam dalam bentuk yang enak dibacakan, bukan '09:00-11:00'.
+    """Time in a form that reads aloud well, not '09:00-11:00'.
 
-    Model cenderung nyalin format yang dia lihat, dan Piper ngeja angka
-    berformat jam apa adanya — 'pukul 09:00 sampai 11:00' makan 4,1 detik
-    dibanding 3,0 detik buat kalimat yang sama artinya. Tetap 24 jam supaya
-    'jam 2' nggak ambigu siang/malam.
+    The model copies whatever format it sees, and synthesisers spell out
+    clock-formatted digits literally — measured 4.1s versus 3.0s for the same
+    sentence. 24-hour is kept because "at 2" is ambiguous between day and night.
     """
     if e["sepanjang_hari"]:
-        return "seharian"
+        return "all day"
 
-    def satu(dt) -> str:
-        return f"jam {dt.hour}" + (f" lewat {dt.minute}" if dt.minute else "")
+    def one(dt) -> str:
+        return f"{dt.hour}" + (f" {dt.minute:02d}" if dt.minute else "")
 
-    teks = satu(e["mulai"])
+    text = one(e["mulai"])
     if isinstance(e["selesai"], datetime):
-        teks += " sampai " + satu(e["selesai"]).replace("jam ", "", 1)
-    return teks
+        text += " to " + one(e["selesai"])
+    return text
 
 
 def _satu_baris(e: dict, hari_ini: date, dengan_hari: bool = True) -> str:
@@ -414,7 +437,7 @@ def _satu_baris(e: dict, hari_ini: date, dengan_hari: bool = True) -> str:
     """
     jam = _jam_ucap(e)
     nama = f"{e['kode']} {e['judul']}".strip() if e["kode"] else e["judul"]
-    kolom = [jam, nama, e["jenis"] or "-", e["lokasi"] or "lokasi tidak tercantum"]
+    kolom = [jam, nama, e["jenis"] or "-", e["lokasi"] or "location not given"]
     teks = " | ".join(kolom)
 
     if dengan_hari:
@@ -429,6 +452,6 @@ def konteks_waktu() -> str:
     tz = ZoneInfo(config.CALENDAR_TZ)
     n = datetime.now(tz)
     return (
-        f"Sekarang {HARI[n.weekday()]}, {n.day} {BULAN[n.month]} {n.year}, "
-        f"jam {n.strftime('%H:%M')} waktu {config.CALENDAR_TZ}."
+        f"Right now it is {DAYS[n.weekday()]}, {n.day} {MONTHS[n.month]} "
+        f"{n.year}, {n.strftime('%H:%M')} in {config.CALENDAR_TZ}."
     )

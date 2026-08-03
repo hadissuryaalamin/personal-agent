@@ -274,125 +274,126 @@ def make_backend(on_activate):
 
 # --- Pipeline ---------------------------------------------------------------
 
-# Frasa penghapus memori. Dicocokkan lokal, bukan lewat LLM: perintah yang
-# nggak bisa dibatalkan nggak boleh gantung pada tebakan model.
-_FRASA_LUPA = (
-    "lupakan semua",
-    "lupain semua",
-    "hapus memori",
-    "hapus ingatan",
-    "hapus semua memori",
-    "lupakan semuanya",
+# Memory-wipe phrases. Matched locally, not through the LLM: an irreversible
+# command must not hinge on a model's guess.
+_FORGET_PHRASES = (
+    "forget everything",
+    "forget it all",
+    "erase your memory",
+    "clear your memory",
+    "wipe your memory",
+    "delete your memory",
+    "forget what you know about me",
 )
 
 
-def _minta_dilupakan(text: str) -> bool:
-    bersih = re.sub(r"[^\w\s]", " ", text.lower())
-    bersih = re.sub(r"\s+", " ", bersih).strip()
-    return any(f in bersih for f in _FRASA_LUPA)
+def _wants_forget(text: str) -> bool:
+    clean = re.sub(r"[^\w\s]", " ", text.lower())
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return any(f in clean for f in _FORGET_PHRASES)
 
 
-# Acara yang udah dibacain tapi belum disimpan. Sengaja nunggu konfirmasi:
-# salah dengar pas nulis ninggalin acara palsu yang baru ketahuan minggu depan.
-_acara_pending: dict | None = None
+# An event read back but not yet saved. Confirmation is deliberate: a mishearing
+# on a write leaves a bogus entry that only surfaces next week.
+_pending_event: dict | None = None
 
 
-def _tambah_tugas(text: str) -> None:
-    """Tugas nggak perlu konfirmasi kayak acara kalender: salah catat gampang
-    dibetulin dan nggak nyampah di kalender. Tapi tetep dibacain ulang biar
-    kamu tau apa yang kesimpen."""
+def _add_task(text: str) -> None:
+    """Tasks skip the confirmation step that events get: a wrong task is easy to
+    fix and doesn't clutter a calendar. It's still read back so you know what
+    was stored."""
     try:
-        t = jadwal_baru.urai_tugas(text, llm.get_conversation()._oneshot)
+        t = jadwal_baru.parse_task(text, llm.get_conversation()._oneshot)
     except Exception:
-        log.exception("gagal ngurai tugas")
-        _say_safely("Maaf, aku nggak nangkep tugasnya.")
+        log.exception("failed to parse task")
+        _say_safely("Sorry, I didn't catch the task.")
         return
 
     if t is None:
-        _say_safely("Maaf, tugasnya kurang jelas. Coba ulangi ya.")
+        _say_safely("Sorry, that task wasn't clear. Could you say it again?")
         return
 
-    tugas.tambah(t["judul"], t["tenggat"], t["matkul"], t["perkiraan_jam"])
+    tugas.add(t["title"], t["due"], t["course"], t["estimate_hours"])
 
-    bagian = [f"Oke, aku catat: {t['judul']}"]
-    if t["matkul"]:
-        bagian.append(f"buat {t['matkul']}")
-    if t["tenggat"]:
-        d = datetime.strptime(t["tenggat"], "%Y-%m-%d").date()
-        bagian.append(f"tenggat {tugas.HARI[d.weekday()]} {d.day} {tugas.BULAN[d.month]}")
+    parts = [f"Got it, I've added {t['title']}"]
+    if t["course"]:
+        parts.append(f"for {t['course']}")
+    if t["due"]:
+        d = datetime.strptime(t["due"], "%Y-%m-%d").date()
+        parts.append(f"due {tugas.DAYS[d.weekday()]} {tugas.MONTHS[d.month]} {d.day}")
     else:
-        bagian.append("tanpa tenggat")
-    _say_safely(", ".join(bagian) + ".")
+        parts.append("with no deadline")
+    _say_safely(", ".join(parts) + ".")
 
 
-def _tandai_tugas_selesai(text: str) -> None:
-    t = tugas.tandai(text, selesai=True)
+def _mark_task_done(text: str) -> None:
+    t = tugas.mark(text, done=True)
     if t is None:
-        # Nggak ketemu atau ambigu — minta perjelas daripada nebak tugas mana
-        _say_safely("Tugas yang mana ya? Aku nggak yakin yang kamu maksud.")
+        # Nothing matched, or two matched — ask rather than guess which one
+        _say_safely("Which task do you mean? I'm not sure.")
         return
-    sisa = len(tugas.semua())
-    pesan = f"Sip, {t['judul']} aku tandai selesai."
-    pesan += " Tugasmu habis." if sisa == 0 else f" Sisa {sisa} tugas."
-    _say_safely(pesan)
+    left = len(tugas.all_tasks())
+    msg = f"Done, I've marked {t['title']} complete."
+    msg += " That's everything." if left == 0 else f" {left} left."
+    _say_safely(msg)
 
 
-def _mulai_bikin_acara(text: str) -> None:
-    """Urai ucapan jadi acara, lalu bacain ulang buat dikonfirmasi."""
-    global _acara_pending
+def _start_event(text: str) -> None:
+    """Parse the utterance into an event, then read it back for confirmation."""
+    global _pending_event
     try:
-        acara = jadwal_baru.urai(text, llm.get_conversation()._oneshot)
+        event = jadwal_baru.parse_event(text, llm.get_conversation()._oneshot)
     except Exception:
-        log.exception("gagal ngurai acara")
-        _say_safely("Maaf, aku nggak nangkep detail acaranya.")
+        log.exception("failed to parse event")
+        _say_safely("Sorry, I didn't catch the event details.")
         return
 
-    if acara is None or not acara["yakin"]:
-        log.info("detail acara nggak jelas: %r", acara)
-        _say_safely("Maaf, tanggal atau jamnya kurang jelas. Coba ulangi lengkap ya.")
+    if event is None or not event["confident"]:
+        log.info("event details unclear: %r", event)
+        _say_safely("Sorry, the date or time wasn't clear. Could you say it in full?")
         return
 
-    _acara_pending = acara
-    log.info("acara nunggu konfirmasi: %r", acara)
-    _say_safely(jadwal_baru.kalimat_konfirmasi(acara))
+    _pending_event = event
+    log.info("event awaiting confirmation: %r", event)
+    _say_safely(jadwal_baru.confirmation_line(event))
 
 
-def _tangani_konfirmasi(text: str) -> bool:
-    """True kalau ucapan ini dipakai sebagai jawaban konfirmasi."""
-    global _acara_pending
-    if _acara_pending is None:
+def _handle_confirmation(text: str) -> bool:
+    """True when this utterance was consumed as a confirmation answer."""
+    global _pending_event
+    if _pending_event is None:
         return False
 
-    jawab = jadwal_baru.jawaban_ya(text)
-    if jawab is None:
-        # Nggak jelas ya/nggak — buang niatnya daripada nebak. Nebak salah di
-        # sini artinya nulis acara yang user nggak mau.
-        _acara_pending = None
-        log.info("konfirmasi nggak jelas, acara dibatalin")
-        _say_safely("Aku nggak yakin kamu bilang apa, jadi nggak aku simpan.")
+    answer = jadwal_baru.answer_yes(text)
+    if answer is None:
+        # Neither yes nor no — drop it rather than guess. Guessing wrong here
+        # writes an event the user never asked for.
+        _pending_event = None
+        log.info("confirmation unclear, event discarded")
+        _say_safely("I wasn't sure what you said, so I didn't save it.")
         return True
 
-    acara = _acara_pending
-    _acara_pending = None
+    event = _pending_event
+    _pending_event = None
 
-    if not jawab:
-        log.info("acara dibatalin user")
-        _say_safely("Oke, nggak jadi.")
+    if not answer:
+        log.info("event cancelled by user")
+        _say_safely("Okay, cancelled.")
         return True
 
-    # Kalender lokal didahulukan; Google cuma dipakai kalau lokalnya nggak aktif
-    tujuan = kalender_lokal if kalender_lokal.aktif() else gcal
+    # Local calendar takes precedence; Google only when local is off
+    target = kalender_lokal if kalender_lokal.aktif() else gcal
     try:
-        tujuan.bikin_acara(
-            acara["judul"], acara["mulai"], acara["selesai"], acara["lokasi"]
+        target.bikin_acara(
+            event["title"], event["start"], event["end"], event["location"]
         )
     except Exception:
-        log.exception("gagal bikin acara (%s)", tujuan.__name__)
-        _say_safely("Maaf, gagal nyimpen ke kalender.")
+        log.exception("failed to create event (%s)", target.__name__)
+        _say_safely("Sorry, I couldn't save that to your calendar.")
         return True
 
-    calendar.refresh(paksa=True)  # biar agenda langsung nunjukin acara baru
-    _say_safely("Sip, udah masuk kalender.")
+    calendar.refresh(paksa=True)  # so the agenda shows it right away
+    _say_safely("Saved to your calendar.")
     return True
 
 
@@ -429,8 +430,8 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
     # pun, diam selama itu nggak bisa dibedain dari mati — user bakal mencet
     # ulang dan makin bingung. Piper udah di-warmup jadi ngomongnya instan.
     if not stt.is_loaded():
-        log.info("model masih dimuat, ngabarin user dulu")
-        _say_safely("Sebentar ya, lagi nyiapin.")
+        log.info("model still loading, telling the user first")
+        _say_safely("One moment, just getting ready.")
 
     try:
         text = stt.transcribe(clip)
@@ -445,37 +446,37 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         return
     log.info("User: %s", text)
 
-    # 2b. Perintah hapus memori — ditangani lokal, nggak dikirim ke LLM
-    if _minta_dilupakan(text):
+    # 2b. Memory wipe — handled locally, never sent to the LLM
+    if _wants_forget(text):
         llm.get_conversation().forget()
-        _say_safely("Oke, semua yang aku inget tentang kamu udah aku hapus.")
+        _say_safely("Okay, I've erased everything I knew about you.")
         return
 
-    # 2c. Lagi nunggu konfirmasi acara? Jawaban ini buat itu, bukan buat LLM.
-    if _tangani_konfirmasi(text):
+    # 2c. Waiting on an event confirmation? This answer belongs to that.
+    if _handle_confirmation(text):
         return
 
-    # 2d. Tugas. WAJIB dicek sebelum niat bikin acara: "catat tugas ..." juga
-    #     cocok sama pola "catat ...", dan kalau salah cabang tugasnya malah
-    #     jadi acara kalender.
-    if tugas.minta_tandai_selesai(text):
-        _tandai_tugas_selesai(text)
+    # 2d. Tasks. MUST be checked before the event intent: "add a task ..." also
+    #     matches the "add ..." pattern, and taking the wrong branch turns the
+    #     user's task into a calendar event.
+    if tugas.wants_mark_done(text):
+        _mark_task_done(text)
         return
-    if tugas.minta_tambah_tugas(text):
-        _tambah_tugas(text)
+    if tugas.wants_add_task(text):
+        _add_task(text)
         return
 
-    # 2e. Niat bikin acara baru
-    if (kalender_lokal.aktif() or gcal.aktif()) and jadwal_baru.minta_bikin_acara(text):
-        _mulai_bikin_acara(text)
+    # 2e. Create a new event
+    if (kalender_lokal.aktif() or gcal.aktif()) and jadwal_baru.wants_event(text):
+        _start_event(text)
         return
 
     # 3. LLM
     try:
         reply = llm.chat(text)
     except Exception:
-        log.exception("gagal manggil LLM (%s)", config.LLM_BACKEND)
-        _say_safely("Maaf, otakku lagi nggak nyambung.")
+        log.exception("LLM call failed (%s)", config.LLM_BACKEND)
+        _say_safely("Sorry, my brain isn't reachable right now.")
         return
 
     # 4. TTS + playback
@@ -527,15 +528,27 @@ def main() -> int:
         config.OLLAMA_MODEL if config.LLM_BACKEND == "ollama" else config.CLAUDE_MODEL
     )
     log.info(
-        "personal-agent start | hotkey=%s (%s, %s) | whisper=%s/%s | llm=%s/%s",
+        "personal-agent start | lang=%s offline=%s | hotkey=%s (%s, %s) | "
+        "stt=%s/%s | llm=%s/%s | tts=%s",
+        config.LANGUAGE,
+        config.OFFLINE_MODE,
         config.HOTKEY,
         config.HOTKEY_MODE,
         config.HOTKEY_BACKEND,
-        config.WHISPER_MODEL,
-        config.WHISPER_DEVICE,
+        config.STT_BACKEND,
+        config.STT_DEVICE,
         config.LLM_BACKEND,
         otak,
+        config.TTS_BACKEND,
     )
+
+    # Sebelum apa-apa dimuat: setelan yang bentrok sama mode offline harus
+    # ketahuan di log startup, bukan pas user udah nanya.
+    try:
+        config.wajib_offline()
+    except config.OfflineViolation:
+        log.exception("setelan bentrok sama OFFLINE_MODE, agent nggak jalan")
+        return 2
 
     warmup()
     backend = make_backend(handle_utterance)

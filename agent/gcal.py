@@ -116,7 +116,12 @@ def service(boleh_login: bool = False):
 
 
 # Jenis kelas yang ditempel di judul waktu jadwal ICS disalin ke Google.
-_JENIS_DIKENAL = {"kuliah", "tutorial", "lab komputer", "lab", "workshop", "seminar", "sesi konsultasi"}
+def _jenis_dikenal() -> set[str]:
+    """Satu sumber kebenaran dipinjam dari calendar.py — daftar kembar di sini
+    dulu bikin '(kuliah)' lolos di satu jalur dan kepotong di jalur lain."""
+    from .calendar import _kind_names
+
+    return _kind_names()
 
 
 def _pisah_jenis(judul: str) -> tuple[str, str]:
@@ -128,7 +133,7 @@ def _pisah_jenis(judul: str) -> tuple[str, str]:
     import re
 
     m = re.match(r"^(.*)\s*\(([^)]+)\)\s*$", judul)
-    if m and m.group(2).strip().lower() in _JENIS_DIKENAL:
+    if m and m.group(2).strip().lower() in _jenis_dikenal():
         return m.group(1).strip(), m.group(2).strip().lower()
     return judul, ""
 

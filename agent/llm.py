@@ -10,7 +10,7 @@ import logging
 import re
 import threading
 
-from . import calendar, config, memory
+from . import calendar, config, memory, tugas
 
 log = logging.getLogger(__name__)
 
@@ -86,6 +86,20 @@ class _BaseConversation:
                 "tiga lewat tiga puluh sore'. JANGAN pakai bentuk 'setengah "
                 "sembilan' — itu gampang meleset setengah jam.\n"
                 "Jangan bacakan semuanya kecuali user emang minta semua."
+            )
+
+        try:
+            daftar_tugas = tugas.ringkasan()
+        except Exception:
+            log.warning("gagal nyusun daftar tugas", exc_info=True)
+            daftar_tugas = ""
+        if daftar_tugas:
+            bagian.append(
+                f"{daftar_tugas}\n"
+                "Kalau user nanya harus ngerjain apa, pertimbangkan tenggat "
+                "terdekat, perkiraan lamanya, dan jadwal kuliah di atas (waktu "
+                "yang kepakai kelas nggak bisa dipakai ngerjain tugas). Kasih "
+                "satu atau dua yang paling mendesak, jangan bacakan semuanya."
             )
 
         return "\n\n".join(bagian)

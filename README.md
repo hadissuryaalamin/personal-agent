@@ -359,9 +359,17 @@ membacakan ulang, kamu bilang "iya", baru tersimpan.
 5. **Google Auth Platform → Clients → Create client → Desktop app** → unduh JSON
 6. Simpan JSON di root repo, lalu di `.env`:
    `GOOGLE_CREDENTIALS_FILE=client_secret_....json`
-7. Jalankan agent, ucapkan perintah bikin acara → browser terbuka sekali untuk
-   login. Peringatan *"Google hasn't verified this app"* itu wajar → Advanced →
-   Go to (nama app).
+7. Login sekali:
+   ```powershell
+   .\.venv-agent\Scripts\python.exe scripts\login_google.py
+   ```
+   Browser terbuka. Peringatan *"Google hasn't verified this app"* itu wajar →
+   Advanced → Go to (nama app).
+
+> Login sengaja dipisah dari agent. Agent jalan lewat `pythonw` **tanpa
+> jendela** — kalau alur normalnya boleh memicu login browser, agent akan
+> kelihatan menggantung tanpa sebab saat tokennya hilang. Sekarang kalau token
+> tidak ada, fitur kalender dimatikan dan log menunjuk ke skrip ini.
 
 > ⚠️ **Langkah 4 wajib.** Kalau status aplikasinya dibiarkan *Testing*, Google
 > membuat refresh token **kedaluwarsa tiap 7 hari** — semuanya jalan seminggu,
@@ -429,6 +437,38 @@ menyentuh token Google maupun log.
 
 Kosongkan `CALENDAR_ICS_URL`. Kalau tidak, tiap kelas terbaca dua kali —
 sekali dari feed ANU, sekali dari Google.
+
+## Daftar tugas
+
+Agent nyimpen tugas kuliahmu dan bisa bantu mutusin mau ngerjain apa duluan,
+dengan mempertimbangkan tenggat, perkiraan lama, dan jadwal kuliah (jam yang
+kepakai kelas nggak bisa dipakai ngerjain tugas).
+
+```
+"catat tugas assignment satu COMP4020 deadline Jumat, kira-kira 3 jam"
+  -> Oke, aku catat: Assignment 1, buat COMP4020, tenggat Jumat 7 Agustus.
+
+"hari ini aku harus ngerjain apa?"
+  -> Hari ini kamu paling perlu fokus ke Assignment 1 COMP4020, soalnya
+     tenggat cuma 4 hari lagi dan butuh 3 jam.
+
+"tugas assignment satu udah selesai"
+  -> Sip, Assignment 1 aku tandai selesai. Sisa 1 tugas.
+```
+
+Disimpan di `memory/tugas.json` — teks polos, boleh disunting manual.
+
+**Kenapa tugas nggak jadi acara kalender:** tugas nggak nempatin slot waktu,
+punya status selesai/belum, dan bisa dicicil. Kalender nggak punya konsep itu.
+
+**Urutan pengecekan penting.** *"catat tugas ..."* juga cocok sama pola
+*"catat ..."* buat bikin acara, jadi niat tugas dicek **duluan** di
+[main.py](agent/main.py) — kalau kebalik, tugasmu malah nyasar jadi acara
+kalender.
+
+Kalau kamu nyebut tugas yang cocok ke dua entri sekaligus (*"assignment"*
+padahal ada Assignment COMP4020 dan COMP4620), agent nolak nebak dan minta
+kamu perjelas.
 
 ## Belum ada (tahap berikutnya)
 

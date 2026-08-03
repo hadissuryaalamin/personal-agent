@@ -123,6 +123,70 @@ def urai(teks: str, oneshot) -> dict | None:
     }
 
 
+SKEMA_TUGAS = {
+    "type": "object",
+    "properties": {
+        "judul": {"type": "string", "description": "Nama tugasnya, ringkas"},
+        "matkul": {
+            "type": "string",
+            "description": "Kode mata kuliah kalau disebut, contoh COMP4020. Boleh kosong.",
+        },
+        "tenggat": {
+            "type": "string",
+            "description": "Tenggat format YYYY-MM-DD. String kosong kalau nggak disebut.",
+        },
+        "perkiraan_jam": {
+            "type": "number",
+            "description": "Perkiraan lama ngerjain dalam jam. 0 kalau nggak disebut.",
+        },
+    },
+    "required": ["judul", "matkul", "tenggat", "perkiraan_jam"],
+    "additionalProperties": False,
+}
+
+PROMPT_TUGAS = """Ubah permintaan user jadi satu tugas kuliah.
+
+Aturan:
+- Pakai tanggal sekarang buat ngartiin "Jumat", "minggu depan", "besok".
+- Kalau tenggatnya nggak disebut sama sekali, isi tenggat dengan string kosong.
+  JANGAN ngarang tanggal.
+- Judulnya ringkas, jangan sertakan kata "tugas" kalau nggak perlu.
+- Teks user berasal dari pengenalan suara, jadi mungkin ada salah dengar."""
+
+
+def urai_tugas(teks: str, oneshot) -> dict | None:
+    """Ucapan -> dict tugas."""
+    tz = ZoneInfo(config.CALENDAR_TZ)
+    sekarang = datetime.now(tz)
+    konteks = (
+        f"Sekarang {sekarang.strftime('%A, %Y-%m-%d, %H:%M')} "
+        f"({config.CALENDAR_TZ}).\n\nUcapan user: {teks}"
+    )
+    try:
+        data = json.loads(oneshot(PROMPT_TUGAS, konteks, SKEMA_TUGAS))
+    except Exception:
+        log.warning("hasil urai tugas nggak kebaca", exc_info=True)
+        return None
+
+    tenggat = (data.get("tenggat") or "").strip()
+    if tenggat:
+        try:
+            datetime.strptime(tenggat, "%Y-%m-%d")
+        except ValueError:
+            log.warning("tenggat nggak valid: %r", tenggat)
+            tenggat = ""
+
+    judul = (data.get("judul") or "").strip()
+    if not judul:
+        return None
+    return {
+        "judul": judul,
+        "matkul": (data.get("matkul") or "").strip(),
+        "tenggat": tenggat,
+        "perkiraan_jam": float(data.get("perkiraan_jam") or 0),
+    }
+
+
 HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 BULAN = [
     "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",

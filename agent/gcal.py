@@ -32,13 +32,26 @@ def _token_path() -> Path:
 
 
 def aktif() -> bool:
-    return bool(config.GOOGLE_CREDENTIALS_FILE) and Path(
-        config.GOOGLE_CREDENTIALS_FILE
-    ).exists()
+    """Siap dipakai TANPA login? Butuh file kredensial DAN token hasil login.
+
+    Token ikut dicek dengan sengaja: agent jalan lewat pythonw tanpa jendela,
+    jadi alur normal nggak boleh sampai memicu login browser. Kalau tokennya
+    hilang, fitur kalender dimatiin dan user dikasih tau lewat log — bukan
+    digantung nunggu browser yang mungkin nggak dia sadari.
+    """
+    return (
+        bool(config.GOOGLE_CREDENTIALS_FILE)
+        and Path(config.GOOGLE_CREDENTIALS_FILE).exists()
+        and _token_path().exists()
+    )
 
 
-def _kredensial():
-    """Ambil kredensial yang valid. Login browser cuma kalau belum ada token."""
+def _kredensial(boleh_login: bool):
+    """Ambil kredensial yang valid.
+
+    `boleh_login=False` (default di jalur normal) nggak akan pernah buka
+    browser — mending gagal dengan pesan jelas daripada menggantung.
+    """
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
@@ -65,6 +78,12 @@ def _kredensial():
             # bukan di sini — publish app-nya ke "In production".
             log.warning("gagal perbarui token Google, minta login ulang", exc_info=True)
 
+    if not boleh_login:
+        raise RuntimeError(
+            "Belum login ke Google (atau tokennya kedaluwarsa). Jalanin: "
+            "python scripts/login_google.py"
+        )
+
     flow = InstalledAppFlow.from_client_secrets_file(
         config.GOOGLE_CREDENTIALS_FILE, SCOPES
     )
@@ -80,14 +99,17 @@ def _simpan_token(creds) -> None:
     log.info("token Google disimpan")
 
 
-def service():
+def service(boleh_login: bool = False):
     global _service
     with _lock:
         if _service is None:
             from googleapiclient.discovery import build
 
             _service = build(
-                "calendar", "v3", credentials=_kredensial(), cache_discovery=False
+                "calendar",
+                "v3",
+                credentials=_kredensial(boleh_login),
+                cache_discovery=False,
             )
             log.info("Google Calendar siap")
         return _service

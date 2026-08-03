@@ -10,7 +10,9 @@ import threading
 import time
 from typing import Callable
 
-from . import audio, calendar, config, gcal, jadwal_baru, llm, stt, tts
+from datetime import datetime
+
+from . import audio, calendar, config, gcal, jadwal_baru, llm, stt, tts, tugas
 
 log = logging.getLogger("agent")
 
@@ -284,6 +286,46 @@ def _minta_dilupakan(text: str) -> bool:
 _acara_pending: dict | None = None
 
 
+def _tambah_tugas(text: str) -> None:
+    """Tugas nggak perlu konfirmasi kayak acara kalender: salah catat gampang
+    dibetulin dan nggak nyampah di kalender. Tapi tetep dibacain ulang biar
+    kamu tau apa yang kesimpen."""
+    try:
+        t = jadwal_baru.urai_tugas(text, llm.get_conversation()._oneshot)
+    except Exception:
+        log.exception("gagal ngurai tugas")
+        _say_safely("Maaf, aku nggak nangkep tugasnya.")
+        return
+
+    if t is None:
+        _say_safely("Maaf, tugasnya kurang jelas. Coba ulangi ya.")
+        return
+
+    tugas.tambah(t["judul"], t["tenggat"], t["matkul"], t["perkiraan_jam"])
+
+    bagian = [f"Oke, aku catat: {t['judul']}"]
+    if t["matkul"]:
+        bagian.append(f"buat {t['matkul']}")
+    if t["tenggat"]:
+        d = datetime.strptime(t["tenggat"], "%Y-%m-%d").date()
+        bagian.append(f"tenggat {tugas.HARI[d.weekday()]} {d.day} {tugas.BULAN[d.month]}")
+    else:
+        bagian.append("tanpa tenggat")
+    _say_safely(", ".join(bagian) + ".")
+
+
+def _tandai_tugas_selesai(text: str) -> None:
+    t = tugas.tandai(text, selesai=True)
+    if t is None:
+        # Nggak ketemu atau ambigu — minta perjelas daripada nebak tugas mana
+        _say_safely("Tugas yang mana ya? Aku nggak yakin yang kamu maksud.")
+        return
+    sisa = len(tugas.semua())
+    pesan = f"Sip, {t['judul']} aku tandai selesai."
+    pesan += " Tugasmu habis." if sisa == 0 else f" Sisa {sisa} tugas."
+    _say_safely(pesan)
+
+
 def _mulai_bikin_acara(text: str) -> None:
     """Urai ucapan jadi acara, lalu bacain ulang buat dikonfirmasi."""
     global _acara_pending
@@ -400,7 +442,17 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
     if _tangani_konfirmasi(text):
         return
 
-    # 2d. Niat bikin acara baru
+    # 2d. Tugas. WAJIB dicek sebelum niat bikin acara: "catat tugas ..." juga
+    #     cocok sama pola "catat ...", dan kalau salah cabang tugasnya malah
+    #     jadi acara kalender.
+    if tugas.minta_tandai_selesai(text):
+        _tandai_tugas_selesai(text)
+        return
+    if tugas.minta_tambah_tugas(text):
+        _tambah_tugas(text)
+        return
+
+    # 2e. Niat bikin acara baru
     if gcal.aktif() and jadwal_baru.minta_bikin_acara(text):
         _mulai_bikin_acara(text)
         return

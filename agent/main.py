@@ -12,7 +12,18 @@ from typing import Callable
 
 from datetime import datetime
 
-from . import audio, calendar, config, gcal, jadwal_baru, llm, stt, tts, tugas
+from . import (
+    audio,
+    calendar,
+    config,
+    gcal,
+    jadwal_baru,
+    kalender_lokal,
+    llm,
+    stt,
+    tts,
+    tugas,
+)
 
 log = logging.getLogger("agent")
 
@@ -369,12 +380,14 @@ def _tangani_konfirmasi(text: str) -> bool:
         _say_safely("Oke, nggak jadi.")
         return True
 
+    # Kalender lokal didahulukan; Google cuma dipakai kalau lokalnya nggak aktif
+    tujuan = kalender_lokal if kalender_lokal.aktif() else gcal
     try:
-        gcal.bikin_acara(
+        tujuan.bikin_acara(
             acara["judul"], acara["mulai"], acara["selesai"], acara["lokasi"]
         )
     except Exception:
-        log.exception("gagal bikin acara di Google Calendar")
+        log.exception("gagal bikin acara (%s)", tujuan.__name__)
         _say_safely("Maaf, gagal nyimpen ke kalender.")
         return True
 
@@ -453,7 +466,7 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         return
 
     # 2e. Niat bikin acara baru
-    if gcal.aktif() and jadwal_baru.minta_bikin_acara(text):
+    if (kalender_lokal.aktif() or gcal.aktif()) and jadwal_baru.minta_bikin_acara(text):
         _mulai_bikin_acara(text)
         return
 

@@ -423,6 +423,42 @@ mengambil nama matkul dari satu baris tapi lokasinya dari baris tetangga, dan
 salah menentukan kelas terdekat. Prompt-nya juga melarang bentuk jam "setengah
 sembilan" karena sempat kejadian meleset setengah jam dari 09:00.
 
+## Kalender lokal (mandiri penuh)
+
+Satu file `.ics` yang dibaca **dan** ditulisi agent. Nol jaringan, nol akun,
+jalan walau internet mati.
+
+```
+CALENDAR_ICS_FILE=memory/kalender.ics
+```
+
+Format `.ics` standar, jadi kapan pun bisa diimpor balik ke Google atau Outlook.
+Pindah dari Google ke sini:
+
+```powershell
+.\.venv-agent\Scripts\python.exe scripts\ekspor_google_ke_lokal.py
+# lalu kosongkan GOOGLE_CREDENTIALS_FILE di .env
+```
+
+Bayarannya: jadwalmu cuma kelihatan lewat agent — nggak muncul di HP atau
+aplikasi kalender mana pun — dan kalau filenya kehapus, jadwalnya hilang.
+Backup `memory/` kalau itu penting.
+
+### Tanggal diurai tanpa LLM
+
+[waktu_id.py](agent/waktu_id.py) mengurai frasa waktu Bahasa Indonesia secara
+deterministik, dan hasilnya **menimpa** jawaban model. Alasannya diukur:
+
+| | qwen2.5:7b lokal | Sonnet 5 |
+|---|---|---|
+| Tanggal diserahkan ke model | 2/10 benar | 10/10 |
+| Tanggal diurai `waktu_id` | **5/5** | **5/5** |
+
+Model kecil salah "besok" jadi lusa, "hari Jumat" jadi Senin, bahkan setelah
+dikasih tabel tanggal siap pakai. Frasa waktu itu himpunan tertutup dengan
+aturan kaku — lebih tepat dikerjakan kode. Model cukup mengurus judul dan
+lokasi, yang memang butuh pemahaman bahasa.
+
 ## Google Calendar (baca + bikin acara)
 
 Bikin acara lewat suara: *"catat meeting sama dosen besok jam 2 siang"*. Agent

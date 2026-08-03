@@ -14,12 +14,14 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from . import config
+from . import config, waktu_id
 
 log = logging.getLogger(__name__)
 
+HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+
 # Kata kunci niat bikin acara. Dicocokkan lokal buat mutusin apakah ucapan ini
-# perlu diproses jadi acara — bukan buat nentuin isinya (itu tugas LLM).
+# perlu diproses jadi acara â€” bukan buat nentuin isinya (itu tugas LLM).
 _NIAT = (
     "catat", "catetin", "jadwalin", "jadwalkan", "tambahin acara", "tambah acara",
     "bikin acara", "buat acara", "masukin ke kalender", "masukkan ke kalender",
@@ -28,7 +30,7 @@ _NIAT = (
 
 # "ya" sengaja NGGAK di sini: dia sering nempel di akhir kalimat tanya
 # ("hmm apa ya", "gimana ya") dan itu keraguan, bukan persetujuan. Dia cuma
-# dihitung kalau jadi kata pertama — lihat jawaban_ya().
+# dihitung kalau jadi kata pertama â€” lihat jawaban_ya().
 _YA = ("iya", "betul", "bener", "benar", "oke", "ok", "sip", "simpan", "lanjut", "gas", "yoi")
 _TIDAK = ("nggak", "ngga", "gak", "tidak", "bukan", "batal", "salah", "jangan", "no")
 
@@ -72,7 +74,7 @@ def jawaban_ya(teks: str) -> bool | None:
     """True=setuju, False=tolak, None=nggak jelas.
 
     Ragu-ragu sengaja dibaca None, bukan True. Salah tebak di sini artinya
-    nulis acara yang user nggak minta — arah salah yang paling mahal.
+    nulis acara yang user nggak minta â€” arah salah yang paling mahal.
     """
     kata = re.sub(r"[^\w\s]", " ", teks.lower()).split()
     if not kata:
@@ -89,13 +91,68 @@ def jawaban_ya(teks: str) -> bool | None:
     return None
 
 
+def _rakit_waktu(data: dict, tz) -> datetime | None:
+    """Gabungin tanggal + jam jadi datetime, toleran sama format menyimpang.
+
+    Model kecil sering ngembaliin ISO penuh ('2026-08-10T10:00:00+10:00') di
+    kolom tanggal, atau jam berisi detik dan offset. Isinya bener, cuma
+    formatnya beda â€” nolak mentah-mentah cuma bikin gagal tanpa alasan.
+    """
+    tgl_mentah = str(data.get("tanggal") or "").strip()
+    jam_mentah = str(data.get("jam_mulai") or "").strip()
+    if not tgl_mentah:
+        return None
+
+    tgl = tgl_mentah.split("T")[0].split(" ")[0]
+    try:
+        tanggal = datetime.strptime(tgl, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+    jam_bersih = re.split(r"[+Z]", jam_mentah)[0].strip()
+    potong = jam_bersih.split(":")
+    try:
+        jam = int(potong[0])
+        menit = int(potong[1]) if len(potong) > 1 else 0
+    except (ValueError, IndexError):
+        return None
+    if not (0 <= jam <= 23 and 0 <= menit <= 59):
+        return None
+
+    return datetime(tanggal.year, tanggal.month, tanggal.day, jam, menit, tzinfo=tz)
+
+
+def _tabel_tanggal(sekarang: datetime) -> str:
+    """Daftar tanggal siap pakai buat 14 hari ke depan.
+
+    Model kecil sering salah pas disuruh ngitung sendiri 'hari Jumat' itu
+    tanggal berapa â€” terukur 0 dari 6 benar. Ngasih tabelnya langsung jauh
+    lebih andal daripada berharap dia hitung.
+    """
+    baris = []
+    for i in range(15):
+        d = (sekarang + timedelta(days=i)).date()
+        label = HARI[d.weekday()]
+        if i == 0:
+            label += " (hari ini)"
+        elif i == 1:
+            label += " (besok)"
+        elif i == 2:
+            label += " (lusa)"
+        elif i >= 8:
+            label += " (minggu depan)"
+        baris.append(f"  {d.isoformat()} = {label}")
+    return "Tanggal 15 hari ke depan:\n" + "\n".join(baris)
+
+
 def urai(teks: str, oneshot) -> dict | None:
     """Ucapan -> dict acara. `oneshot(system, user) -> str` dari backend LLM."""
     tz = ZoneInfo(config.CALENDAR_TZ)
     sekarang = datetime.now(tz)
     konteks = (
         f"Sekarang {sekarang.strftime('%A, %Y-%m-%d, %H:%M')} "
-        f"({config.CALENDAR_TZ}).\n\nUcapan user: {teks}"
+        f"({config.CALENDAR_TZ}).\n\n"
+        f"{_tabel_tanggal(sekarang)}\n\nUcapan user: {teks}"
     )
 
     mentah = oneshot(PROMPT, konteks, SKEMA)
@@ -105,13 +162,17 @@ def urai(teks: str, oneshot) -> dict | None:
         log.warning("hasil urai bukan JSON: %r", mentah)
         return None
 
-    try:
-        mulai = datetime.strptime(
-            f"{data['tanggal']} {data['jam_mulai']}", "%Y-%m-%d %H:%M"
-        ).replace(tzinfo=tz)
-    except Exception:
+    # Tanggal & jam diurai sendiri dan MENIMPA jawaban model. Frasa waktu itu
+    # himpunan tertutup dengan aturan kaku, sementara model kecil terbukti
+    # nggak bisa diandalkan di sini (qwen2.5:7b: 2 dari 10 benar, bahkan
+    # setelah dikasih tabel tanggal). Model cukup ngurus judul & lokasi.
+    pasti = waktu_id.urai(teks, sekarang)
+    mulai = pasti or _rakit_waktu(data, tz)
+    if mulai is None:
         log.warning("tanggal/jam nggak kebaca: %r", data)
         return None
+    if pasti is not None and _rakit_waktu(data, tz) != pasti:
+        log.info("tanggal/jam dari model dikoreksi jadi %s", pasti)
 
     durasi = int(data.get("durasi_menit") or 60)
     return {
@@ -168,13 +229,18 @@ def urai_tugas(teks: str, oneshot) -> dict | None:
         log.warning("hasil urai tugas nggak kebaca", exc_info=True)
         return None
 
-    tenggat = (data.get("tenggat") or "").strip()
-    if tenggat:
-        try:
-            datetime.strptime(tenggat, "%Y-%m-%d")
-        except ValueError:
-            log.warning("tenggat nggak valid: %r", tenggat)
-            tenggat = ""
+    # Sama kayak acara: tanggal diurai sendiri, jangan diserahin ke model
+    pasti = waktu_id.cari_tanggal(teks, sekarang.date())
+    if pasti is not None:
+        tenggat = pasti.isoformat()
+    else:
+        tenggat = (data.get("tenggat") or "").strip().split("T")[0]
+        if tenggat:
+            try:
+                datetime.strptime(tenggat, "%Y-%m-%d")
+            except ValueError:
+                log.warning("tenggat nggak valid: %r", tenggat)
+                tenggat = ""
 
     judul = (data.get("judul") or "").strip()
     if not judul:
@@ -187,7 +253,6 @@ def urai_tugas(teks: str, oneshot) -> dict | None:
     }
 
 
-HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 BULAN = [
     "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
@@ -202,7 +267,7 @@ def kalimat_konfirmasi(acara: dict) -> str:
     """
     m = acara["mulai"]
     tanggal = f"{HARI[m.weekday()]} {m.day} {BULAN[m.month]}"
-    # Ditulis kata, bukan "7:44" — Piper bakal bacain titik dua itu apa adanya.
+    # Ditulis kata, bukan "7:44" â€” Piper bakal bacain titik dua itu apa adanya.
     # Tetep pakai format 24 jam: "jam 2" ambigu siang/malam, "jam 14" nggak.
     jam = f"jam {m.hour}" + (f" lewat {m.minute}" if m.minute else "")
     teks = f"{acara['judul']}, {tanggal}, {jam}"

@@ -129,6 +129,9 @@ FACTS_MAX_ITEMS = int(os.getenv("FACTS_MAX_ITEMS", "30"))
 # URL-nya RAHASIA: siapa pun yang punya bisa baca seluruh jadwalmu tanpa login.
 # Taruh di .env, jangan di kode. Kosongin buat matiin fitur kalender.
 CALENDAR_ICS_URL = os.getenv("CALENDAR_ICS_URL", "").strip()
+# Kalender lokal: satu file .ics yang dibaca DAN ditulisi agent. Mandiri penuh —
+# nol jaringan, nol akun. Kosongin buat matiin.
+CALENDAR_ICS_FILE = _path(os.getenv("CALENDAR_ICS_FILE", "memory/kalender.ics"))
 CALENDAR_TZ = os.getenv("CALENDAR_TZ", "Australia/Canberra")
 # Berapa hari ke depan yang diselipin ke tiap permintaan
 CALENDAR_DAYS_AHEAD = int(os.getenv("CALENDAR_DAYS_AHEAD", "7"))

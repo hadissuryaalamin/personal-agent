@@ -61,6 +61,12 @@ def _bersihin_judul(summary: str) -> str:
     # Backslash-nya buat jaga-jaga: kalau teksnya belum lewat pelepas escape
     # ICS, koma pemisah masih ketulis '\,'
     teks = re.sub(r"\\?,\s*(Lec|Tut|Com|Lab|Wor|Sem|Dro)\w*\s*$", "", teks.strip())
+    # Buang '(kuliah)' dsb yang nempel di judul acara hasil salinan — tapi cuma
+    # kalau isinya memang nama jenis kelas, biar 'Makan siang (sama Budi)'
+    # nggak ikut terpotong.
+    m = re.match(r"^(.*)\(([^)]+)\)\s*$", teks)
+    if m and m.group(2).strip().lower() in set(JENIS.values()):
+        teks = m.group(1)
     if "_" in teks:
         bagian = [b.strip() for b in teks.split("_") if b.strip()]
         if bagian:
@@ -69,8 +75,15 @@ def _bersihin_judul(summary: str) -> str:
 
 
 def _jenis_kelas(summary: str) -> str:
-    m = re.search(r",\s*(Lec|Tut|Com|Lab|Wor|Sem|Dro)\w*\s*$", summary.strip())
-    return JENIS.get(m.group(1).lower(), "") if m else ""
+    m = re.search(r"\\?,\s*(Lec|Tut|Com|Lab|Wor|Sem|Dro)\w*\s*$", summary.strip())
+    if m:
+        return JENIS.get(m.group(1).lower(), "")
+    # Bentuk kedua: '... (kuliah)' — muncul di acara yang pernah disalin dari
+    # feed ANU ke Google atau ke file lokal, di mana jenisnya ikut ke judul.
+    m = re.match(r"^.*\(([^)]+)\)\s*$", summary.strip())
+    if m and m.group(1).strip().lower() in set(JENIS.values()):
+        return m.group(1).strip().lower()
+    return ""
 
 
 def _kode_matkul(description: str) -> str:
@@ -192,7 +205,20 @@ def _refresh_latar() -> None:
 
 
 def _acara() -> list[dict]:
+    """Acara dari sumber berbasis ICS: file lokal atau feed URL."""
     global _cache, _cache_time
+
+    # File lokal nggak perlu cache/jaringan — baca langsung tiap kali biar
+    # acara yang baru ditulis lewat suara langsung kelihatan.
+    from . import kalender_lokal
+
+    if kalender_lokal.aktif():
+        try:
+            return _parse(kalender_lokal.teks())
+        except Exception:
+            log.warning("kalender lokal nggak keparse", exc_info=True)
+            return []
+
     # Wajib dicek: cache di disk tetep ada walau URL-nya dikosongin. Tanpa ini,
     # acara yang udah dipindah ke Google kebaca dua kali — sekali dari cache
     # basi, sekali dari Google.
@@ -230,9 +256,13 @@ def agenda() -> str:
     Dua sumber, masing-masing opsional: feed ICS dan Google Calendar. Cukup
     salah satu aktif.
     """
-    from . import gcal
+    from . import gcal, kalender_lokal
 
-    if not config.CALENDAR_ICS_URL and not gcal.aktif():
+    if (
+        not config.CALENDAR_ICS_URL
+        and not gcal.aktif()
+        and not kalender_lokal.aktif()
+    ):
         return ""
 
     tz = ZoneInfo(config.CALENDAR_TZ)

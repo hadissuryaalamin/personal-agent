@@ -351,6 +351,17 @@ dengan `MEMORY_ENABLED=false`.
 Penyaringan fakta itu satu panggilan API tambahan per obrolan, dijalanin di latar
 belakang **setelah** dia menjawab — jadi nggak nambah jeda yang kamu rasakan.
 
+### Isi facts.md manual
+
+`MEMORY_AUTO_FACTS=false` mematikan penyaring otomatis; `facts.md` jadi murni
+punyamu. Disarankan kalau otaknya model lokal kecil, yang terbukti dua kali
+bermasalah di sini: pernah membalas `-` doang sehingga seluruh fakta terhapus,
+dan pernah menyimpan fakta yang tidak pernah dikatakan siapa pun.
+
+Fakta karangan itu bahaya yang halus — sekali masuk, dia ikut ke **setiap**
+jawaban berikutnya, dan agent memperlakukannya seperti kebenaran. Kalau
+penyaring otomatis dinyalakan, sesekali buka filenya dan periksa.
+
 ### Yang TIDAK boleh masuk memori
 
 Penyaringnya dilarang menyimpan jadwal kelas, jam, lokasi ruangan, tanggal acara,

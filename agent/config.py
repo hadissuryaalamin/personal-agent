@@ -116,6 +116,12 @@ MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "20"))
 # --- Memori antar-sesi ---
 # Simpan riwayat & fakta ke disk biar nyambung walaupun agent restart.
 MEMORY_ENABLED = os.getenv("MEMORY_ENABLED", "true").lower() in ("1", "true", "yes")
+# Biarin agent nyaring sendiri fakta dari obrolan. Matiin kalau facts.md mau
+# diisi manual — model kecil sering nulis baris kosong atau fakta ngarang, dan
+# fakta ngarang itu diam-diam kebawa ke tiap jawaban berikutnya.
+MEMORY_AUTO_FACTS = os.getenv("MEMORY_AUTO_FACTS", "true").lower() in (
+    "1", "true", "yes",
+)
 MEMORY_DIR = _path(os.getenv("MEMORY_DIR", "memory"))
 # Riwayat yang lebih tua dari ini nggak dimuat lagi. Nyambungin obrolan yang
 # kepotong restart itu berguna dalam hitungan jam; seminggu kemudian, 20 pesan

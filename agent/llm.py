@@ -150,7 +150,7 @@ class _BaseConversation:
         supaya user nggak nunggu — dia udah dapet jawabannya duluan.
         """
         memory.save_history(self.messages)
-        if not config.MEMORY_ENABLED:
+        if not (config.MEMORY_ENABLED and config.MEMORY_AUTO_FACTS):
             return
         threading.Thread(
             target=self._saring_fakta,
@@ -171,7 +171,12 @@ class _BaseConversation:
             if not hasil or hasil.upper().startswith("TIDAK ADA"):
                 return
             # Jaga-jaga kalau modelnya ngoceh di luar format daftar
-            baris = [b for b in hasil.splitlines() if b.strip().startswith("-")]
+            # Baris harus punya isi setelah tanda hubungnya. Tanpa ini, model
+            # kecil yang balas '-' doang bakal ngehapus seluruh fakta.
+            baris = [
+                b for b in hasil.splitlines()
+                if b.strip().startswith("-") and len(b.strip().lstrip("- ")) >= 3
+            ]
             if not baris:
                 log.debug("penyaring fakta balikin format aneh, diabaikan: %r", hasil)
                 return

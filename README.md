@@ -326,9 +326,8 @@ Outlook → Calendar → Share → Publish, atau MyTimetable ANU → Export/Subs
 > jadwalmu tanpa login. Simpan di `.env` (gitignore), jangan di kode. Kalau
 > bocor, cabut dan buat ulang dari setelan kalendermu.
 
-**Cuma bisa baca.** Link ICS itu terbitan satu arah; nggak ada mekanisme buat
-nulis balik, jadi agent nggak bisa bikin acara. Itu butuh API sungguhan dengan
-OAuth (Google Calendar API / Microsoft Graph) — belum dibangun.
+**Link ICS cuma bisa dibaca.** Buat bikin acara, lihat bagian Google Calendar
+di bawah.
 
 Jadwal ditarik paling sering tiap `CALENDAR_CACHE_MINUTES` (default 60) di latar
 belakang, dan salinannya disimpan di `memory/calendar.ics` supaya restart nggak
@@ -343,7 +342,57 @@ mengambil nama matkul dari satu baris tapi lokasinya dari baris tetangga, dan
 salah menentukan kelas terdekat. Prompt-nya juga melarang bentuk jam "setengah
 sembilan" karena sempat kejadian meleset setengah jam dari 09:00.
 
+## Google Calendar (baca + bikin acara)
+
+Bikin acara lewat suara: *"catat meeting sama dosen besok jam 2 siang"*. Agent
+membacakan ulang, kamu bilang "iya", baru tersimpan.
+
+### Setup sekali
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → project baru
+2. **APIs & Services → Library** → *Google Calendar API* → **Enable**
+   (gampang kelewat; gejalanya error 403 `accessNotConfigured`)
+3. **Google Auth Platform → Data Access** → tambah scope
+   `https://www.googleapis.com/auth/calendar.events`
+   ("Scopes" sekarang bernama **Data Access**)
+4. **Google Auth Platform → Audience → PUBLISH APP** → status **In production**
+5. **Google Auth Platform → Clients → Create client → Desktop app** → unduh JSON
+6. Simpan JSON di root repo, lalu di `.env`:
+   `GOOGLE_CREDENTIALS_FILE=client_secret_....json`
+7. Jalankan agent, ucapkan perintah bikin acara → browser terbuka sekali untuk
+   login. Peringatan *"Google hasn't verified this app"* itu wajar → Advanced →
+   Go to (nama app).
+
+> ⚠️ **Langkah 4 wajib.** Kalau status aplikasinya dibiarkan *Testing*, Google
+> membuat refresh token **kedaluwarsa tiap 7 hari** — semuanya jalan seminggu,
+> lalu mati dan minta login ulang, berulang terus.
+
+Scope-nya sengaja `calendar.events`, bukan `calendar` penuh: agent boleh baca
+dan bikin acara, tapi nggak boleh menghapus kalender atau mengubah setelan
+berbagi.
+
+### Kenapa selalu dikonfirmasi
+
+STT-nya punya WER ~8%. Buat pertanyaan, salah dengar cuma bikin jawaban ngawur
+dan langsung ketahuan. Buat penulisan, salah dengar meninggalkan acara palsu di
+kalender yang baru ketahuan minggu depan. Jadi agent selalu membacakan ulang
+dan menunggu persetujuan, dan tiga hal condong ke arah aman:
+
+- **Jawaban ragu = batal**, bukan simpan
+- Kata **"ya" hanya dihitung setuju kalau jadi kata pertama** — *"hmm apa ya"*
+  itu keraguan, dan sempat terbaca sebagai persetujuan sebelum diperbaiki
+- Kalau tanggal/jamnya nggak jelas dari ucapan, acaranya **ditolak** dan kamu
+  diminta mengulang, bukan disimpan dengan tebakan
+
+Konfirmasinya pakai format 24 jam (*"jam 14"*, bukan *"jam 2"*) karena
+ambiguitas siang/malam paling mahal justru di titik ini.
+
+### Kalau jadwal kuliah diimpor ke Google
+
+Kosongkan `CALENDAR_ICS_URL`. Kalau tidak, tiap kelas terbaca dua kali —
+sekali dari feed ANU, sekali dari Google.
+
 ## Belum ada (tahap berikutnya)
 
-Wake word, notifikasi proaktif, bikin acara kalender (butuh OAuth), integrasi LMS,
-baca daftar tugas otomatis.
+Wake word, notifikasi proaktif, integrasi LMS, baca daftar tugas otomatis,
+ubah/hapus acara lewat suara (sekarang cuma bisa bikin).

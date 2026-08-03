@@ -121,7 +121,7 @@ Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file
 | `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`/`xhigh`/`max` |
 | `CLAUDE_THINKING` | `disabled` | Jangan diubah tanpa alasan — lihat catatan di bawah |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
-| `WHISPER_MODEL` | `small` | `tiny`/`base`/`small`/`medium`/`large-v3` |
+| `WHISPER_MODEL` | `small` | Lihat perbandingan di bawah |
 | `WHISPER_DEVICE` | `cpu` | `cuda` **jauh** lebih cepat — lihat di bawah |
 | `WHISPER_COMPUTE` | `int8` | `float16` kalau pakai `cuda` |
 | `PIPER_VOICE` | `models/id_ID-news_tts-medium.onnx` | Path voice `.onnx` |
@@ -197,7 +197,29 @@ nyarinya lewat situ (bukan lewat `add_dll_directory`). [stt.py](agent/stt.py)
 ngurus itu otomatis — kalau tetap muncul `cublas64_12.dll is not found`,
 berarti paket `[gpu]`-nya belum kepasang.
 
-Kalau masih kurang akurat, naikin `WHISPER_MODEL` ke `medium`. Buat ngukur sendiri, nyalain
+### Pilih ukuran Whisper
+
+Varian `.en` dan `distil-*` itu khusus Inggris — nggak berguna buat Bahasa
+Indonesia. Yang relevan: `tiny`, `base`, `small`, `medium`, `large-v3-turbo`,
+`large-v3`.
+
+Diukur di rekaman suara asli, di GPU:
+
+| Ukuran | WER | Per kalimat | Muat model | VRAM |
+|---|---|---|---|---|
+| `small` | 25% | 0,20 dtk | — | ~700 MB |
+| `medium` | 8% | 0,54 dtk | 4,0 dtk | ~1.900 MB |
+| **`large-v3-turbo`** | **8%** | **0,41 dtk** | **2,6 dtk** | ~1.984 MB |
+
+`large-v3-turbo` punya jumlah parameter hampir sama dengan `medium` (809 juta
+lawan 769 juta) tapi dilatih sebagai model besar — hasilnya akurasi setara
+dengan kecepatan lebih baik, jadi itu yang dipakai. Waktu muat penting karena
+model dilepas tiap 15 menit nganggur, jadi ongkosnya dibayar berulang.
+
+`large-v3` penuh (1,55 miliar, ~3,5 GB) sengaja dilewat: digabung qwen 5,4 GB,
+itu melebihi kartu 8 GB.
+
+Kalau masih kurang akurat, coba `large-v3`. Buat ngukur sendiri, nyalain
 `SAVE_RECORDINGS=true` — tiap rekaman disimpan ke `logs/rec/*.wav`, jadi setelan bisa
 diuji ulang di suara asli tanpa perlu ngomong berkali-kali. Matiin lagi kalau selesai.
 

@@ -48,11 +48,15 @@ PROMPT_FAKTA = """Kamu penyaring memori buat asisten pribadi. Tugasmu mutusin ap
 yang layak diingat jangka panjang tentang user dari satu tukar obrolan.
 
 Yang LAYAK diingat: nama, panggilan, kuliah/kerja di mana, orang penting di \
-hidupnya, jadwal rutin, preferensi yang bakal kepakai lagi (cara dipanggil, gaya \
-jawaban yang disuka), proyek yang lagi dikerjain, kondisi yang perlu diperhatiin.
+hidupnya, preferensi yang bakal kepakai lagi (cara dipanggil, gaya jawaban yang \
+disuka), proyek yang lagi dikerjain, kondisi yang perlu diperhatiin.
 
 Yang TIDAK layak: obrolan sekali lewat, pertanyaan pengetahuan umum, hal yang \
 cuma berlaku hari itu, dan apa pun yang udah ada di daftar.
+
+JANGAN PERNAH simpan jadwal kelas, jam kuliah, lokasi ruangan, tanggal acara, \
+atau daftar tugas. Semua itu udah punya sumber sendiri yang selalu terbaru, dan \
+salinan di sini bakal jadi basi lalu membantah sumber aslinya.
 
 Balas dengan daftar fakta LENGKAP yang terbaru, satu per baris, diawali "- ". \
 Gabung atau perbarui yang sudah ada daripada bikin duplikat. Buang yang ternyata \

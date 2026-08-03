@@ -329,6 +329,20 @@ dengan `MEMORY_ENABLED=false`.
 Penyaringan fakta itu satu panggilan API tambahan per obrolan, dijalanin di latar
 belakang **setelah** dia menjawab — jadi nggak nambah jeda yang kamu rasakan.
 
+### Yang TIDAK boleh masuk memori
+
+Penyaringnya dilarang menyimpan jadwal kelas, jam, lokasi ruangan, tanggal acara,
+dan daftar tugas — semuanya sudah punya sumber sendiri yang selalu terbaru.
+
+Ini bukan aturan teoretis: versi awal prompt-nya menyebut "jadwal rutin" sebagai
+contoh hal yang layak diingat, dan `facts.md` langsung terisi tiga baris jam
+kuliah lengkap dengan nomor ruangan. Salinan seperti itu **beku** — kalau ANU
+mengubah jadwal, memorinya jadi salah dan mulai membantah kalender, sambil
+memakan token untuk mengulang informasi yang sudah ada.
+
+Aturan pembatasnya: memori menyimpan hal tentang **kamu** yang nggak punya
+sumber lain. Nama, panggilan, preferensi, alergi, proyek yang lagi dikerjain.
+
 ## Kalender (baca aja)
 
 Agent bisa jawab *"besok ada kelas apa?"*, *"kelas berikutnya di mana?"* kalau

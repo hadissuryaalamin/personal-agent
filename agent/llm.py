@@ -17,6 +17,20 @@ log = logging.getLogger(__name__)
 # Model yang nolak parameter `effort` (400 kalau dikirim). Haiku & Sonnet 4.5
 # generasi lama nggak punya kontrol effort sama sekali.
 _TANPA_EFFORT = ("claude-haiku-4-5", "claude-sonnet-4-5", "claude-haiku-3")
+# Model generasi lama yang kontrol thinking-nya beda bentuk; parameternya
+# nggak dikirim biar nggak ditolak.
+_TANPA_THINKING = ("claude-haiku-3",)
+
+
+def _opsi_model() -> dict:
+    """Parameter yang berbeda-beda per model. Dipisah biar dipakai sama semua
+    pemanggilan (obrolan, penyaring fakta, pengurai acara)."""
+    opsi = {}
+    if config.CLAUDE_EFFORT and not config.CLAUDE_MODEL.startswith(_TANPA_EFFORT):
+        opsi["output_config"] = {"effort": config.CLAUDE_EFFORT}
+    if config.CLAUDE_THINKING and not config.CLAUDE_MODEL.startswith(_TANPA_THINKING):
+        opsi["thinking"] = {"type": config.CLAUDE_THINKING}
+    return opsi
 
 # Buang sisa markup yang kelewat: tag XML, bintang markdown, backtick.
 # Penting karena teksnya dibacakan speaker — "asterisk asterisk" itu ganggu.
@@ -200,19 +214,13 @@ class ClaudeConversation(_BaseConversation):
         client = self._get_client()
         self.messages.append({"role": "user", "content": text})
 
-        kwargs = {}
-        # Effort rendah = balasan cepet. Buat obrolan 1-2 kalimat, mikir dalam
-        # nggak nambah kualitas tapi nambah jeda. Model lama nolak parameternya.
-        if config.CLAUDE_EFFORT and not config.CLAUDE_MODEL.startswith(_TANPA_EFFORT):
-            kwargs["output_config"] = {"effort": config.CLAUDE_EFFORT}
-
         try:
             response = client.messages.create(
                 model=config.CLAUDE_MODEL,
                 max_tokens=config.CLAUDE_MAX_TOKENS,
                 system=self.system_prompt,
                 messages=self.messages,
-                **kwargs,
+                **_opsi_model(),
             )
         except anthropic.AuthenticationError:
             self.messages.pop()
@@ -246,12 +254,14 @@ class ClaudeConversation(_BaseConversation):
         return _clean_for_speech(reply)
 
     def _oneshot(self, system: str, user: str, skema: dict | None = None) -> str:
-        kwargs = {}
+        kwargs = _opsi_model()
         if skema is not None:
             # Structured outputs: jawabannya dijamin JSON yang cocok skema, jadi
             # nggak perlu bersihin teks pembuka atau pagar markdown.
-            kwargs["output_config"] = {
-                "format": {"type": "json_schema", "schema": skema}
+            # Digabung, bukan ditimpa — effort ada di objek yang sama.
+            kwargs.setdefault("output_config", {})["format"] = {
+                "type": "json_schema",
+                "schema": skema,
             }
         response = self._get_client().messages.create(
             model=config.CLAUDE_MODEL,

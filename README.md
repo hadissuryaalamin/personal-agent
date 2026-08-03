@@ -117,8 +117,9 @@ Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file
 | `HOTKEY_BACKEND` | `pynput` | Alternatif: `keyboard` (butuh admin, tapi bisa nelen hotkey) |
 | `LLM_BACKEND` | `claude` | `claude` (API) atau `ollama` (lokal) |
 | `ANTHROPIC_API_KEY` | — | Wajib kalau `LLM_BACKEND=claude` |
-| `CLAUDE_MODEL` | `claude-opus-5` | Mau lebih murah/cepat: `claude-haiku-4-5` |
+| `CLAUDE_MODEL` | `claude-opus-5` | Mau lebih murah: `claude-haiku-4-5` |
 | `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`/`xhigh`/`max` |
+| `CLAUDE_THINKING` | `disabled` | Jangan diubah tanpa alasan — lihat catatan di bawah |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
 | `WHISPER_MODEL` | `small` | `tiny`/`base`/`small`/`medium`/`large-v3` |
 | `WHISPER_DEVICE` | `cpu` | `cuda` **jauh** lebih cepat — lihat di bawah |
@@ -216,6 +217,25 @@ balasan 1–2 kalimat nggak butuh mikir dalam, dan effort rendah bikin jeda lebi
 
 Mau gratis dan offline? Ganti ke `LLM_BACKEND=ollama` — nggak perlu kunci, tapi
 jawabannya lebih lemot dan kurang nyambung.
+
+**`CLAUDE_THINKING=disabled` itu disengaja.** Sonnet 5 dan Opus 5 menyalakan
+adaptive thinking kalau parameternya nggak dikirim, dan `max_tokens` membatasi
+isi pikiran **plus** jawaban sekaligus — jadi balasan bisa terpotong di tengah.
+Untuk asisten suara yang jawabannya 1–2 kalimat, berpikir dalam nggak menambah
+kualitas tapi menambah jeda.
+
+**Perbandingan model** (diukur pada pertanyaan jadwal & tugas asli, thinking
+mati, effort low):
+
+| | Haiku 4.5 | Sonnet 5 |
+|---|---|---|
+| Rata-rata jeda | 2,29 dtk | 2,28 dtk |
+| Harga /1jt token | $1 / $5 | $3 / $15 |
+| Akurasi | benar | benar |
+
+Jedanya praktis sama. Sonnet menang di keringkasan jawaban (enak buat
+dibacakan), Haiku menang telak di biaya. Beban kerja di sini — balasan pendek,
+konteks kecil — nggak memberi Sonnet ruang buat unggul jauh.
 
 **Ganti model Ollama:** `ollama pull <model>` terus set `OLLAMA_MODEL=<model>` di `.env`.
 

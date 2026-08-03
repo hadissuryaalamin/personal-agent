@@ -39,6 +39,11 @@ LLM_BACKEND = os.getenv("LLM_BACKEND", "claude").lower()
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
 # low/medium/high/xhigh/max. Buat obrolan pendek, "low" paling kenceng.
 CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "low")
+# "disabled" / "adaptive" / kosong (jangan kirim parameternya).
+# Default disabled: balasan di sini cuma 1-2 kalimat, mikir dalam nggak nambah
+# kualitas tapi nambah jeda — dan di Sonnet 5 thinking NYALA kalau parameternya
+# nggak dikirim, yang bikin max_tokens kebagi dua sama isi pikirannya.
+CLAUDE_THINKING = os.getenv("CLAUDE_THINKING", "disabled").strip().lower()
 CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "1024"))
 CLAUDE_TIMEOUT = float(os.getenv("CLAUDE_TIMEOUT", "60"))
 

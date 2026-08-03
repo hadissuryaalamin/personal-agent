@@ -70,12 +70,19 @@ class _BaseConversation:
 
     @property
     def system_prompt(self) -> str:
-        """System prompt + waktu sekarang + fakta + jadwal, disusun tiap giliran.
+        """Seluruh system prompt sebagai satu teks (dipakai Ollama & _oneshot)."""
+        stabil, berubah = self._bagian_prompt()
+        return stabil + "\n\n" + berubah
 
-        Disusun ulang (bukan di-cache) supaya jam terus akurat dan suntingan
-        manual di facts.md langsung kepakai tanpa restart.
+    def _bagian_prompt(self) -> tuple[str, str]:
+        """Pisah yang jarang berubah dari yang berubah tiap menit.
+
+        Prompt caching itu cocok-awalan: sekali ada byte yang beda, semua yang
+        di belakangnya ikut batal. Jam sekarang berubah tiap menit, jadi kalau
+        ditaruh di depan, fakta + jadwal + tugas ikut kebuang dari cache terus.
+        Makanya jam ditaruh paling belakang.
         """
-        bagian = [self.base_prompt, calendar.konteks_waktu()]
+        bagian = [self.base_prompt]
 
         fakta = memory.read_facts()
         if fakta:
@@ -116,7 +123,7 @@ class _BaseConversation:
                 "satu atau dua yang paling mendesak, jangan bacakan semuanya."
             )
 
-        return "\n\n".join(bagian)
+        return "\n\n".join(bagian), calendar.konteks_waktu()
 
     def reset(self) -> None:
         self.messages = []
@@ -214,11 +221,21 @@ class ClaudeConversation(_BaseConversation):
         client = self._get_client()
         self.messages.append({"role": "user", "content": text})
 
+        stabil, berubah = self._bagian_prompt()
         try:
             response = client.messages.create(
                 model=config.CLAUDE_MODEL,
                 max_tokens=config.CLAUDE_MAX_TOKENS,
-                system=self.system_prompt,
+                # Bagian stabil ditandai buat di-cache; jam sekarang nyusul di
+                # blok terpisah supaya pergantian menit nggak ngebatalin cache.
+                system=[
+                    {
+                        "type": "text",
+                        "text": stabil,
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {"type": "text", "text": berubah},
+                ],
                 messages=self.messages,
                 **_opsi_model(),
             )
@@ -244,10 +261,13 @@ class ClaudeConversation(_BaseConversation):
 
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
+        u = response.usage
         log.info(
-            "LLM claude (%d in / %d out): %s",
-            response.usage.input_tokens,
-            response.usage.output_tokens,
+            "LLM claude (%d in / %d out | cache: %d baca, %d tulis): %s",
+            u.input_tokens,
+            u.output_tokens,
+            u.cache_read_input_tokens or 0,
+            u.cache_creation_input_tokens or 0,
             reply,
         )
         self._selesai_giliran(text, reply)

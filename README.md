@@ -353,6 +353,29 @@ Jadwal ditarik paling sering tiap `CALENDAR_CACHE_MINUTES` (default 60) di latar
 belakang, dan salinannya disimpan di `memory/calendar.ics` supaya restart nggak
 perlu nunggu jaringan dan tetap jalan waktu offline.
 
+### Kenapa jadwalnya dikirim ulang terus
+
+Model Claude itu **tanpa ingatan** — tiap permintaan ke API berdiri sendiri.
+Nggak ada "sudah aku kasih tahu tadi": semua yang perlu dia ketahui harus ikut
+dikirim ulang setiap kali, termasuk seluruh riwayat obrolan. Jadi "lihat sekali
+saja" secara harfiah nggak mungkin.
+
+Yang bisa dilakukan: bikin kiriman berulang itu **10x lebih murah** lewat prompt
+caching. Bagian yang jarang berubah (prompt dasar, fakta, jadwal, tugas) ditandai
+buat di-cache; bacaan berikutnya cuma dihitung 0,1x harga.
+
+**Urutannya menentukan.** Cache itu cocok-awalan: sekali ada satu byte berbeda,
+semua yang di belakangnya ikut batal. Jam sekarang berubah tiap menit, jadi kalau
+ditaruh di depan, seluruh isi di belakangnya ikut terbuang tiap menit. Terukur:
+
+| Susunan | Menit 15:57 | Menit 15:58 |
+|---|---|---|
+| Jam di depan | 0 token dari cache | 0 token dari cache |
+| **Jam di belakang** | **1.585 dari cache** | **1.585 dari cache** |
+
+Makanya `_bagian_prompt()` di [llm.py](agent/llm.py) memisahkan yang stabil dari
+yang berubah, dan jam sengaja ditaruh paling belakang.
+
 ### Seberapa jauh agent bisa lihat
 
 Isi agenda ikut dikirim di **setiap** permintaan, jadi jendelanya nggak bisa

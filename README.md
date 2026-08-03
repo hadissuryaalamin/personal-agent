@@ -387,6 +387,44 @@ dan menunggu persetujuan, dan tiga hal condong ke arah aman:
 Konfirmasinya pakai format 24 jam (*"jam 14"*, bukan *"jam 2"*) karena
 ambiguitas siang/malam paling mahal justru di titik ini.
 
+### Mencabut akses
+
+Agent memegang tiga hal yang bisa kamu tarik kembali kapan saja. Urutannya dari
+yang paling ringan:
+
+**1. Matikan sementara** — di `.env`, kosongkan barisnya lalu restart agent:
+
+```
+GOOGLE_CREDENTIALS_FILE=      # matikan akses Google Calendar
+CALENDAR_ICS_URL=             # matikan pembacaan jadwal ANU
+MEMORY_ENABLED=false          # matikan ingatan antar-sesi
+```
+
+**2. Cabut izin Google** (agent nggak bisa lagi menyentuh kalendermu):
+
+- Buka [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
+- Cari nama app-mu → **Hapus akses**
+- Hapus juga token lokalnya: `del e:\personal-agent\memory\google_token.json`
+
+Setelah ini agent akan minta login lagi kalau kamu pakai fitur kalender.
+Untuk mencabut permanen, hapus juga OAuth client-nya di
+**Google Cloud Console → Google Auth Platform → Clients**, lalu hapus file
+`client_secret_*.json` dari folder repo.
+
+**3. Cabut link ICS jadwal kuliah** (kalau URL-nya pernah bocor) — buka
+MyTimetable ANU, terbitkan ulang link iCal-nya. URL lama langsung mati, lalu
+ganti `CALENDAR_ICS_URL` di `.env` dengan yang baru.
+
+**4. Hapus data lokal:**
+
+```powershell
+Remove-Item e:\personal-agent\memory -Recurse   # riwayat, fakta, token, cache kalender
+Remove-Item e:\personal-agent\logs -Recurse     # log aktivitas
+```
+
+Bilang *"lupakan semua"* ke agent juga menghapus riwayat dan fakta, tapi tidak
+menyentuh token Google maupun log.
+
 ### Kalau jadwal kuliah diimpor ke Google
 
 Kosongkan `CALENDAR_ICS_URL`. Kalau tidak, tiap kelas terbaca dua kali —

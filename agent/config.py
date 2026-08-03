@@ -132,6 +132,10 @@ CALENDAR_ICS_URL = os.getenv("CALENDAR_ICS_URL", "").strip()
 CALENDAR_TZ = os.getenv("CALENDAR_TZ", "Australia/Canberra")
 # Berapa hari ke depan yang diselipin ke tiap permintaan
 CALENDAR_DAYS_AHEAD = int(os.getenv("CALENDAR_DAYS_AHEAD", "7"))
+# Sejauh mana dilihat DI LUAR jendela rinci di atas. Yang dikirim cuma acara
+# yang menyimpang dari pola mingguan (ujian, kelas pengganti, acara pribadi) —
+# kelas rutin dilewat karena udah kewakili di jendela rinci. 0 = matikan.
+CALENDAR_LOOKAHEAD_DAYS = int(os.getenv("CALENDAR_LOOKAHEAD_DAYS", "90"))
 # Jadwal kuliah jarang berubah, jadi nggak perlu ditarik tiap ditanya
 CALENDAR_CACHE_MINUTES = float(os.getenv("CALENDAR_CACHE_MINUTES", "60"))
 CALENDAR_TIMEOUT = float(os.getenv("CALENDAR_TIMEOUT", "20"))

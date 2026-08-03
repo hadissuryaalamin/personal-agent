@@ -246,9 +246,12 @@ def agenda() -> str:
     # Google, kosongin CALENDAR_ICS_URL — kalau nggak, tiap kelas kebaca dua kali.
     from . import gcal
 
+    jangkauan = max(
+        config.CALENDAR_DAYS_AHEAD + 1, config.CALENDAR_LOOKAHEAD_DAYS
+    )
     if gcal.aktif():
         try:
-            semua += gcal.ambil_acara(config.CALENDAR_DAYS_AHEAD + 1)
+            semua += gcal.ambil_acara(jangkauan)
         except Exception:
             log.warning("gagal ambil acara Google", exc_info=True)
 
@@ -291,7 +294,51 @@ def agenda() -> str:
         baris.append(_label_hari(d, hari_ini) + ":")
         for e in per_hari[d]:
             baris.append("  " + _satu_baris(e, hari_ini, dengan_hari=False))
+
+    luar = _di_luar_pola(semua, per_hari, hari_ini, batas)
+    if luar:
+        baris.append("")
+        baris.append(
+            f"Di luar {config.CALENDAR_DAYS_AHEAD} hari itu, yang menyimpang dari "
+            "pola mingguan (kelas rutin nggak diulang di sini):"
+        )
+        baris.extend("  " + b for b in luar)
     return "\n".join(baris)
+
+
+def _sidik(e: dict) -> tuple:
+    """Ciri acara buat ngenali pola mingguan: hari + jam + judul."""
+    if e["sepanjang_hari"]:
+        return ("harian", e["judul"])
+    return (e["mulai"].weekday(), e["mulai"].strftime("%H:%M"), e["judul"])
+
+
+def _di_luar_pola(
+    semua: list[dict], per_hari: dict, hari_ini: date, batas: date
+) -> list[str]:
+    """Acara jauh di depan yang BUKAN pengulangan kelas mingguan.
+
+    Jadwal kuliah berulang tiap minggu, jadi minggu kedua isinya sama persis
+    dengan minggu pertama. Ngirim semuanya ke tiap permintaan itu bayar mahal
+    buat informasi yang sama berulang-ulang. Yang beneran belum kelihatan dari
+    jendela rinci cuma yang menyimpang: ujian, kelas pengganti, acara pribadi.
+    """
+    if config.CALENDAR_LOOKAHEAD_DAYS <= 0:
+        return []
+
+    rutin = {_sidik(e) for hari in per_hari.values() for e in hari}
+    ujung = hari_ini + timedelta(days=config.CALENDAR_LOOKAHEAD_DAYS)
+
+    hasil = []
+    for e in semua:
+        d = e["mulai"].date() if not e["sepanjang_hari"] else e["mulai"]
+        if not (batas <= d < ujung):
+            continue
+        if _sidik(e) in rutin:
+            continue
+        rutin.add(_sidik(e))  # jangan diulang kalau dia sendiri berulang
+        hasil.append(_satu_baris(e, hari_ini))
+    return hasil
 
 
 def _satu_baris(e: dict, hari_ini: date, dengan_hari: bool = True) -> str:

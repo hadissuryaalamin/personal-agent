@@ -353,6 +353,30 @@ Jadwal ditarik paling sering tiap `CALENDAR_CACHE_MINUTES` (default 60) di latar
 belakang, dan salinannya disimpan di `memory/calendar.ics` supaya restart nggak
 perlu nunggu jaringan dan tetap jalan waktu offline.
 
+### Seberapa jauh agent bisa lihat
+
+Isi agenda ikut dikirim di **setiap** permintaan, jadi jendelanya nggak bisa
+asal dilebarkan. Diukur pada jadwal kuliah asli:
+
+| Jendela | Baris | Token/permintaan |
+|---|---|---|
+| 7 hari | 7 | 1.477 |
+| 30 hari polos | 33 | 2.951 |
+| 90 hari polos | 76 | 5.417 |
+| **7 hari + luar-pola** | 9 | **1.631** |
+
+Baris terakhir itu yang dipakai. Jadwal kuliah **berulang mingguan** — minggu
+kedua isinya sama persis dengan minggu pertama, jadi mengirim 90 hari secara
+polos berarti membayar mahal untuk mengulang informasi yang sama tujuh kali.
+
+Yang benar-benar belum terlihat dari jendela 7 hari cuma yang **menyimpang dari
+pola**: ujian, kelas pengganti, deadline, acara pribadi. Jadi di luar
+`CALENDAR_DAYS_AHEAD` (7), agent cuma menerima acara yang ciri hari+jam+judulnya
+belum muncul di jendela rinci, sampai sejauh `CALENDAR_LOOKAHEAD_DAYS` (90).
+
+Hasilnya 96% lebih murah dari mengirim 90 hari polos, dan justru memunculkan
+yang berguna. Set `CALENDAR_LOOKAHEAD_DAYS=0` kalau mau matikan.
+
 ### Kenapa formatnya berkolom
 
 Agenda yang diselipin ke prompt berbentuk `jam | kode & nama | jenis | lokasi`,

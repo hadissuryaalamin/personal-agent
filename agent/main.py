@@ -388,10 +388,39 @@ def _wants_forget(text: str) -> bool:
 _pending_event: dict | None = None
 
 
+# Tugas yang lagi dikumpulin datanya, belum disimpen.
+#
+# Dulu tugas langsung disimpen apa pun isinya, dan hasilnya entri kayak
+#   {'title': 'Assignment', 'due': '2026-08-19', 'course': '', 'estimate_hours': 0}
+# dari ucapan "add some assignment for uh fourteen deadline" — judul generik,
+# tenggat SALAH (dibilang 14, kesimpen 19), matkul & lama ngerjain kosong.
+# Entri kayak gitu nggak bisa dipakai mutusin apa pun, dan kesimpen diem-diem
+# tanpa dibacain ulang.
+_pending_task: dict | None = None
+
+
+def _tanggal_ucap(iso: str) -> str:
+    d = datetime.strptime(iso, "%Y-%m-%d").date()
+    return f"{tugas.DAYS[d.weekday()]} {tugas.MONTHS[d.month]} {d.day}"
+
+
+def _bacain_tugas(t: dict) -> str:
+    jam = t["estimate_hours"]
+    jam_ucap = f"{jam:g} hour" + ("" if jam == 1 else "s")
+    return (
+        f"{t['title']} for {t['course']}, due {_tanggal_ucap(t['due'])}, "
+        f"about {jam_ucap}. Save it?"
+    )
+
+
 def _add_task(text: str) -> None:
-    """Tasks skip the confirmation step that events get: a wrong task is easy to
-    fix and doesn't clutter a calendar. It's still read back so you know what
-    was stored."""
+    """Kumpulin dulu sampai lengkap, baru bacain, baru simpen.
+
+    Beda dari sebelumnya yang langsung nyimpen apa adanya. Tugas setengah isi
+    itu lebih buruk daripada nggak ada tugas: dia nongol di daftar, keitung pas
+    ditanya "hari ini ngerjain apa", tapi nggak bisa dipakai mutusin apa-apa.
+    """
+    global _pending_task
     try:
         t = jadwal_baru.parse_task(text, llm.get_conversation()._oneshot)
     except Exception:
@@ -403,17 +432,71 @@ def _add_task(text: str) -> None:
         _say_safely("Sorry, that task wasn't clear. Could you say it again?")
         return
 
-    tugas.add(t["title"], t["due"], t["course"], t["estimate_hours"])
+    # Pengurai deterministik nimpa model buat field yang bisa diurai pasti —
+    # alasan yang sama kayak time_en di acara kalender.
+    t.update(tugas.ekstrak(text))
+    _pending_task = t
+    _lanjutin_tugas()
 
-    parts = [f"Got it, I've added {t['title']}"]
-    if t["course"]:
-        parts.append(f"for {t['course']}")
-    if t["due"]:
-        d = datetime.strptime(t["due"], "%Y-%m-%d").date()
-        parts.append(f"due {tugas.DAYS[d.weekday()]} {tugas.MONTHS[d.month]} {d.day}")
-    else:
-        parts.append("with no deadline")
-    _say_safely(", ".join(parts) + ".")
+
+def _lanjutin_tugas() -> None:
+    """Tanyain yang kurang, atau bacain kalau udah lengkap."""
+    t = _pending_task
+    if t is None:
+        return
+    hilang = tugas.kurang(t)
+    if hilang:
+        log.info("tugas belum lengkap, kurang %s: %r", hilang, t)
+        _say_safely(tugas.kalimat_kurang(hilang))
+        return
+    log.info("tugas nunggu konfirmasi: %r", t)
+    _say_safely(_bacain_tugas(t))
+
+
+def _handle_task_followup(text: str) -> bool:
+    """Jawaban buat tugas yang lagi dikumpulin. True = udah ditangani.
+
+    Dicek sebelum niat lain, karena "ENGN4122" atau "about eight hours" itu
+    nggak kelihatan kayak niat apa pun — tanpa ini jawabannya nyasar ke model.
+    """
+    global _pending_task
+    if _pending_task is None:
+        return False
+
+    jawab = jadwal_baru.answer_yes(text)
+
+    # Batalin duluan: "cancel" harus menang walau kalimatnya juga ngandung
+    # potongan yang bisa diurai.
+    if jawab is False:
+        log.info("tugas dibatalin user")
+        _pending_task = None
+        _say_safely("Okay, dropped it.")
+        return True
+
+    lengkap = not tugas.kurang(_pending_task)
+    if lengkap and jawab is True:
+        t = _pending_task
+        _pending_task = None
+        tugas.add(t["title"], t["due"], t["course"], t["estimate_hours"])
+        _say_safely(f"Saved. {t['title']} due {_tanggal_ucap(t['due'])}.")
+        return True
+
+    # Bukan ya/nggak — berarti isian buat field yang kurang.
+    baru = tugas.ekstrak(text)
+    if not baru:
+        if lengkap:
+            # Udah dibacain tapi jawabannya nggak jelas. Jangan nebak: nyimpen
+            # tugas yang nggak disetujui itu arah yang mahal.
+            _pending_task = None
+            _say_safely("I wasn't sure what you said, so I didn't save it.")
+            return True
+        _say_safely("Sorry, I didn't catch that. " + tugas.kalimat_kurang(tugas.kurang(_pending_task)))
+        return True
+
+    _pending_task.update(baru)
+    log.info("tugas dapet tambahan %r", baru)
+    _lanjutin_tugas()
+    return True
 
 
 def _mark_task_done(text: str) -> None:
@@ -551,6 +634,12 @@ def _route_and_reply(text: str) -> None:
 
     # b. Waiting on an event confirmation? This answer belongs to that.
     if _handle_confirmation(text):
+        return
+
+    # b2. Lagi ngumpulin data tugas? Jawabannya milik itu. Harus sebelum niat
+    #     lain: "ENGN4122" atau "about eight hours" nggak kelihatan kayak niat
+    #     apa pun, jadi tanpa ini jawabanmu nyasar ke model.
+    if _handle_task_followup(text):
         return
 
     # c. Tasks. MUST be checked before the event intent: "add a task ..." also

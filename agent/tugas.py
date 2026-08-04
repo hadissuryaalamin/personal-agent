@@ -131,6 +131,83 @@ def mark(rough_title: str, done: bool = True) -> dict | None:
         return items[idx]
 
 
+# --- Kelengkapan & pengisian bertahap ---------------------------------------
+#
+# Tugas nggak disimpen kalau belum lengkap. Terukur dari kejadian nyata:
+# "can you add some assignment for uh fourteen deadline?" nyimpen
+#   {'title': 'Assignment', 'due': '2026-08-19', 'course': '', 'estimate_hours': 0}
+# Judulnya generik, tenggatnya SALAH (dibilang 14, disimpen 19), matkul & lama
+# ngerjain kosong. Entri kayak gitu nggak bisa dipakai buat mutusin apa pun —
+# dan diem-diem kesimpen tanpa dibacain ulang.
+#
+# Tiga field ini wajib karena itu yang dipakai buat mutusin "hari ini ngerjain
+# apa": tenggat (mendesak apa nggak), matkul (punya siapa), perkiraan jam
+# (muat nggak di sela kuliah).
+WAJIB = ("due", "course", "estimate_hours")
+
+_LABEL = {
+    "due": "the deadline",
+    "course": "which course it's for",
+    "estimate_hours": "roughly how many hours it'll take",
+}
+
+_ANGKA_KATA = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "fifteen": 15, "twenty": 20, "half": 0.5, "an": 1, "a": 1,
+}
+
+_KODE = re.compile(r"\b([a-z]{4})\s?(\d{4})\b", re.I)
+_JAM = re.compile(
+    r"\b(\d+(?:\.\d+)?|" + "|".join(_ANGKA_KATA) + r")\s*(?:and a half\s*)?h(?:ou)?rs?\b",
+    re.I,
+)
+
+
+def kurang(t: dict) -> list[str]:
+    """Field wajib yang masih kosong."""
+    return [k for k in WAJIB if not t.get(k)]
+
+
+def kalimat_kurang(hilang: list[str]) -> str:
+    """'I still need the deadline and which course it's for.'"""
+    label = [_LABEL[k] for k in hilang]
+    if len(label) == 1:
+        isi = label[0]
+    elif len(label) == 2:
+        isi = f"{label[0]} and {label[1]}"
+    else:
+        isi = ", ".join(label[:-1]) + f", and {label[-1]}"
+    return f"I still need {isi}."
+
+
+def ekstrak(text: str, hari_ini: date | None = None) -> dict:
+    """Ambil potongan yang kebaca dari jawaban pendek. Yang nggak ada, nggak
+    dimasukin — jadi aman buat nambal dict yang udah ada."""
+    from . import time_en
+
+    keluar: dict = {}
+
+    m = _KODE.search(text)
+    if m:
+        keluar["course"] = f"{m.group(1).upper()}{m.group(2)}"
+
+    m = _JAM.search(text)
+    if m:
+        angka = m.group(1).lower()
+        jam = float(angka) if angka.replace(".", "", 1).isdigit() else _ANGKA_KATA.get(angka, 0)
+        if "and a half" in text.lower():
+            jam += 0.5
+        if jam:
+            keluar["estimate_hours"] = jam
+
+    d = time_en.find_date(text, hari_ini or datetime.now(ZoneInfo(config.CALENDAR_TZ)).date())
+    if d:
+        keluar["due"] = d.isoformat()
+
+    return keluar
+
+
 def clear_all() -> None:
     with _lock:
         _save([])

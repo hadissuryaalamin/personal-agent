@@ -6,29 +6,12 @@ import logging
 import logging.handlers
 import os
 import pathlib
-import re
 import sys
 import threading
 import time
 from typing import Callable
 
-from datetime import datetime
-
-from . import (
-    audio,
-    calendar,
-    config,
-    gcal,
-    jadwal_baru,
-    jawab_pasti,
-    kalender_lokal,
-    llm,
-    stt,
-    tts,
-    teks,
-    tugas,
-    vad,
-)
+from . import audio, config, llm, stt, teks, tts, vad
 
 log = logging.getLogger("agent")
 
@@ -366,210 +349,6 @@ def make_backend(on_activate):
 
 # Memory-wipe phrases. Matched locally, not through the LLM: an irreversible
 # command must not hinge on a model's guess.
-_FORGET_PHRASES = (
-    "forget everything",
-    "forget it all",
-    "erase your memory",
-    "clear your memory",
-    "wipe your memory",
-    "delete your memory",
-    "forget what you know about me",
-)
-
-
-def _wants_forget(text: str) -> bool:
-    clean = re.sub(r"[^\w\s]", " ", text.lower())
-    clean = re.sub(r"\s+", " ", clean).strip()
-    return any(f in clean for f in _FORGET_PHRASES)
-
-
-# An event read back but not yet saved. Confirmation is deliberate: a mishearing
-# on a write leaves a bogus entry that only surfaces next week.
-_pending_event: dict | None = None
-
-
-# Tugas yang lagi dikumpulin datanya, belum disimpen.
-#
-# Dulu tugas langsung disimpen apa pun isinya, dan hasilnya entri kayak
-#   {'title': 'Assignment', 'due': '2026-08-19', 'course': '', 'estimate_hours': 0}
-# dari ucapan "add some assignment for uh fourteen deadline" — judul generik,
-# tenggat SALAH (dibilang 14, kesimpen 19), matkul & lama ngerjain kosong.
-# Entri kayak gitu nggak bisa dipakai mutusin apa pun, dan kesimpen diem-diem
-# tanpa dibacain ulang.
-_pending_task: dict | None = None
-
-
-def _tanggal_ucap(iso: str) -> str:
-    d = datetime.strptime(iso, "%Y-%m-%d").date()
-    return f"{tugas.DAYS[d.weekday()]} {tugas.MONTHS[d.month]} {d.day}"
-
-
-def _bacain_tugas(t: dict) -> str:
-    jam = t["estimate_hours"]
-    jam_ucap = f"{jam:g} hour" + ("" if jam == 1 else "s")
-    return (
-        f"{t['title']} for {t['course']}, due {_tanggal_ucap(t['due'])}, "
-        f"about {jam_ucap}. Save it?"
-    )
-
-
-def _add_task(text: str) -> None:
-    """Kumpulin dulu sampai lengkap, baru bacain, baru simpen.
-
-    Beda dari sebelumnya yang langsung nyimpen apa adanya. Tugas setengah isi
-    itu lebih buruk daripada nggak ada tugas: dia nongol di daftar, keitung pas
-    ditanya "hari ini ngerjain apa", tapi nggak bisa dipakai mutusin apa-apa.
-    """
-    global _pending_task
-    try:
-        t = jadwal_baru.parse_task(text, llm.get_conversation()._oneshot)
-    except Exception:
-        log.exception("failed to parse task")
-        _say_safely("Sorry, I didn't catch the task.")
-        return
-
-    if t is None:
-        _say_safely("Sorry, that task wasn't clear. Could you say it again?")
-        return
-
-    # Pengurai deterministik nimpa model buat field yang bisa diurai pasti —
-    # alasan yang sama kayak time_en di acara kalender.
-    t.update(tugas.ekstrak(text))
-    _pending_task = t
-    _lanjutin_tugas()
-
-
-def _lanjutin_tugas() -> None:
-    """Tanyain yang kurang, atau bacain kalau udah lengkap."""
-    t = _pending_task
-    if t is None:
-        return
-    hilang = tugas.kurang(t)
-    if hilang:
-        log.info("tugas belum lengkap, kurang %s: %r", hilang, t)
-        _say_safely(tugas.kalimat_kurang(hilang))
-        return
-    log.info("tugas nunggu konfirmasi: %r", t)
-    _say_safely(_bacain_tugas(t))
-
-
-def _handle_task_followup(text: str) -> bool:
-    """Jawaban buat tugas yang lagi dikumpulin. True = udah ditangani.
-
-    Dicek sebelum niat lain, karena "ENGN4122" atau "about eight hours" itu
-    nggak kelihatan kayak niat apa pun — tanpa ini jawabannya nyasar ke model.
-    """
-    global _pending_task
-    if _pending_task is None:
-        return False
-
-    jawab = jadwal_baru.answer_yes(text)
-
-    # Batalin duluan: "cancel" harus menang walau kalimatnya juga ngandung
-    # potongan yang bisa diurai.
-    if jawab is False:
-        log.info("tugas dibatalin user")
-        _pending_task = None
-        _say_safely("Okay, dropped it.")
-        return True
-
-    lengkap = not tugas.kurang(_pending_task)
-    if lengkap and jawab is True:
-        t = _pending_task
-        _pending_task = None
-        tugas.add(t["title"], t["due"], t["course"], t["estimate_hours"])
-        _say_safely(f"Saved. {t['title']} due {_tanggal_ucap(t['due'])}.")
-        return True
-
-    # Bukan ya/nggak — berarti isian buat field yang kurang.
-    baru = tugas.ekstrak(text)
-    if not baru:
-        if lengkap:
-            # Udah dibacain tapi jawabannya nggak jelas. Jangan nebak: nyimpen
-            # tugas yang nggak disetujui itu arah yang mahal.
-            _pending_task = None
-            _say_safely("I wasn't sure what you said, so I didn't save it.")
-            return True
-        _say_safely("Sorry, I didn't catch that. " + tugas.kalimat_kurang(tugas.kurang(_pending_task)))
-        return True
-
-    _pending_task.update(baru)
-    log.info("tugas dapet tambahan %r", baru)
-    _lanjutin_tugas()
-    return True
-
-
-def _mark_task_done(text: str) -> None:
-    t = tugas.mark(text, done=True)
-    if t is None:
-        # Nothing matched, or two matched — ask rather than guess which one
-        _say_safely("Which task do you mean? I'm not sure.")
-        return
-    left = len(tugas.all_tasks())
-    msg = f"Done, I've marked {t['title']} complete."
-    msg += " That's everything." if left == 0 else f" {left} left."
-    _say_safely(msg)
-
-
-def _start_event(text: str) -> None:
-    """Parse the utterance into an event, then read it back for confirmation."""
-    global _pending_event
-    try:
-        event = jadwal_baru.parse_event(text, llm.get_conversation()._oneshot)
-    except Exception:
-        log.exception("failed to parse event")
-        _say_safely("Sorry, I didn't catch the event details.")
-        return
-
-    if event is None or not event["confident"]:
-        log.info("event details unclear: %r", event)
-        _say_safely("Sorry, the date or time wasn't clear. Could you say it in full?")
-        return
-
-    _pending_event = event
-    log.info("event awaiting confirmation: %r", event)
-    _say_safely(jadwal_baru.confirmation_line(event))
-
-
-def _handle_confirmation(text: str) -> bool:
-    """True when this utterance was consumed as a confirmation answer."""
-    global _pending_event
-    if _pending_event is None:
-        return False
-
-    answer = jadwal_baru.answer_yes(text)
-    if answer is None:
-        # Neither yes nor no — drop it rather than guess. Guessing wrong here
-        # writes an event the user never asked for.
-        _pending_event = None
-        log.info("confirmation unclear, event discarded")
-        _say_safely("I wasn't sure what you said, so I didn't save it.")
-        return True
-
-    event = _pending_event
-    _pending_event = None
-
-    if not answer:
-        log.info("event cancelled by user")
-        _say_safely("Okay, cancelled.")
-        return True
-
-    # Local calendar takes precedence; Google only when local is off
-    target = kalender_lokal if kalender_lokal.aktif() else gcal
-    try:
-        target.bikin_acara(
-            event["title"], event["start"], event["end"], event["location"]
-        )
-    except Exception:
-        log.exception("failed to create event (%s)", target.__name__)
-        _say_safely("Sorry, I couldn't save that to your calendar.")
-        return True
-
-    calendar.refresh(paksa=True)  # so the agenda shows it right away
-    _say_safely("Saved to your calendar.")
-    return True
-
-
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
     """Satu putaran: rekam -> transcribe -> LLM -> ngomong."""
     # 0. Kalau model lagi terlepas, mulai muat SEKARANG — barengan sama user
@@ -622,57 +401,12 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
 
 
 def _route_and_reply(text: str) -> None:
-    """Percabangan niat + jawaban. Dipakai bareng mode pencet dan mode sesi.
+    """Satu titik masuk buat mode pencet maupun mode sesi.
 
-    Urutannya PENTING dan nggak boleh diubah — lihat komentar tiap cabang.
+    Sekarang cuma nerusin ke LLM. Bentuknya dipertahankan sebagai fungsi
+    terpisah karena di sinilah percabangan niat bakal nempel kalau nanti ada
+    fitur lagi — dan urutan pengecekannya pernah kebukti gampang salah.
     """
-    # a. Memory wipe — handled locally, never sent to the LLM
-    if _wants_forget(text):
-        llm.get_conversation().forget()
-        _say_safely("Okay, I've erased everything I knew about you.")
-        return
-
-    # b. Waiting on an event confirmation? This answer belongs to that.
-    if _handle_confirmation(text):
-        return
-
-    # b2. Lagi ngumpulin data tugas? Jawabannya milik itu. Harus sebelum niat
-    #     lain: "ENGN4122" atau "about eight hours" nggak kelihatan kayak niat
-    #     apa pun, jadi tanpa ini jawabanmu nyasar ke model.
-    if _handle_task_followup(text):
-        return
-
-    # c. Tasks. MUST be checked before the event intent: "add a task ..." also
-    #    matches the "add ..." pattern, and taking the wrong branch turns the
-    #    user's task into a calendar event.
-    if tugas.wants_mark_done(text):
-        _mark_task_done(text)
-        return
-    if tugas.wants_add_task(text):
-        _add_task(text)
-        return
-
-    # d. Create a new event
-    if (kalender_lokal.aktif() or gcal.aktif()) and jadwal_baru.wants_event(text):
-        _start_event(text)
-        return
-
-    # e. Pertanyaan berjawaban tertutup — jam, tanggal, jadwal — dijawab dari
-    #    hitungan Python, nggak lewat model sama sekali. Terukur: model salah
-    #    baca jam 4/6 sampai 6/6 (dia MEMBULATKAN 20:12 jadi "quarter past
-    #    eight"), sesekali nyebut kelas hari ini sebagai "tomorrow", dan
-    #    nambah 3-12 detik buat data yang udah pasti.
-    #
-    #    answer() balikin None kalau ragu, jadi pertanyaan yang nggak dikenali
-    #    tetep jatuh ke model. Prinsipnya sama kayak time_en.py: yang tertutup
-    #    dikerjain kode, yang butuh pemahaman bahasa dikerjain model.
-    pasti = jawab_pasti.answer(text)
-    if pasti:
-        log.info("dijawab tanpa LLM: %s", pasti)
-        _ucap_kalimat(pasti)
-        return
-
-    # f. Sisanya ke LLM, ngomong kalimat per kalimat
     _speak_streaming(text)
 
 

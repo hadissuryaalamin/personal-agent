@@ -31,11 +31,15 @@ HOTKEY_BACKEND = os.getenv("HOTKEY_BACKEND", "pynput").lower()
 # Cuma didukung backend "keyboard"; pynput selalu nerusin.
 HOTKEY_SUPPRESS = os.getenv("HOTKEY_SUPPRESS", "true").lower() in ("1", "true", "yes")
 
-# --- Otak: "claude" (API, butuh internet + kunci) atau "ollama" (lokal, gratis) ---
-LLM_BACKEND = os.getenv("LLM_BACKEND", "claude").lower()
+# --- Otak: "ollama" (lokal, gratis) atau "claude" (API, butuh internet + kunci) ---
+LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama").lower()
 
 # --- Claude API ---
-# Kunci diambil otomatis dari env ANTHROPIC_API_KEY (bisa ditaruh di .env)
+# Dibaca eksplisit di sini, bukan dibiarin SDK-nya nyomot sendiri dari env:
+# kalau implisit, salah nama variabel baru ketahuan pas dipakai — dan yang
+# muncul cuma error otentikasi yang nggak nunjuk ke penyebabnya.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_AUTH_TOKEN = os.getenv("ANTHROPIC_AUTH_TOKEN", "").strip()
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-5")
 # low/medium/high/xhigh/max. Buat obrolan pendek, "low" paling kenceng.
 CLAUDE_EFFORT = os.getenv("CLAUDE_EFFORT", "low")
@@ -179,60 +183,9 @@ RECORDINGS_DIR = _path(os.getenv("RECORDINGS_DIR", "logs/rec"))
 # Jumlah pesan (di luar system prompt) yang dibawa ke tiap permintaan.
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "20"))
 
-# --- Memori antar-sesi ---
-# Simpan riwayat & fakta ke disk biar nyambung walaupun agent restart.
-MEMORY_ENABLED = os.getenv("MEMORY_ENABLED", "true").lower() in ("1", "true", "yes")
-# Biarin agent nyaring sendiri fakta dari obrolan. Matiin kalau facts.md mau
-# diisi manual — model kecil sering nulis baris kosong atau fakta ngarang, dan
-# fakta ngarang itu diam-diam kebawa ke tiap jawaban berikutnya.
-MEMORY_AUTO_FACTS = os.getenv("MEMORY_AUTO_FACTS", "true").lower() in (
-    "1", "true", "yes",
-)
+# MEMORY_DIR masih kepakai walau fitur memori dicopot: di situ tempat
+# agent.lock (kunci satu-instance) dan cache model ditaruh.
 MEMORY_DIR = _path(os.getenv("MEMORY_DIR", "memory"))
-# Riwayat yang lebih tua dari ini nggak dimuat lagi. Nyambungin obrolan yang
-# kepotong restart itu berguna dalam hitungan jam; seminggu kemudian, 20 pesan
-# terakhir dari minggu lalu justru bikin salah konteks.
-# Riwayat lebih tua dari ini nggak dimuat pas agent nyala.
-#
-# Dulu 12 jam, dan itu kelewat longgar: pola pemakaiannya sesi malam terus sesi
-# pagi, jaraknya ~10 jam — selalu lolos. Dua kali bikin celaka:
-#   - Riwayat Bahasa Indonesia bikin agent Inggris jawab pakai Indonesia
-#   - Riwayat yang nyebut acara deadline bikin model ngarang soal acara yang
-#     UDAH DIHAPUS, sampai ngaku "the deadline is now set for September 1st"
-#
-# 4 jam masih nyambungin obrolan dalam satu rentang kerja, tapi tidur malam
-# selalu mulai dari bersih. Riwayat itu buat nyambung percakapan, bukan buat
-# jadi sumber fakta — sumbernya kalender & daftar tugas, yang selalu terkini.
-HISTORY_MAX_AGE_HOURS = float(os.getenv("HISTORY_MAX_AGE_HOURS", "4"))
-# Batas jumlah fakta yang disimpan. Semuanya masuk ke tiap permintaan, jadi
-# kalau dibiarin numpuk, biaya token naik terus.
-FACTS_MAX_ITEMS = int(os.getenv("FACTS_MAX_ITEMS", "30"))
-
-# --- Kalender (baca aja, lewat link ICS) ---
-# URL-nya RAHASIA: siapa pun yang punya bisa baca seluruh jadwalmu tanpa login.
-# Taruh di .env, jangan di kode. Kosongin buat matiin fitur kalender.
-CALENDAR_ICS_URL = os.getenv("CALENDAR_ICS_URL", "").strip()
-# Kalender lokal: satu file .ics yang dibaca DAN ditulisi agent. Mandiri penuh —
-# nol jaringan, nol akun. Kosongin buat matiin.
-CALENDAR_ICS_FILE = _path(os.getenv("CALENDAR_ICS_FILE", "memory/kalender.ics"))
-CALENDAR_TZ = os.getenv("CALENDAR_TZ", "Australia/Canberra")
-# Berapa hari ke depan yang diselipin ke tiap permintaan
-CALENDAR_DAYS_AHEAD = int(os.getenv("CALENDAR_DAYS_AHEAD", "7"))
-# Sejauh mana dilihat DI LUAR jendela rinci di atas. Yang dikirim cuma acara
-# yang menyimpang dari pola mingguan (ujian, kelas pengganti, acara pribadi) —
-# kelas rutin dilewat karena udah kewakili di jendela rinci. 0 = matikan.
-CALENDAR_LOOKAHEAD_DAYS = int(os.getenv("CALENDAR_LOOKAHEAD_DAYS", "90"))
-# Jadwal kuliah jarang berubah, jadi nggak perlu ditarik tiap ditanya
-CALENDAR_CACHE_MINUTES = float(os.getenv("CALENDAR_CACHE_MINUTES", "60"))
-CALENDAR_TIMEOUT = float(os.getenv("CALENDAR_TIMEOUT", "20"))
-
-# --- Google Calendar (baca + tulis, lewat OAuth) ---
-# File client secret dari Google Cloud Console (Credentials > OAuth client ID >
-# Desktop app). Kosongin buat matiin. Token hasil login disimpan di memory/.
-GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "").strip()
-if GOOGLE_CREDENTIALS_FILE:
-    GOOGLE_CREDENTIALS_FILE = str(_path(GOOGLE_CREDENTIALS_FILE))
-GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
 
 SYSTEM_PROMPT = """You are a personal assistant. Speak casually, like a friend.
 
@@ -250,12 +203,13 @@ Important rules:
 - If you don't know, say so. Don't make things up.
 - If something needs a long answer, give the gist first and offer to go on.
 
-NEVER claim to have done something you did not do. You cannot change, move, or
-delete calendar events or tasks — you can only add new ones, and only after
-reading the details back and getting a yes. If asked to reschedule, delay, or
-delete anything, say plainly that you can't do it yet and that they'll need to
-edit it themselves. Do not say "done", "I've updated it", or "it's now set to"
-unless the change was actually confirmed and saved in this conversation.
+NEVER claim to have done something you did not do. You have NO tools: you cannot
+read or change a calendar, save notes or tasks, set reminders, send anything, or
+look anything up. You can only talk. If asked to do any of that, say plainly that
+you can't do it — don't say "done", "I've added it", or "I'll remind you".
+
+You also have no clock and no calendar, so you don't know today's date or the
+time unless the user tells you in this conversation. Say so rather than guessing.
 
 A wrong answer still gets caught when the user checks. A false claim of having
 acted makes them stop checking, which is worse.
@@ -286,16 +240,6 @@ def _cek_offline() -> list[str]:
         masalah.append(f"STT_BACKEND={STT_BACKEND!r} bukan backend lokal.")
     if TTS_BACKEND not in ("kokoro", "piper"):
         masalah.append(f"TTS_BACKEND={TTS_BACKEND!r} bukan backend lokal.")
-    if CALENDAR_ICS_URL:
-        masalah.append(
-            "CALENDAR_ICS_URL nunjuk ke feed jaringan. Kosongin dan pakai file "
-            ".ics lokal."
-        )
-    if GOOGLE_CREDENTIALS_FILE:
-        masalah.append(
-            "GOOGLE_CREDENTIALS_FILE nyalain Google Calendar (butuh jaringan). "
-            "Kosongin buat jalan offline."
-        )
     return masalah
 
 

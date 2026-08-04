@@ -1,30 +1,25 @@
 # personal-agent
 
-Voice assistant lokal buat Windows. Jalan diam-diam di background, nggak ada window.
-Pencet hotkey → ngomong → pencet lagi → dia jawab lewat speaker. **Bahasa Inggris,
+Voice assistant lokal buat Windows. Jalan diam-diam di background, nggak ada
+window. Pencet hotkey → ngomong → dia jawab lewat speaker. **Bahasa Inggris,
 sepenuhnya offline** — nol byte keluar dari mesin ini.
 
 ```
-pencet hotkey → rekam mic → Parakeet TDT 0.6B → qwen2.5:7b (Ollama) → Kokoro-82M → speaker
+hotkey → mic → Silero VAD → Parakeet TDT 0.6B → qwen2.5:7b → Kokoro-82M → speaker
 ```
 
-Setelan bawaan nggak nyentuh jaringan sama sekali: `OFFLINE_MODE=true` bikin
-backend yang butuh internet **ditolak pas startup**, bukan dibiarin gagal
-diam-diam di tengah percakapan. Buktinya bisa dijalanin sendiri — lihat
-[Bukti offline](#bukti-offline).
+Empat model, empat tugas: **VAD tau kapan kamu selesai ngomong**, **Parakeet
+dengar**, **qwen mikir**, **Kokoro jawab**.
 
-Backend cloud masih ada dan bisa dinyalain (Claude API buat otak, Google
-Calendar buat jadwal), tapi harus barengan `OFFLINE_MODE=false`.
-
-> **Bahasa:** cuma Inggris yang didukung penuh. Pengurai tanggal Bahasa
-> Indonesia masih ada di [agent/waktu_id.py](agent/waktu_id.py) — sengaja
-> nggak dihapus — tapi nggak kepanggil di jalur mana pun.
+Cuma itu. Nggak ada kalender, tugas, memori antar-sesi, atau integrasi apa pun —
+sengaja dikosongin biar bisa dibangun ulang dari dasar yang bersih. Riwayat
+percakapan cuma hidup selama proses jalan.
 
 ## Yang dibutuhin
 
 - Windows 10/11
 - [Ollama](https://ollama.com/download) udah terinstall & jalan
-- Python 3.11 (dikelola lewat [mise](https://mise.jdx.dev/); ada fallback venv biasa di bawah)
+- Python 3.11 (lewat [mise](https://mise.jdx.dev/), ada fallback di bawah)
 - Mikrofon + speaker
 
 ## Install
@@ -33,19 +28,19 @@ Calendar buat jadwal), tapi harus barengan `OFFLINE_MODE=false`.
 git clone <repo> personal-agent
 cd personal-agent
 
-# 1. Python 3.11 + venv (.venv-agent)
+# 1. Python 3.11 + venv
 mise trust
 mise install
-mise where python@3.11   # catat path-nya
+mise where python@3.11              # catat path-nya
 & "<path-di-atas>\python.exe" -m venv .venv-agent
 
 # 2. Dependencies
 .\.venv-agent\Scripts\python.exe -m pip install -e .
 
-# 3. Semua bobot model (~5.7 GB: qwen 4.7 GB + Kokoro 337 MB + Parakeet 660 MB)
+# 3. Semua bobot model (~5.7 GB)
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
-# 4. (opsional) konfigurasi
+# 4. Konfigurasi
 copy .env.example .env
 
 # 5. Pastikan beneran siap offline
@@ -53,9 +48,7 @@ copy .env.example .env
 ```
 
 <details>
-<summary>Tanpa mise (fallback)</summary>
-
-Install Python 3.11 atau 3.12 dari [python.org](https://www.python.org/downloads/), terus:
+<summary>Tanpa mise</summary>
 
 ```powershell
 py -3.11 -m venv .venv-agent
@@ -63,26 +56,13 @@ py -3.11 -m venv .venv-agent
 ```
 
 Python 3.13+ belum dipakai karena `ctranslate2` (mesinnya faster-whisper) belum
-punya wheel yang stabil di situ. faster-whisper cuma kepakai kalau
+punya wheel stabil di situ. faster-whisper cuma kepakai kalau
 `STT_BACKEND=whisper`, tapi dependensinya tetap ikut terinstall.
 </details>
 
-`scripts\setup.ps1` narik semuanya di muka. Kalau dilewat, tiap model bakal
-ke-download sendiri pas pertama dipakai — yang artinya pemakaian pertama butuh
+`scripts\setup.ps1` narik semua bobot di muka. Kalau dilewat, tiap model
+ke-download sendiri pas pertama dipakai — artinya pemakaian pertama butuh
 jaringan, dan itu persis yang bikin mode offline kelihatan "rusak".
-
-### Bukti offline
-
-`cek_offline` ngecek setelan, bobot di disk, model beneran kemuat, dan Ollama
-nyaut:
-
-```powershell
-.\.venv-agent\Scripts\python.exe -m agent.cek_offline
-```
-
-Terukur di mesin ini (RTX 8 GB, Ollama warm): STT muat 7.7 s, TTS muat 2.7 s,
-dan **nol** percobaan koneksi keluar selama pipeline penuh dijalanin dengan
-semua soket non-localhost diblokir.
 
 ## Jalanin
 
@@ -90,10 +70,8 @@ semua soket non-localhost diblokir.
 .\.venv-agent\Scripts\python.exe -m agent.main
 ```
 
-Terus **pencet hotkey sekali** buat mulai, ngomong, **pencet lagi** buat berhenti.
-(Mau gaya tahan-sambil-ngomong? Set `HOTKEY_MODE=hold` di `.env`.)
-
-Nggak mau mencet tiap giliran? Lihat [Mode sesi](#mode-sesi-ngobrol-kontinu).
+Pencet **hotkey sekali** buat mulai, ngomong, **pencet lagi** buat berhenti.
+Nggak mau mencet tiap giliran? Lihat [Mode sesi](#mode-sesi).
 
 Karena nggak ada window, feedback-nya bunyi:
 
@@ -101,14 +79,41 @@ Karena nggak ada window, feedback-nya bunyi:
 |---|---|
 | beep tinggi (880 Hz) | mulai rekam |
 | beep sedang (560 Hz) | selesai rekam, lagi mikir |
-| dua ketuk pendek (420 Hz) | kedengeran, tapi lagi sibuk — pencetanmu diabaikan |
-| beep rendah panjang (240 Hz) | ada yang gagal — cek `logs/agent.log` |
+| dua ketuk pendek (420 Hz) | kedengeran, tapi lagi sibuk |
+| beep rendah panjang (240 Hz) | gagal — cek `logs/agent.log` |
 
-Kalau modelnya lagi terlepas (lihat bagian memori GPU di bawah), dia bakal ngomong
-*"One moment, just getting ready."* dulu — pemuatan bisa makan 13–35 detik kalau file-nya
-dingin, dan diam selama itu nggak bisa dibedain dari mati.
+## Mode sesi
 
-Pertanyaan pertama agak lama (Ollama naikin model ke VRAM). Selanjutnya cepet.
+Sekali pencet hotkey buat **masuk sesi**, terus ngomong bolak-balik tanpa mencet
+lagi. Batas kalimat dideteksi suara, bukan tombol.
+
+```
+SESSION_MODE=true
+```
+
+Sesi tutup kalau: pencet hotkey lagi, diam 30 detik, atau bilang *"goodbye"* /
+*"that's all"* / *"stop listening"*.
+
+Batas diam itu **pengaman, bukan kenyamanan**: tanpa itu, lupa nutup berarti
+model nyangkut di memori seharian.
+
+**Mic ditutup selama agent ngomong.** Jadi kamu nggak bisa motong di tengah —
+tapi agent juga nggak mungkin denger suaranya sendiri, jadi speaker biasa aman
+(nggak wajib headphone).
+
+Deteksi suaranya Silero VAD lewat `onnx_asr` — model yang sama yang udah dipakai
+Parakeet, jadi **nol paket pip baru**. Terukur:
+
+| | Rata-rata peluang | Frame di atas ambang |
+|---|---:|---:|
+| Hening | 0,004 | 0/62 |
+| Desis keras | 0,011 | 0/62 |
+| Ucapan asli | 0,580 | 95/166 |
+
+0,17 ms per frame 32 ms — **190x realtime**, jadi CPU-nya praktis nol.
+
+Kalimat kepotong di tengah? Naikin `VAD_SILENCE_MS`. Agent nyaut ke suara AC?
+Naikin `VAD_THRESHOLD`.
 
 ## Jalan otomatis pas login
 
@@ -117,331 +122,80 @@ Pertanyaan pertama agak lama (Ollama naikin model ke VRAM). Selanjutnya cepet.
 powershell -ExecutionPolicy Bypass -File scripts\install-startup.ps1
 ```
 
-Bikin task `PersonalAgent` di Task Scheduler: trigger **At log on**, action
-`pythonw.exe -m agent.main` (pythonw = tanpa console window). Default-nya tanpa
-elevasi karena backend `pynput` nggak butuh admin — tambahin `-Elevated` kalau
-kamu pindah ke `HOTKEY_BACKEND=keyboard`.
-
 ```powershell
-powershell -File scripts\status.ps1                  # nyala atau nggak?
-Start-ScheduledTask -TaskName PersonalAgent          # nyalain
-Stop-ScheduledTask -TaskName PersonalAgent           # matiin
-Get-Content logs\agent.log -Tail 20 -Wait            # lihat aktivitas langsung
+powershell -File scripts\status.ps1                       # nyala atau nggak?
+Start-ScheduledTask -TaskName PersonalAgent               # nyalain
+Stop-ScheduledTask -TaskName PersonalAgent                # matiin
+Get-Content logs\agent.log -Tail 20 -Wait                 # lihat langsung
 powershell -File scripts\install-startup.ps1 -Uninstall   # hapus task
 ```
-
-`status.ps1` nunjukin: agent nyala/mati, PID, udah jalan berapa lama, autostart
-terpasang apa nggak, VRAM, model STT lagi dimuat apa dilepas, isi memori, dan
-kapan terakhir kamu ngomong sama dia.
 
 ### Cuma boleh ada satu agent
 
 Agent nyangkut **hotkey global**. Dua agent artinya tiap pencetan ditangkep
-dua-duanya dan keduanya rebutan mic — dan gejalanya nyasar: yang kelihatan
-bukan "ada dua agent", tapi "fitur barunya nggak jalan", karena yang nyaut
-duluan justru agent lama.
+dua-duanya dan keduanya rebutan mic — dan gejalanya nyasar: yang kelihatan bukan
+"ada dua agent", tapi "fiturnya nggak jalan", karena yang nyaut duluan agent
+lama.
 
-Agent kedua sekarang **nolak jalan sendiri**:
+Agent kedua sekarang nolak jalan sendiri:
 
 ```
 Agent lain udah jalan (PID 41696). Yang ini berhenti — dua agent bakal
 rebutan hotkey 'right ctrl'. Cek: powershell -File scripts\status.ps1
 ```
 
-Kuncinya kunci file dari OS, bukan sekadar file PID: kunci OS dilepas otomatis
-pas prosesnya mati, jadi agent yang crash nggak ninggalin file yang bikin agent
+Kuncinya kunci file dari OS, bukan file PID: kunci OS dilepas otomatis pas
+proses mati, jadi agent yang crash nggak ninggalin file yang bikin agent
 berikutnya nolak jalan selamanya (diuji, termasuk `kill -9`).
 
-**Mau ngetes dari terminal padahal autostart nyala?** Matiin dulu task-nya:
+**Ngetes dari terminal padahal autostart nyala?** Matiin task-nya dulu:
 
 ```powershell
 Stop-ScheduledTask -TaskName PersonalAgent
 .\.venv-agent\Scripts\python.exe -m agent.main
 ```
 
+### Kalau ada yang aneh, cek build-nya duluan
+
+Baris kedua log nyebut commit yang lagi jalan:
+
+```
+build: 9a00404 05/08 08:31 (file terbaru 05/08 08:31)
+```
+
+Python muat kode pas proses start — **ngedit file nggak nyentuh proses yang udah
+jalan.** Ini penyebab paling sering dari "perbaikannya nggak jalan".
+
 ## Konfigurasi
 
-Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file `.env`
-(lihat [.env.example](.env.example)). Yang sering diutak-atik:
+Default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat `.env`
+(lihat [.env.example](.env.example) — 54 kunci, semuanya beneran dibaca kode).
 
 | Variabel | Default | Keterangan |
 |---|---|---|
-| `HOTKEY` | `ctrl+space` | Lihat catatan di bawah — **pakai tombol tunggal** |
-| `HOTKEY_MODE` | `toggle` | `toggle` = pencet-pencet, `hold` = tahan sambil ngomong |
-| `HOTKEY_BACKEND` | `pynput` | Alternatif: `keyboard` (butuh admin, tapi bisa nelen hotkey) |
-| `LANGUAGE` | `en` | Cuma `en` yang didukung penuh |
+| `HOTKEY` | `ctrl+space` | **Pakai tombol tunggal** — lihat di bawah |
+| `SESSION_MODE` | `false` | `true` = ngobrol kontinu |
 | `OFFLINE_MODE` | `true` | Tolak backend jaringan pas startup |
-| `LLM_BACKEND` | `ollama` | `ollama` (lokal) atau `claude` (API, butuh `OFFLINE_MODE=false`) |
+| `LLM_BACKEND` | `ollama` | `ollama` atau `claude` (butuh `OFFLINE_MODE=false`) |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
-| `OLLAMA_NUM_CTX` | `8192` | Default Ollama 4096 kekecilan buat prompt + riwayat |
-| `OLLAMA_NUM_PREDICT` | `160` | Jaring pengaman panjang balasan |
-| `STT_BACKEND` | `parakeet` | `parakeet` (Inggris, 0 VRAM) atau `whisper` (multibahasa) |
-| `STT_DEVICE` | `cpu` | Lihat [catatan resource](#catatan-resource-8-gb-vram) |
+| `REPLY_MAX_WORDS` | `25` | Batas panjang jawaban — lihat di bawah |
+| `STT_BACKEND` | `parakeet` | `parakeet` (Inggris, 0 VRAM) atau `whisper` |
 | `TTS_BACKEND` | `kokoro` | `kokoro` (24 kHz, 54 suara) atau `piper` |
-| `KOKORO_VOICE` | `af_heart` | Nama suara Kokoro |
-| `ANTHROPIC_API_KEY` | — | Wajib kalau `LLM_BACKEND=claude` |
-| `CLAUDE_MODEL` | `claude-opus-5` | Lebih murah: `claude-sonnet-5`, `claude-haiku-4-5` |
-| `CLAUDE_EFFORT` | `low` | `low`/`medium`/`high`/`xhigh`/`max` |
-| `CLAUDE_THINKING` | `disabled` | Jangan diubah tanpa alasan — lihat catatan di bawah |
-| `WHISPER_MODEL` | `small` | Cuma kalau `STT_BACKEND=whisper` |
-| `PIPER_VOICE` | — | Cuma kalau `TTS_BACKEND=piper` |
+| `VAD_SILENCE_MS` | `800` | Sepi segini = kalimat dianggap selesai |
 
-Daftar lengkapnya — 67 kunci, semuanya beneran dibaca kode — ada di
-[.env.example](.env.example).
+### Pakai tombol tunggal
 
-### Mode sesi (ngobrol kontinu)
+Tombol yang ditahan **bareng modifier** (`Ctrl+Space`) bikin Windows ngirim
+pasangan UP/DOWN palsu terus-terusan — terukur 18 kali dalam 3 detik. Rekamannya
+jadi serpihan.
 
-Sekali pencet hotkey buat **masuk sesi**, terus ngomong bolak-balik tanpa
-mencet lagi. Batas kalimat dideteksi suara, bukan tombol.
+Tombol yang ditahan **sendirian** cuma ngirim DOWN berulang, nggak pernah UP.
+Makanya default lokalnya `right ctrl`. Pilihan lain: `f8`, `right shift`.
 
-```
-SESSION_MODE=true
-```
+### Panjang jawaban
 
-Sesi tutup kalau: kamu pencet hotkey lagi, diam 30 detik, atau bilang
-*"goodbye"* / *"that's all"* / *"stop listening"*.
-
-Batas waktu diam itu **bukan kenyamanan, tapi pengaman**: tanpa itu, lupa
-menutup sesi berarti model nyangkut di memori seharian.
-
-**Mic ditutup selama agent ngomong.** Konsekuensinya: kamu nggak bisa motong
-omongannya di tengah. Untungnya sepadan — agent nggak mungkin denger suaranya
-sendiri, jadi nggak perlu peredam gema dan speaker biasa aman dipakai (nggak
-wajib headphone).
-
-Karena kamu nggak bisa motong, panjang balasan jadi soal serius. Itu sebabnya
-`REPLY_MAX_WORDS=25` nyala secara default — lihat [Batasan
-qwen2.5:7b](#batasan-qwen257b).
-
-**Deteksi suaranya pakai Silero VAD** lewat `onnx_asr` — model yang sama yang
-sudah dipakai Parakeet, jadi **nol paket pip baru**. Terukur di sini:
-
-| | Rata-rata peluang | Frame di atas ambang |
-|---|---:|---:|
-| Hening | 0,004 | 0/62 |
-| Desis keras | 0,011 | 0/62 |
-| Ucapan asli | 0,580 | 95/166 |
-
-Kecepatannya 0,17 ms per frame 32 ms — **190x realtime**, jadi CPU-nya praktis
-nol walaupun jalan terus selama sesi.
-
-**Kalau kalimatmu kepotong di tengah**, naikin `VAD_SILENCE_MS`. Kalau agent
-malah nyaut ke suara AC atau ketikan, naikin `VAD_THRESHOLD`.
-
-### Pilih hotkey: pakai tombol tunggal
-
-Kalau tombol ditahan **bareng modifier** (`Ctrl+Alt+Space`, `Ctrl+Space`), Windows
-ngirim pasangan UP/DOWN palsu terus-terusan selama ditahan — kadang cuma berjarak
-0.01 detik. Efeknya rekaman kepotong jadi serpihan dan yang ketangkep cuma sepenggal
-kalimat. Tombol yang ditahan **sendirian** cuma ngirim DOWN berulang, nggak pernah UP,
-jadi aman.
-
-Makanya default lokalnya `right ctrl`. Pilihan bagus lain: `f8`, `right shift`,
-`right alt`. Bisa spesifik sisi (`right ctrl`) atau bebas (`ctrl` = kiri atau kanan).
-
-`RELEASE_GRACE_SECONDS` (default 0.6) tetap ada sebagai jaring pengaman: rekaman baru
-distop kalau tombol kedeteksi lepas selama segitu lama. Kalau kamu tetap mau pakai
-kombinasi dan rekamannya kepotong, naikin angka ini — tapi lepasnya jadi terasa lelet.
-
-### Akurasi transkrip: Parakeet (default)
-
-Parakeet TDT 0.6B v2 jalan lewat [onnx-asr](https://github.com/istupakov/onnx-asr)
-— tanpa NeMo, tanpa PyTorch. Nol paket baru ditambahin waktu dipasang.
-
-Diukur di sini: **~0.40 detik per kalimat** di CPU, 0 VRAM, ~2.2 GB RAM, muat
-5–8 detik. WER pada uji tertutup praktis 0%.
-
-Dua hal yang perlu dicatat jujur:
-
-- Parakeet **menormalkan** keluarannya — "three PM" jadi `3 p.m.`. Itu benar,
-  bukan salah; [time_en.py](agent/time_en.py) memang dibikin buat menerima
-  bentuk itu. (Pengukuran WER pertama sempat menghukum ini sebagai kesalahan.)
-- Parakeet **nggak nerima prompt kosakata**. Nggak ada padanan `WHISPER_PROMPT`,
-  jadi nama tempat yang tidak lazim bisa lebih sering meleset dibanding Whisper
-  yang sudah di-bias.
-- **Inggris saja.** Butuh bahasa lain → `STT_BACKEND=whisper`.
-
-### Akurasi transkrip: Whisper (`STT_BACKEND=whisper`)
-
-Bagian ini dan dua bagian berikutnya cuma relevan kalau kamu balik ke Whisper.
-
-`WHISPER_PROMPT` berisi daftar kosakata yang sering kamu pakai. Whisper mencondongkan
-tebakannya ke situ, **tanpa biaya waktu**. Diukur di rekaman asli, ini nurunin WER dari
-36% jadi 25% — nama teknis kayak "Whisper" dan "Ollama" yang tadinya jadi "hispar" dan
-"olama" langsung benar. Tambahin nama orang, tempat, atau tool yang sering kamu sebut.
-
-### Whisper di GPU (NVIDIA) — perbedaannya besar
-
-Kalau punya GPU NVIDIA, ini peningkatan terbesar yang bisa didapat. Diukur di
-rekaman asli, model `medium`:
-
-| | CPU int8 | GPU float16 |
-|---|---|---|
-| Per kalimat | 6.64 detik | **0.50 detik** |
-| WER | 8% | 8% |
-
-Sama persis akurasinya, 13× lebih cepat. Caranya:
-
-```powershell
-.\.venv-agent\Scripts\python.exe -m pip install -e ".[gpu]"
-```
-
-lalu di `.env`:
-
-```
-WHISPER_DEVICE=cuda
-WHISPER_COMPUTE=float16
-```
-
-Makan ~1.9 GB VRAM selama model dimuat. Kalau kamu juga pakai `LLM_BACKEND=ollama`,
-dua-duanya rebutan VRAM — di kartu 8 GB itu masih muat tapi mepet.
-
-**Model dilepas otomatis kalau nganggur.** Bobot model itu data diam, bukan proses —
-kepegang di VRAM sepanjang agent hidup walaupun cuma kepakai ~0.5 detik per kalimat.
-Di GPU pribadi yang dipakai buat hal lain, itu sayang. Jadi setelah
-`WHISPER_IDLE_UNLOAD_SECONDS` (default 900 = 15 menit) tanpa dipakai, modelnya
-dilepas dan VRAM balik. Ollama melakukan hal yang sama secara default (keep-alive
-5 menit). Set `0` kalau kamu mau model nempel terus.
-
-**Harga muat ulangnya nggak murah, dan bukan rata-rata.** Terukur di mesin uji:
-2–7 detik kalau dimuat tak lama setelah dipakai, tapi **13–35 detik** setelah
-nganggur berjam-jam — dan nganggur lama persis kondisi yang memicu pelepasan.
-Jadi yang kamu bayar hampir selalu kasus terburuknya. Tiga hal meredamnya:
-model mulai dimuat begitu kamu menekan hotkey (barengan kamu ngomong), dia
-ngomong *"One moment"* supaya diamnya nggak terasa seperti mati, dan pencetan
-ulang dijawab dua ketuk. Kalau tetap kerasa lama, `WHISPER_IDLE_UNLOAD_SECONDS=0`.
-
-Catatan: yang balik ~1.9 GB dari 2.0 GB. Sisanya konteks CUDA yang baru lepas pas
-prosesnya mati — itu wajar dan nggak numpuk.
-
-**Catatan Windows:** DLL CUDA dari pip nggak ada di `PATH`, dan ctranslate2
-nyarinya lewat situ (bukan lewat `add_dll_directory`). [stt.py](agent/stt.py)
-ngurus itu otomatis — kalau tetap muncul `cublas64_12.dll is not found`,
-berarti paket `[gpu]`-nya belum kepasang.
-
-### Pilih ukuran Whisper
-
-Varian `.en` dan `distil-*` itu khusus Inggris — nggak berguna buat Bahasa
-Indonesia. Yang relevan: `tiny`, `base`, `small`, `medium`, `large-v3-turbo`,
-`large-v3`.
-
-Diukur di rekaman suara asli, di GPU:
-
-| Ukuran | WER | Per kalimat | Muat model | VRAM |
-|---|---|---|---|---|
-| `small` | 25% | 0,20 dtk | — | ~700 MB |
-| `medium` | 8% | 0,54 dtk | 4,0 dtk | ~1.900 MB |
-| **`large-v3-turbo`** | **8%** | **0,41 dtk** | **2,6 dtk** | ~1.984 MB |
-
-`large-v3-turbo` punya jumlah parameter hampir sama dengan `medium` (809 juta
-lawan 769 juta) tapi dilatih sebagai model besar — hasilnya akurasi setara
-dengan kecepatan lebih baik, jadi itu yang dipakai. Waktu muat penting karena
-model dilepas tiap 15 menit nganggur, jadi ongkosnya dibayar berulang.
-
-`large-v3` penuh (1,55 miliar, ~3,5 GB) sengaja dilewat: digabung qwen 5,4 GB,
-itu melebihi kartu 8 GB.
-
-Kalau masih kurang akurat, coba `large-v3`. Buat ngukur sendiri, nyalain
-`SAVE_RECORDINGS=true` — tiap rekaman disimpan ke `logs/rec/*.wav`, jadi setelan bisa
-diuji ulang di suara asli tanpa perlu ngomong berkali-kali. Matiin lagi kalau selesai.
-
-### Pilih otak: Ollama lokal atau Claude API
-
-Default `ollama` — gratis, offline, dan diukur di mesin ini **1,8–2,2 detik**
-saat warm. Angka itu bukan salah ketik: waktu Ollama pertama diukur dan dapat
-"2x lebih lambat", yang sebenarnya keukur adalah **pemuatan model**, bukan
-inferensinya. Ollama pakai keep-alive 5 menit; begitu warm, dia justru lebih
-cepat daripada Claude (~2,8 detik) karena nggak ada perjalanan jaringan.
-
-Yang benar-benar dibayar dengan Ollama bukan kecepatan, tapi ketepatan:
-qwen2.5:7b lebih sering ngelantur dan lebih boros kata. Lihat
-[Batasan qwen2.5:7b](#batasan-qwen257b).
-
-Mau pakai Claude? Ambil kunci di
-[console.anthropic.com](https://console.anthropic.com/settings/keys):
-
-```
-OFFLINE_MODE=false          # wajib, kalau nggak ditolak pas startup
-LLM_BACKEND=claude
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Ini **berbayar per pakai** — tiap pertanyaan kena tarif token. Buat obrolan pendek
-biayanya kecil, tapi tetap ada. `CLAUDE_EFFORT=low` dipakai sebagai default karena
-balasan 1–2 kalimat nggak butuh mikir dalam, dan effort rendah bikin jeda lebih pendek.
-
-**`CLAUDE_THINKING=disabled` itu disengaja.** Sonnet 5 dan Opus 5 menyalakan
-adaptive thinking kalau parameternya nggak dikirim, dan `max_tokens` membatasi
-isi pikiran **plus** jawaban sekaligus — jadi balasan bisa terpotong di tengah.
-Untuk asisten suara yang jawabannya 1–2 kalimat, berpikir dalam nggak menambah
-kualitas tapi menambah jeda.
-
-**Perbandingan model** (diukur pada pertanyaan jadwal & tugas asli, thinking
-mati, effort low):
-
-| | Haiku 4.5 | Sonnet 5 |
-|---|---|---|
-| Rata-rata jeda | 2,29 dtk | 2,28 dtk |
-| Harga /1jt token | $1 / $5 | $3 / $15 |
-| Akurasi | benar | benar |
-
-Jedanya praktis sama. Sonnet menang di keringkasan jawaban (enak buat
-dibacakan), Haiku menang telak di biaya. Beban kerja di sini — balasan pendek,
-konteks kecil — nggak memberi Sonnet ruang buat unggul jauh.
-
-### Pertanyaan tertutup dijawab tanpa LLM
-
-Jam, tanggal, dan jadwal **nggak lewat model sama sekali**. Jawabannya dirakit
-Python dari data yang sama, lalu langsung diucapkan.
-
-| Pertanyaan | Jalur pasti | Lewat model |
-|---|---:|---:|
-| What time is it? | 0,62 dtk | 3,87 dtk |
-| What classes do I have today? | 0,49 dtk | 6,90 dtk |
-| What's on tomorrow? | 0,47 dtk | 7,03 dtk |
-| When is my next class? | 2,46 dtk | 5,31 dtk |
-| **rata-rata** | **1,01 dtk** | **5,78 dtk** |
-
-**5,7x lebih cepat** sampai bunyi pertama — dan lebih benar. Jam yang dijawab
-model salah 4/6 sampai 6/6; lewat jalur ini 6/6 tepat.
-
-Kenapa model salah padahal jamnya jelas ketulis di prompt: dia nggak baca terus
-lapor, dia **parafrase jadi ucapan yang "enak"** lalu membulatkan. Jam 20:12
-jadi *"quarter past eight"*, *"half past eight"*, *"eight fifteen"*. Dikasih
-format yang lebih ramah ucapan (`8:12 pm`) malah **lebih parah** — 6/6 salah,
-karena justru ngundang pembulatan.
-
-Kalau pertanyaannya nggak dikenali, jawabannya `None` dan tetap jatuh ke model.
-Ini disengaja: salah rute di sini bikin pertanyaan wajar dijawab kaku dan
-melenceng, yang lebih buruk daripada lambat.
-
-Prinsipnya sama persis kayak [time_en.py](agent/time_en.py) yang udah lebih dulu
-ngambil alih penguraian tanggal (2/10 -> 5/5). Lihat
-[jawab_pasti.py](agent/jawab_pasti.py), dan uji sendiri:
-
-```powershell
-.\.venv-agent\Scripts\python.exe -m agent.jawab_pasti
-```
-
-### Batasan qwen2.5:7b
-
-Dua hal terukur yang perlu kamu tau sebelum percaya penuh sama jawaban lokal.
-
-**1. Jawaban salah meracuni giliran berikutnya.** Ditanya lokasi kelas dengan
-riwayat kosong: **0 dari 8 salah**. Tapi begitu satu jawaban keliru masuk
-riwayat ("Engineering Lecture Theatre 2.04" padahal datanya "Fulton Muir,
-Rm 2.04"), giliran berikutnya nyalin kekeliruan itu — model lebih percaya
-ucapannya sendiri daripada jadwal di system prompt.
-
-Kalau dia nyebut lokasi yang kedengeran aneh, bilang **"forget everything"**
-buat ngosongin riwayat, terus tanya lagi.
-
-**2. Balasannya kepanjangan.** System prompt minta 1–2 kalimat; qwen sering
-ngasih 3–4, yang jadi ~20 detik audio. `OLLAMA_NUM_PREDICT=160` ada sebagai
-batas atas, tapi itu jaring pengaman buat yang benar-benar ngelantur — bukan
-pemaksa ringkas. Claude nurut sama batasan ini, qwen nggak.
-
-Yang **terbukti manjur** adalah batas kata eksplisit, bukan batas token:
+qwen nggak nurut sama "one or two sentences". Yang **terbukti manjur** batas kata
+eksplisit, bukan batas token:
 
 | | Kata | Audio |
 |---|---:|---:|
@@ -449,404 +203,92 @@ Yang **terbukti manjur** adalah batas kata eksplisit, bukan batas token:
 | `REPLY_MAX_WORDS=25` | 17,8 | 9,1 dtk |
 | + minta kalimat pendek | **13,0** | **7,1 dtk** |
 
-Cap token nggak nambah apa-apa di atas batas kata (17,0 vs 17,0) dan berisiko
-motong di tengah kata, jadi nggak dipakai. Keduanya nyala secara default —
-paling kerasa di mode sesi, di mana balasan panjang nggak bisa dipotong.
+Cap token nggak nambah apa-apa (17,0 vs 17,0) dan motong di tengah kata, jadi
+`OLLAMA_NUM_PREDICT` cuma jaring pengaman buat yang bener-bener ngelantur.
 
-**Ganti model Ollama:** `ollama pull <model>` terus set `OLLAMA_MODEL=<model>` di `.env`.
-
-**Ganti voice Piper:** ambil dari
-[rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices) — download
-`.onnx` + `.onnx.json` ke `models/`, terus set `PIPER_VOICE` ke file `.onnx`-nya.
-Bisa juga lewat `scripts\setup.ps1 -Voice <nama> -VoicePath <folder-di-repo-hf>`.
-
-**Soal backend hotkey.** Default `pynput`: jalan tanpa admin, tapi nggak bisa nelen
-hotkey-nya — `Ctrl+Space` tetep diterusin ke aplikasi yang lagi fokus (biasanya nggak
-kerasa, kecuali app-nya emang pakai kombinasi itu). Backend `keyboard` bisa nelen
-hotkey (`HOTKEY_SUPPRESS=true`), tapi butuh admin **dan** di sebagian mesin —
-termasuk mesin tempat ini dites — `add_hotkey`-nya nggak pernah kepanggil sama
-sekali. Kalau mau coba: set `HOTKEY_BACKEND=keyboard` dan pasang startup task pakai
-`install-startup.ps1 -Elevated`.
+Paling kerasa di mode sesi: tanpa barge-in, balasan panjang nggak bisa dipotong.
 
 ## Catatan resource (8 GB VRAM)
 
-Susunan bawaan sengaja naruh **cuma satu model di GPU**:
+Cuma **satu model yang nempatin GPU**:
 
 | Bagian | Di mana | VRAM | RAM | Kecepatan |
-|---|---|---|---|---|
-| Parakeet TDT 0.6B (STT) | CPU | 0 | ~2.2 GB | ~0.4 dtk/kalimat |
-| qwen2.5:7b (LLM) | GPU | ~5 GB | — | ~2–4 dtk |
-| Kokoro-82M (TTS) | CPU | 0 | ~0.4 GB | ~4x realtime |
+|---|---|---:|---:|---|
+| Silero VAD | CPU | 0 | ~50 MB | 190x realtime |
+| Parakeet TDT 0.6B | CPU | 0 | ~2,2 GB | ~0,4 dtk/kalimat |
+| qwen2.5:7b | GPU | ~5 GB | — | ~2–4 dtk |
+| Kokoro-82M | CPU | 0 | ~0,4 GB | ~4x realtime |
 
-Parakeet ditaruh di CPU **dengan sengaja**. Di GPU dia cuma ~0.2 detik lebih
-cepat, tapi ngerebut VRAM dari qwen — dan qwen yang kegeser ke RAM jauh lebih
-mahal daripada 0.2 detik itu. Susunan ini nyisain ~3 GB VRAM nganggur.
+Parakeet di CPU **dengan sengaja**: di GPU cuma ~0,2 detik lebih cepat, tapi
+ngerebut VRAM dari qwen — dan qwen yang kegeser ke RAM jauh lebih mahal.
 
 Ollama pakai keep-alive 5 menit, jadi pertanyaan pertama setelah nganggur lama
-kena muat ulang (~7 detik). Set `OLLAMA_KEEP_ALIVE=-1` kalau mau selalu instan —
-bayarannya model nempel di VRAM terus.
-
-Kalau `STT_BACKEND=whisper` dipakai: Whisper `medium` di GPU ~2.5 GB, jadi
-totalnya 7.5 GB dari 8 GB. Muat, tapi mepet.
+kena muat ulang (~7 detik). `OLLAMA_KEEP_ALIVE=-1` bikin instan, bayarannya
+model nempel di VRAM terus.
 
 ## Struktur
 
 ```
 agent/
-  main.py            hotkey, orkestrasi pipeline, percabangan niat
-  config.py          semua konstanta, dibaca dari .env
-  audio.py           rekam mic, playback, beep
-  stt.py             Parakeet / Whisper (muat & lepas otomatis)
-  tts.py             Kokoro / Piper
-  llm.py             otak: Ollama lokal atau Claude API
-  cek_offline.py     cek kesiapan jalan tanpa jaringan
-  calendar.py        susun agenda dari sumber yang aktif
-  kalender_lokal.py  kalender file .ics (baca + tulis)
-  gcal.py            Google Calendar (baca + tulis, OAuth)
-  jadwal_baru.py     ucapan -> acara/tugas + konfirmasi
-  time_en.py         urai frasa waktu Inggris tanpa LLM
-  waktu_id.py        versi Indonesia — disimpan, nggak kepakai
-  tugas.py           daftar tugas
-  memory.py          riwayat obrolan & fakta
-models/              bobot Kokoro & Piper (gitignore)
-memory/              data lokal: fakta, riwayat, tugas, kalender (gitignore)
-scripts/             setup, autostart, status, login & impor kalender
-logs/                agent.log (rotating, 1 MB x 4)
+  main.py          hotkey, mode sesi, orkestrasi pipeline, logging
+  config.py        semua konstanta dari .env + penegakan mode offline
+  audio.py         rekam mic, playback bersambung, beep
+  vad.py           deteksi suara per frame (Silero)
+  stt.py           Parakeet / Whisper — muat & lepas otomatis
+  llm.py           Ollama / Claude, streaming per kalimat
+  tts.py           Kokoro / Piper
+  teks.py          penormal teks
+  cek_offline.py   verifikasi kesiapan jalan tanpa jaringan
+models/            bobot Kokoro & Piper (gitignore)
+memory/            agent.lock (gitignore)
+scripts/           setup, autostart, status
+logs/              agent.log (rotating, 1 MB x 4)
 ```
 
-**[ARSITEKTUR.md](ARSITEKTUR.md)** menjelaskan cara kerjanya lebih dalam —
-alur satu percakapan, arah ketergantungan antar modul, dan alasan di balik tiap
-keputusan desain lengkap dengan angka pengukurannya.
+~2.300 baris. **[ARSITEKTUR.md](ARSITEKTUR.md)** menjelaskan alasan di balik tiap
+keputusan, lengkap dengan angka pengukurannya.
 
 Tiap modul bisa dites sendiri:
 
 ```powershell
-.\.venv-agent\Scripts\python.exe -m agent.tts "halo dunia"       # teks -> speaker
-.\.venv-agent\Scripts\python.exe -m agent.stt                    # rekam 5 detik -> teks
-.\.venv-agent\Scripts\python.exe -m agent.stt rekaman.wav        # file -> teks
-.\.venv-agent\Scripts\python.exe -m agent.llm "apa kabar"        # teks -> teks
-.\.venv-agent\Scripts\python.exe -m agent.audio                  # list device + tes beep
+.\.venv-agent\Scripts\python.exe -m agent.vad          # deteksi suara
+.\.venv-agent\Scripts\python.exe -m agent.stt          # transkrip
+.\.venv-agent\Scripts\python.exe -m agent.tts "hello"  # suara
+.\.venv-agent\Scripts\python.exe -m agent.llm "hi"     # otak
+.\.venv-agent\Scripts\python.exe -m agent.audio        # mic & speaker
+.\.venv-agent\Scripts\python.exe -m agent.teks         # penormal
 ```
+
+## Bukti offline
+
+```powershell
+.\.venv-agent\Scripts\python.exe -m agent.cek_offline
+```
+
+Ngecek setelan, bobot di disk, model beneran kemuat, dan Ollama nyaut. Diuji
+dengan **semua soket non-localhost diblokir**: rantai penuh jalan 7/7 langkah,
+**nol** percobaan koneksi keluar.
 
 ## Troubleshooting
 
-| Gejala | Kemungkinan |
+| Gejala | Cek |
 |---|---|
-| Hotkey nggak nyaut | Pastiin `HOTKEY_BACKEND=pynput`. Backend `keyboard` butuh admin dan nggak jalan di semua mesin |
-| Nggak ada suara sama sekali | Cek output device: `python -m agent.audio` |
-| Suara agent kepotong di ujung | Naikin `PLAYBACK_PAD_SECONDS` (Windows motong ~100 ms tiap playback) |
-| Transkrip kosong terus | Mic salah/ke-mute. Cek input device di daftar yang sama |
-| Cuma sepenggal kalimat yang ketangkep | Hotkey-nya kombinasi — ganti ke tombol tunggal (lihat atas) |
-| Beep rendah tiap dipakai | Buka `logs\agent.log`, error lengkapnya di situ |
-| Jawaban lama banget | Cek log: kalau `STT ... detik proses` yang gede, pindahin Whisper ke GPU |
-| `cublas64_12.dll is not found` | Paket GPU belum kepasang: `pip install -e ".[gpu]"` |
-
-## Memori antar-sesi
-
-Agent inget kamu walaupun sudah restart. Dua lapis dengan umur beda, disimpan di
-`memory/` (gitignore):
-
-| File | Isi | Umur |
-|---|---|---|
-| `history.json` | Pesan mentah, buat nyambungin obrolan yang kepotong restart | Dibuang setelah `HISTORY_MAX_AGE_HOURS` (default 12 jam) |
-| `facts.md` | Hal yang layak diingat lama: nama, jurusan, preferensi | Sampai kamu hapus |
-
-Riwayat sengaja punya batas umur — nyambungin obrolan itu berguna dalam hitungan
-jam, tapi 20 pesan dari minggu lalu justru bikin salah konteks. Fakta yang bertahan.
-
-`facts.md` itu teks polos, boleh kamu baca dan sunting sendiri; suntingannya
-langsung kepakai tanpa restart. Jumlahnya dibatasi `FACTS_MAX_ITEMS` (default 30)
-karena semuanya ikut ke tiap permintaan.
-
-**Cara menghapus:** bilang *"forget everything"* atau *"clear your memory"*. Frasa ini
-dicocokkan lokal, bukan lewat LLM — perintah yang nggak bisa dibatalkan nggak
-boleh gantung pada tebakan model. Bisa juga hapus foldernya, atau matikan total
-dengan `MEMORY_ENABLED=false`.
-
-Penyaringan fakta itu satu panggilan API tambahan per obrolan, dijalanin di latar
-belakang **setelah** dia menjawab — jadi nggak nambah jeda yang kamu rasakan.
-
-### Isi facts.md manual
-
-`MEMORY_AUTO_FACTS=false` mematikan penyaring otomatis; `facts.md` jadi murni
-punyamu. Disarankan kalau otaknya model lokal kecil, yang terbukti dua kali
-bermasalah di sini: pernah membalas `-` doang sehingga seluruh fakta terhapus,
-dan pernah menyimpan fakta yang tidak pernah dikatakan siapa pun.
-
-Fakta karangan itu bahaya yang halus — sekali masuk, dia ikut ke **setiap**
-jawaban berikutnya, dan agent memperlakukannya seperti kebenaran. Kalau
-penyaring otomatis dinyalakan, sesekali buka filenya dan periksa.
-
-### Yang TIDAK boleh masuk memori
-
-Penyaringnya dilarang menyimpan jadwal kelas, jam, lokasi ruangan, tanggal acara,
-dan daftar tugas — semuanya sudah punya sumber sendiri yang selalu terbaru.
-
-Ini bukan aturan teoretis: versi awal prompt-nya menyebut "jadwal rutin" sebagai
-contoh hal yang layak diingat, dan `facts.md` langsung terisi tiga baris jam
-kuliah lengkap dengan nomor ruangan. Salinan seperti itu **beku** — kalau ANU
-mengubah jadwal, memorinya jadi salah dan mulai membantah kalender, sambil
-memakan token untuk mengulang informasi yang sudah ada.
-
-Aturan pembatasnya: memori menyimpan hal tentang **kamu** yang nggak punya
-sumber lain. Nama, panggilan, preferensi, alergi, proyek yang lagi dikerjain.
-
-## Kalender
-
-Agent bisa jawab *"what classes do I have tomorrow?"*, *"where is my next
-class?"* kalau ada sumber jadwal yang aktif:
-
-```
-CALENDAR_ICS_URL=https://...
-CALENDAR_TZ=Australia/Canberra
-```
-
-Ambil link-nya di: Google Calendar → Settings → **Secret address in iCal format**,
-Outlook → Calendar → Share → Publish, atau MyTimetable ANU → Export/Subscribe.
-
-> ⚠️ **URL itu setara kata sandi** — siapa pun yang punya bisa baca seluruh
-> jadwalmu tanpa login. Simpan di `.env` (gitignore), jangan di kode. Kalau
-> bocor, cabut dan buat ulang dari setelan kalendermu.
-
-**Link ICS cuma bisa dibaca.** Buat bikin acara, lihat bagian Google Calendar
-di bawah.
-
-Jadwal ditarik paling sering tiap `CALENDAR_CACHE_MINUTES` (default 60) di latar
-belakang, dan salinannya disimpan di `memory/calendar.ics` supaya restart nggak
-perlu nunggu jaringan dan tetap jalan waktu offline.
-
-### Kenapa jadwalnya dikirim ulang terus
-
-Model Claude itu **tanpa ingatan** — tiap permintaan ke API berdiri sendiri.
-Nggak ada "sudah aku kasih tahu tadi": semua yang perlu dia ketahui harus ikut
-dikirim ulang setiap kali, termasuk seluruh riwayat obrolan. Jadi "lihat sekali
-saja" secara harfiah nggak mungkin.
-
-Yang bisa dilakukan: bikin kiriman berulang itu **10x lebih murah** lewat prompt
-caching. Bagian yang jarang berubah (prompt dasar, fakta, jadwal, tugas) ditandai
-buat di-cache; bacaan berikutnya cuma dihitung 0,1x harga.
-
-**Urutannya menentukan.** Cache itu cocok-awalan: sekali ada satu byte berbeda,
-semua yang di belakangnya ikut batal. Jam sekarang berubah tiap menit, jadi kalau
-ditaruh di depan, seluruh isi di belakangnya ikut terbuang tiap menit. Terukur:
-
-| Susunan | Menit 15:57 | Menit 15:58 |
-|---|---|---|
-| Jam di depan | 0 token dari cache | 0 token dari cache |
-| **Jam di belakang** | **1.585 dari cache** | **1.585 dari cache** |
-
-Makanya `_bagian_prompt()` di [llm.py](agent/llm.py) memisahkan yang stabil dari
-yang berubah, dan jam sengaja ditaruh paling belakang.
-
-### Seberapa jauh agent bisa lihat
-
-Isi agenda ikut dikirim di **setiap** permintaan, jadi jendelanya nggak bisa
-asal dilebarkan. Diukur pada jadwal kuliah asli:
-
-| Jendela | Baris | Token/permintaan |
-|---|---|---|
-| 7 hari | 7 | 1.477 |
-| 30 hari polos | 33 | 2.951 |
-| 90 hari polos | 76 | 5.417 |
-| **7 hari + luar-pola** | 9 | **1.631** |
-
-Baris terakhir itu yang dipakai. Jadwal kuliah **berulang mingguan** — minggu
-kedua isinya sama persis dengan minggu pertama, jadi mengirim 90 hari secara
-polos berarti membayar mahal untuk mengulang informasi yang sama tujuh kali.
-
-Yang benar-benar belum terlihat dari jendela 7 hari cuma yang **menyimpang dari
-pola**: ujian, kelas pengganti, deadline, acara pribadi. Jadi di luar
-`CALENDAR_DAYS_AHEAD` (7), agent cuma menerima acara yang ciri hari+jam+judulnya
-belum muncul di jendela rinci, sampai sejauh `CALENDAR_LOOKAHEAD_DAYS` (90).
-
-Hasilnya 96% lebih murah dari mengirim 90 hari polos, dan justru memunculkan
-yang berguna. Set `CALENDAR_LOOKAHEAD_DAYS=0` kalau mau matikan.
-
-### Kenapa formatnya berkolom
-
-Agenda yang diselipin ke prompt berbentuk `jam | kode & nama | jenis | lokasi`,
-dan baris `KELAS BERIKUTNYA` dihitung di Python — bukan diserahkan ke model.
-Dua-duanya bukan hiasan: dengan format padat tanpa pemisah, model terbukti
-mengambil nama matkul dari satu baris tapi lokasinya dari baris tetangga, dan
-salah menentukan kelas terdekat. Prompt-nya juga melarang bentuk jam "setengah
-sembilan" karena sempat kejadian meleset setengah jam dari 09:00.
-
-## Kalender lokal (mandiri penuh)
-
-Satu file `.ics` yang dibaca **dan** ditulisi agent. Nol jaringan, nol akun,
-jalan walau internet mati.
-
-```
-CALENDAR_ICS_FILE=memory/kalender.ics
-```
-
-Format `.ics` standar, jadi kapan pun bisa diimpor balik ke Google atau Outlook.
-Pindah dari Google ke sini:
-
-```powershell
-.\.venv-agent\Scripts\python.exe scripts\ekspor_google_ke_lokal.py
-# lalu kosongkan GOOGLE_CREDENTIALS_FILE di .env
-```
-
-Bayarannya: jadwalmu cuma kelihatan lewat agent — nggak muncul di HP atau
-aplikasi kalender mana pun — dan kalau filenya kehapus, jadwalnya hilang.
-Backup `memory/` kalau itu penting.
-
-### Tanggal diurai tanpa LLM
-
-[time_en.py](agent/time_en.py) mengurai frasa waktu Bahasa Inggris secara
-deterministik, dan hasilnya **menimpa** jawaban model. Alasannya diukur:
-
-| | qwen2.5:7b lokal | Sonnet 5 |
-|---|---|---|
-| Tanggal diserahkan ke model | 2/10 benar | 10/10 |
-| Tanggal diurai pengurai sendiri | **5/5** | **5/5** |
-
-Model kecil salah "besok" jadi lusa, "hari Jumat" jadi Senin, bahkan setelah
-dikasih tabel tanggal siap pakai. Frasa waktu itu himpunan tertutup dengan
-aturan kaku — lebih tepat dikerjakan kode. Model cukup mengurus judul dan
-lokasi, yang memang butuh pemahaman bahasa.
-
-`time_en` menangani 33 bentuk (lolos 33/33), termasuk `3 p.m.` — bentuk
-ternormalisasi yang dikeluarkan Parakeet — plus `half past two`, `quarter to
-five`, `noon`, `midnight`, dan jebakan 12 AM/PM.
-
-Versi Indonesianya, [waktu_id.py](agent/waktu_id.py), sengaja **nggak dihapus**
-walaupun nggak kepanggil. Kalau suatu saat mau balik ke dua bahasa, yang perlu
-dibangun ulang cuma perutean bahasanya, bukan penguraiannya.
-
-## Google Calendar (baca + bikin acara)
-
-Bikin acara lewat suara: *"schedule a meeting with my supervisor tomorrow at
-2 pm"*. Agent membacakan ulang, kamu bilang *"yes"*, baru tersimpan.
-
-### Setup sekali
-
-1. [console.cloud.google.com](https://console.cloud.google.com) → project baru
-2. **APIs & Services → Library** → *Google Calendar API* → **Enable**
-   (gampang kelewat; gejalanya error 403 `accessNotConfigured`)
-3. **Google Auth Platform → Data Access** → tambah scope
-   `https://www.googleapis.com/auth/calendar.events`
-   ("Scopes" sekarang bernama **Data Access**)
-4. **Google Auth Platform → Audience → PUBLISH APP** → status **In production**
-5. **Google Auth Platform → Clients → Create client → Desktop app** → unduh JSON
-6. Simpan JSON di root repo, lalu di `.env`:
-   `GOOGLE_CREDENTIALS_FILE=client_secret_....json`
-7. Login sekali:
-   ```powershell
-   .\.venv-agent\Scripts\python.exe scripts\login_google.py
-   ```
-   Browser terbuka. Peringatan *"Google hasn't verified this app"* itu wajar →
-   Advanced → Go to (nama app).
-
-> Login sengaja dipisah dari agent. Agent jalan lewat `pythonw` **tanpa
-> jendela** — kalau alur normalnya boleh memicu login browser, agent akan
-> kelihatan menggantung tanpa sebab saat tokennya hilang. Sekarang kalau token
-> tidak ada, fitur kalender dimatikan dan log menunjuk ke skrip ini.
-
-> ⚠️ **Langkah 4 wajib.** Kalau status aplikasinya dibiarkan *Testing*, Google
-> membuat refresh token **kedaluwarsa tiap 7 hari** — semuanya jalan seminggu,
-> lalu mati dan minta login ulang, berulang terus.
-
-Scope-nya sengaja `calendar.events`, bukan `calendar` penuh: agent boleh baca
-dan bikin acara, tapi nggak boleh menghapus kalender atau mengubah setelan
-berbagi.
-
-### Kenapa selalu dikonfirmasi
-
-STT-nya punya WER ~8%. Buat pertanyaan, salah dengar cuma bikin jawaban ngawur
-dan langsung ketahuan. Buat penulisan, salah dengar meninggalkan acara palsu di
-kalender yang baru ketahuan minggu depan. Jadi agent selalu membacakan ulang
-dan menunggu persetujuan, dan tiga hal condong ke arah aman:
-
-- **Jawaban ragu = batal**, bukan simpan
-- Kata **"yes"/"yeah" hanya dihitung setuju kalau jadi kata pertama** —
-  *"that's right, yeah?"* itu pertanyaan, bukan persetujuan
-- **"yeah no, cancel"** terbaca sebagai penolakan: penolakan dicek duluan
-- Frasa dua kata (*"go ahead"*, *"never mind"*) dicocokkan ke kalimat utuh,
-  bukan per kata — sempat nggak pernah cocok sama sekali sebelum diperbaiki
-- Kalau tanggal/jamnya nggak jelas dari ucapan, acaranya **ditolak** dan kamu
-  diminta mengulang, bukan disimpan dengan tebakan
-
-Konfirmasinya pakai format 24 jam (*"14"*, bukan *"2"*) karena ambiguitas
-siang/malam paling mahal justru di titik ini.
-
-### Mencabut akses
-
-Agent memegang tiga hal yang bisa kamu tarik kembali kapan saja. Urutannya dari
-yang paling ringan:
-
-**1. Matikan sementara** — di `.env`, kosongkan barisnya lalu restart agent:
-
-```
-GOOGLE_CREDENTIALS_FILE=      # matikan akses Google Calendar
-CALENDAR_ICS_URL=             # matikan pembacaan jadwal ANU
-MEMORY_ENABLED=false          # matikan ingatan antar-sesi
-```
-
-**2. Cabut izin Google** (agent nggak bisa lagi menyentuh kalendermu):
-
-- Buka [myaccount.google.com/permissions](https://myaccount.google.com/permissions)
-- Cari nama app-mu → **Hapus akses**
-- Hapus juga token lokalnya: `del e:\personal-agent\memory\google_token.json`
-
-Setelah ini agent akan minta login lagi kalau kamu pakai fitur kalender.
-Untuk mencabut permanen, hapus juga OAuth client-nya di
-**Google Cloud Console → Google Auth Platform → Clients**, lalu hapus file
-`client_secret_*.json` dari folder repo.
-
-**3. Cabut link ICS jadwal kuliah** (kalau URL-nya pernah bocor) — buka
-MyTimetable ANU, terbitkan ulang link iCal-nya. URL lama langsung mati, lalu
-ganti `CALENDAR_ICS_URL` di `.env` dengan yang baru.
-
-**4. Hapus data lokal:**
-
-```powershell
-Remove-Item e:\personal-agent\memory -Recurse   # riwayat, fakta, token, cache kalender
-Remove-Item e:\personal-agent\logs -Recurse     # log aktivitas
-```
-
-Bilang *"forget everything"* ke agent juga menghapus riwayat dan fakta, tapi tidak
-menyentuh token Google maupun log.
-
-### Kalau jadwal kuliah diimpor ke Google
-
-Kosongkan `CALENDAR_ICS_URL`. Kalau tidak, tiap kelas terbaca dua kali —
-sekali dari feed ANU, sekali dari Google.
-
-## Daftar tugas
-
-Agent nyimpen tugas kuliahmu dan bisa bantu mutusin mau ngerjain apa duluan,
-dengan mempertimbangkan tenggat, perkiraan lama, dan jadwal kuliah (jam yang
-kepakai kelas nggak bisa dipakai ngerjain tugas).
-
-```
-"catat tugas assignment satu COMP4020 deadline Jumat, kira-kira 3 jam"
-  -> Oke, aku catat: Assignment 1, buat COMP4020, tenggat Jumat 7 Agustus.
-
-"hari ini aku harus ngerjain apa?"
-  -> Hari ini kamu paling perlu fokus ke Assignment 1 COMP4020, soalnya
-     tenggat cuma 4 hari lagi dan butuh 3 jam.
-
-"tugas assignment satu udah selesai"
-  -> Sip, Assignment 1 aku tandai selesai. Sisa 1 tugas.
-```
-
-Disimpan di `memory/tugas.json` — teks polos, boleh disunting manual.
-
-**Kenapa tugas nggak jadi acara kalender:** tugas nggak nempatin slot waktu,
-punya status selesai/belum, dan bisa dicicil. Kalender nggak punya konsep itu.
-
-**Urutan pengecekan penting.** *"add a task ..."* juga cocok sama pola
-*"add ..."* buat bikin acara, jadi niat tugas dicek **duluan** di
-[main.py](agent/main.py) — kalau kebalik, tugasmu malah nyasar jadi acara
-kalender.
-
-Kalau kamu nyebut tugas yang cocok ke dua entri sekaligus (*"assignment"*
-padahal ada Assignment COMP4020 dan COMP4620), agent nolak nebak dan minta
-kamu perjelas.
-
-## Belum ada (tahap berikutnya)
-
-Wake word, notifikasi proaktif, integrasi LMS, baca daftar tugas otomatis,
-ubah/hapus acara lewat suara (sekarang cuma bisa bikin).
+| Hotkey nggak ngapa-ngapain | `scripts\status.ps1` — ada agent dobel? build lama? |
+| Nggak ada suara sama sekali | Output device pindah. `python -m agent.audio` |
+| Rekaman kepotong-potong | Pakai tombol tunggal, bukan kombinasi |
+| Kalimat kepotong di mode sesi | Naikin `VAD_SILENCE_MS` |
+| Jawaban lama banget | Pertama abis nganggur emang ~7 dtk (Ollama muat ulang) |
+| Perbaikan kelihatan nggak jalan | Cek baris `build:` — proses lama megang kode lama |
+
+## Yang belum ada
+
+Semuanya dicopot pas mulai ulang, dan riwayat git-nya masih lengkap kalau mau
+diambil lagi:
+
+- **Kalender** — baca jadwal, bikin acara (ICS lokal & Google Calendar)
+- **Daftar tugas** — catat, tandai selesai, milih mana yang dikerjain
+- **Memori antar-sesi** — riwayat & fakta yang bertahan setelah restart
+- **Jawaban pasti tanpa LLM** — jam, tanggal, jadwal dihitung Python
+- **Pengurai waktu deterministik** — Inggris (`time_en`) & Indonesia (`waktu_id`)
+- **Wake word** — masuk sesi tanpa nyentuh tombol
+- **Motong omongan agent** — butuh peredam gema

@@ -20,10 +20,10 @@ tekan lagi — dia menjawab lewat speaker. Bahasa Inggris, sepenuhnya offline.
                                     │
         ┌───────────────────────────┼───────────────────────────┐
         ▼                           ▼                           ▼
-   ┌─────────┐                ┌──────────┐                ┌──────────┐
-   │ audio   │  rekam ───────▶│   stt    │ suara→teks ───▶│   llm    │
-   │ mic     │                │ Parakeet │                │  qwen2.5 │
-   └─────────┘                └──────────┘                └────┬─────┘
+   ┌─────────┐   ┌─────┐      ┌──────────┐                ┌──────────┐
+   │ audio   │──▶│ vad │─────▶│   stt    │ suara→teks ───▶│   llm    │
+   │ mic     │   │batas│      │ Parakeet │                │  qwen2.5 │
+   └─────────┘   └─────┘      └──────────┘                └────┬─────┘
         ▲                                                      │
         │                     ┌──────────┐                     │
         └──── speaker ────────│   tts    │◀── teks→suara ──────┘
@@ -31,9 +31,14 @@ tekan lagi — dia menjawab lewat speaker. Bahasa Inggris, sepenuhnya offline.
                               └──────────┘
 ```
 
-Tiga model berbeda untuk tiga tugas berbeda: **Parakeet mendengar** (CPU,
-0 VRAM), **qwen2.5:7b berpikir** (GPU, ~5 GB), **Kokoro berbicara** (CPU,
-0 VRAM). Cuma satu yang menempati GPU — lihat §4.15.
+Empat model untuk empat tugas: **Silero VAD tahu kapan kamu selesai bicara**
+(CPU, 0 VRAM), **Parakeet mendengar** (CPU, 0 VRAM), **qwen2.5:7b berpikir**
+(GPU, ~5 GB), **Kokoro berbicara** (CPU, 0 VRAM). Cuma satu yang menempati GPU —
+lihat §4.7.
+
+Tidak ada yang lain. Kalender, daftar tugas, memori antar-sesi, dan penjawab
+deterministik pernah ada dan **sengaja dicopot** saat memulai ulang; riwayat
+git-nya masih lengkap kalau mau diambil kembali.
 
 ### Dua lapis, bukan satu
 
@@ -48,38 +53,28 @@ menit sehari, jadi menahan model di memori sepanjang hari itu pemborosan.
 
 | Modul | Baris | Tanggung jawab |
 |---|---:|---|
-| `main.py` | 570 | Listener hotkey, orkestrasi pipeline, percabangan niat, logging |
-| `calendar.py` | 457 | Susun agenda dari sumber yang aktif, format untuk prompt |
-| `llm.py` | 396 | Dua backend otak (Ollama/Claude), susun system prompt |
-| `jadwal_baru.py` | 277 | Ucapan → acara/tugas terstruktur, kalimat konfirmasi |
+| `main.py` | 672 | Listener hotkey, mode sesi, orkestrasi pipeline, logging |
+| `llm.py` | 288 | Dua backend otak (Ollama/Claude), streaming per kalimat |
 | `stt.py` | 275 | Parakeet / Whisper: muat, transkrip, lepas saat nganggur |
-| `config.py` | 266 | Semua konstanta dari `.env` + penegakan mode offline |
-| `tugas.py` | 222 | Daftar tugas: simpan, tandai selesai, ringkas |
-| `gcal.py` | 217 | Google Calendar (baca + tulis, OAuth) |
-| `audio.py` | 215 | Rekam mic, playback, beep |
-| `time_en.py` | 195 | Urai frasa waktu Inggris **tanpa LLM** |
-| `waktu_id.py` | 153 | Versi Indonesia — disimpan, tidak dipanggil |
-| `tts.py` | 142 | Kokoro / Piper: teks → WAV |
-| `memory.py` | 136 | Riwayat obrolan & fakta ke disk |
-| `vad.py` | 226 | Deteksi suara buat mode sesi (Silero, per frame) |
+| `audio.py` | 271 | Rekam mic, playback bersambung, beep |
+| `config.py` | 257 | Semua konstanta dari `.env` + penegakan mode offline |
+| `vad.py` | 226 | Deteksi suara per frame (Silero) |
+| `tts.py` | 142 | Kokoro / Piper: teks -> WAV |
 | `cek_offline.py` | 128 | Verifikasi kesiapan jalan tanpa jaringan |
-| `kalender_lokal.py` | 102 | Kalender file `.ics` (baca + tulis) |
-| `jawab_pasti.py` | 332 | Jawaban jam/tanggal/jadwal tanpa LLM |
-| `teks.py` | 55 | Penormal teks buat semua pencocokan niat |
+| `teks.py` | 55 | Penormal teks |
+
+Total ~2.300 baris.
 
 ### Arah ketergantungan
 
 ```
-main ──▶ audio, vad, stt, tts, llm, calendar, tugas, jadwal_baru, kalender_lokal, gcal, teks
-llm  ──▶ calendar, memory, tugas
-calendar ──▶ gcal, kalender_lokal
-jadwal_baru, tugas ──▶ teks, time_en
+main ──▶ audio, vad, stt, llm, tts, teks
 semuanya ──▶ config
 ```
 
 Satu arah, tanpa siklus. `config` tidak bergantung pada apa pun; `main` tidak
-diimpor siapa pun. Modul sumber data (`gcal`, `kalender_lokal`) diimpor
-**di dalam fungsi** oleh `calendar.py` untuk menghindari siklus impor.
+diimpor siapa pun. Tiap modul model (`vad`, `stt`, `llm`, `tts`) berdiri sendiri
+dan bisa dijalankan terpisah lewat `python -m agent.<modul>`.
 
 ---
 
@@ -96,36 +91,30 @@ diimpor siapa pun. Modul sumber data (`gcal`, `kalender_lokal`) diimpor
 3. Transkrip (Parakeet)
    └─ jika model belum siap: ucapkan "One moment, just getting ready."
 
-4. Percabangan niat — dicek berurutan, urutannya PENTING:
-   a. "forget everything"     → hapus memori
-   b. jawaban konfirmasi      → simpan/batalkan acara yang menunggu
-   c. tugas selesai           → tandai selesai
-   d. tambah tugas            → catat tugas
-   e. bikin acara             → urai, bacakan ulang, tunggu konfirmasi
-   f. selain itu              → kirim ke LLM
-
-5. Jawaban → Kokoro → speaker, KALIMAT PER KALIMAT (§4.20)
-6. Latar belakang: simpan riwayat (+ saring fakta kalau dinyalakan)
+4. Kirim ke LLM
+5. Jawaban → Kokoro → speaker, KALIMAT PER KALIMAT (§4.11)
 ```
 
 Dalam **mode sesi** (`SESSION_MODE=true`), langkah 1–2 diganti: hotkey membuka
-sesi sekali, lalu batas tiap ucapan ditentukan VAD. Langkah 3–6 sama persis —
-percabangan niatnya dipakai bareng lewat `_route_and_reply()`.
+sesi sekali, lalu batas tiap ucapan ditentukan VAD. Langkah 3–5 sama persis —
+dipakai bareng lewat `_route_and_reply()`.
 
 ```
 1. Hotkey ditekan → sesi terbuka
 2. Ulang sampai tutup:
    └─ tunggu suara, rekam sampai diam 800 ms
-   └─ langkah 3-6 di atas
-   └─ mic DITUTUP selama agent bicara (§4.18)
+   └─ langkah 3-5 di atas
+   └─ mic DITUTUP selama agent bicara (§4.9)
 3. Tutup kalau: hotkey ditekan lagi, diam 30 detik, atau "goodbye"
 ```
 
-### Kenapa urutan percabangan penting
+`_route_and_reply()` sekarang cuma meneruskan ke LLM. Bentuknya dipertahankan
+sebagai fungsi terpisah karena **di situlah percabangan niat akan menempel**
+kalau nanti ada fitur lagi — dan urutan pengecekannya terbukti gampang salah:
+*"add a task to finish the assignment"* juga cocok dengan pola *"add ..."* untuk
+membuat acara, jadi tugas harus dicek sebelum acara.
 
-*"add a task to finish the assignment on Friday"* juga cocok dengan pola
-*"add ..."* untuk membuat acara. Kalau acara dicek lebih dulu, tugasmu berakhir sebagai acara
-kalender. Karena itu tugas dicek **sebelum** acara.
+---
 
 ---
 
@@ -186,122 +175,7 @@ lama persis kondisi yang memicu pelepasan. Tiga hal meredamnya:
 2. Agent mengucapkan *"One moment"* supaya diamnya tidak terasa seperti mati
 3. Penekanan ulang dijawab dua ketuk pendek
 
-### 4.7 Agenda berformat berkolom, dengan baris hitungan
-
-Format padat tanpa pemisah membuat model mengambil nama matkul dari satu baris
-tapi lokasi dari baris tetangga. Sekarang kolom dipisah `|`.
-
-Tiga baris dihitung di Python, bukan diserahkan ke model:
-
-```
-NEXT UP: ...
-TODAY (Monday August 3): 1 scheduled -> ...
-TOMORROW (Tuesday August 4): 2 scheduled -> ...
-```
-
-Mencari acara terdekat dan menjumlahkan per hari itu penalaran lintas baris —
-persis yang bikin model kecil meleset. Terukur pada qwen2.5:7b:
-
-| | Jawaban lengkap |
-|---|---|
-| Tanpa baris hitungan | 0/3 (dua kali salah **hari**) |
-| Dengan baris hitungan | 2/3 |
-| + format jam diucapkan | **3/3** (setara Claude) |
-
-### 4.8 Jam ditulis untuk diucapkan
-
-`jam 9 sampai 11`, bukan `09:00-11:00`. Dua alasan:
-
-- TTS mengeja angka berformat jam apa adanya — kalimat yang sama makan
-  4,1 detik lawan 3,0 detik
-- Model **menyalin format yang dilihatnya**: begitu baris hitungan memakai
-  `09:00`, Claude pun ikut mengucapkan `09:00` padahal sebelumnya "jam sembilan"
-
-Tetap 24 jam supaya "jam 2" tidak ambigu siang/malam.
-
-### 4.9 Tanggal diurai tanpa LLM
-
-`time_en.py` mengurai frasa waktu Inggris secara deterministik, dan hasilnya
-**menimpa** jawaban model. Alasannya terukur:
-
-| | qwen2.5:7b | Sonnet 5 |
-|---|---|---|
-| Tanggal diserahkan ke model | 2/10 | 10/10 |
-| Tanggal diurai `time_en` | **5/5** | **5/5** |
-
-Model kecil menjawab "besok" dengan lusa dan "hari Jumat" dengan Senin, dan
-tetap begitu setelah diberi tabel tanggal siap pakai di prompt. Frasa waktu itu
-himpunan tertutup dengan aturan kaku — lebih tepat dikerjakan kode. Model cukup
-mengurus judul dan lokasi, yang memang butuh pemahaman bahasa.
-
-`time_en` lolos 33/33 bentuk, termasuk `3 p.m.` — bentuk ternormalisasi yang
-dikeluarkan Parakeet — plus `half past two`, `quarter to five`, `noon`,
-`midnight`, dan jebakan 12 AM/PM.
-
-Versi Indonesianya (`waktu_id.py`) sengaja **tidak dihapus**. Kalau suatu saat
-kembali ke dua bahasa, yang perlu dibangun ulang hanya perutean bahasanya.
-
-### 4.10 Menulis kalender selalu dikonfirmasi
-
-STT punya WER ~8%. Untuk **pertanyaan**, salah dengar hanya membuat jawaban
-ngawur dan langsung ketahuan. Untuk **penulisan**, salah dengar meninggalkan
-acara palsu yang baru ketahuan minggu depan.
-
-Tiga hal condong ke arah aman:
-
-- Jawaban ragu dibaca **batal**, bukan simpan
-- Kata "ya" hanya dihitung setuju kalau jadi kata pertama — *"hmm apa ya"*
-  sempat terbaca sebagai persetujuan sebelum diperbaiki
-- Kalau tanggal/jam tidak jelas, acaranya **ditolak**, bukan disimpan dengan
-  tebakan
-
-### 4.11 Prompt caching: yang stabil di depan, jam di belakang
-
-Cache itu cocok-awalan — satu byte berbeda membatalkan semua yang di
-belakangnya. Jam sekarang berubah tiap menit, jadi menaruhnya di depan berarti
-fakta, jadwal, dan tugas ikut terbuang tiap menit. Terukur:
-
-| Susunan | Menit 15:57 | Menit 15:58 |
-|---|---|---|
-| Jam di depan | 0 dari cache | 0 dari cache |
-| **Jam di belakang** | **1.585 dari cache** | **1.585 dari cache** |
-
-`_bagian_prompt()` memisahkan bagian stabil dari yang berubah.
-
-### 4.12 Jendela agenda: 7 hari rinci + yang menyimpang dari pola
-
-Isi agenda ikut dikirim di **setiap** permintaan, jadi jendelanya tidak bisa
-asal dilebarkan. Tapi jadwal kuliah berulang mingguan — mengirim 90 hari secara
-polos berarti membayar untuk mengulang informasi yang sama tujuh kali.
-
-| Jendela | Token/permintaan |
-|---|---|
-| 7 hari | 1.477 |
-| 90 hari polos | 5.417 |
-| **7 hari + luar-pola** | **1.631** |
-
-Di luar jendela rinci, hanya dikirim acara yang ciri hari+jam+judulnya belum
-muncul — ujian, kelas pengganti, deadline, acara pribadi. 96% lebih murah dan
-justru memunculkan yang berguna.
-
-### 4.13 Memori menyimpan hal tentang user, bukan yang punya sumber lain
-
-Versi awal prompt penyaring menyebut "jadwal rutin" sebagai contoh hal yang
-layak diingat, dan `facts.md` langsung terisi jam kuliah lengkap dengan nomor
-ruangan. Salinan seperti itu **beku**: kalau jadwal berubah, memorinya jadi
-salah dan mulai **membantah** kalender di prompt yang sama.
-
-Aturan pembatas: memori menyimpan hal tentang **user** yang tidak punya sumber
-lain — nama, preferensi, proyek. Jadwal punya kalender, tugas punya daftarnya.
-
-### 4.14 Login OAuth tidak boleh dipicu dari alur agent
-
-Agent jalan lewat `pythonw` **tanpa jendela**. Kalau alur normal boleh memicu
-login browser, agent akan menggantung menunggu jendela yang mungkin tidak
-disadari user — gejalanya persis seperti mati. `gcal.aktif()` ikut memeriksa
-keberadaan token, dan login dipisah ke `scripts/login_google.py`.
-
-### 4.15 Hanya satu model yang menempati GPU
+### 4.7 Hanya satu model yang menempati GPU
 
 GPU di mesin ini 8 GB. qwen2.5:7b sendiri sudah ~5 GB. Kalau STT ikut naik ke
 GPU, sisanya tinggal ~1 GB dan qwen mulai kegeser ke RAM — yang jauh lebih mahal
@@ -321,7 +195,7 @@ Ollama "2x lebih lambat"; yang sebenarnya terukur adalah **pemuatan model**,
 bukan inferensi. Ollama memakai keep-alive 5 menit. Saat warm: 1,8–2,2 detik,
 melawan ~2,8 detik untuk Claude yang harus menempuh jaringan.
 
-### 4.16 Mode offline ditegakkan saat startup, di `config`
+### 4.8 Mode offline ditegakkan saat startup, di `config`
 
 `OFFLINE_MODE=true` menolak backend yang butuh jaringan — `LLM_BACKEND=claude`,
 `CALENDAR_ICS_URL`, `GOOGLE_CREDENTIALS_FILE` — dan agent berhenti dengan kode 2.
@@ -341,25 +215,7 @@ bobot di disk, model benar-benar termuat, dan Ollama menyahut. Diuji dengan
 seluruh soket non-localhost diblokir, pipeline penuh berjalan 8/8 langkah dengan
 **nol** percobaan koneksi keluar.
 
-### 4.17 Data lama tidak boleh membuat parser gagal
-
-Judul acara yang ditulis sebelum pindah ke Inggris membawa label Indonesia —
-`COMP4620 ... (kuliah)`. Setelah `KINDS` berganti ke Inggris, parser berhenti
-mengenalinya: label itu bocor utuh ke prompt sebagai bagian dari nama matkul,
-dan kolom jenisnya jadi kosong.
-
-Perbaikannya dua lapis, dan keduanya perlu:
-
-1. `LEGACY_KINDS` di `calendar.py` **menerjemahkan** label lama saat dibaca, jadi
-   file lama tetap terbaca benar tanpa disentuh.
-2. `scripts/migrasi_jenis_ics.py` menulis ulang datanya sekali (36 `kuliah`,
-   20 `lab komputer`), dengan cadangan, dan **tidak menyentuh** judul buatan user
-   sendiri — `Bayar Rego` itu isi, bukan label sistem.
-
-`gcal.py` sempat punya daftar jenis kembar. Sekarang meminjam dari `calendar.py`:
-daftar kembar berarti satu jalur mengenali label yang jalur lain tolak.
-
-### 4.18 Mode sesi: mic ditutup selama agent bicara
+### 4.9 Mode sesi: mic ditutup selama agent bicara
 
 Dalam mode sesi, batas kalimat ditentukan VAD (Silero, lewat `onnx_asr` —
 model yang sama dengan Parakeet, jadi nol paket baru). Konsekuensinya: mic
@@ -377,7 +233,7 @@ Tiga jalan keluar; yang dipilih paling sederhana:
 
 Yang dipilih baris pertama. Harganya nyata: balasan panjang tidak bisa
 dipotong, kamu terkunci mendengarkan sampai habis. Itulah sebabnya
-`REPLY_MAX_WORDS` menjadi wajib, bukan pemanis — lihat §4.19.
+`REPLY_MAX_WORDS` menjadi wajib, bukan pemanis — lihat §4.10.
 
 VAD-nya juga membedakan **tiga** alasan berhenti, bukan satu. "User menutup
 sesi", "sesi mati sendiri karena sepi", dan "suaranya terlalu pendek" harus
@@ -388,7 +244,7 @@ Tenggat sepi dihitung dari awal dan **tidak** di-reset oleh suara pendek. Kalau
 di-reset, ruangan berisik bisa menahan sesi terbuka selamanya tanpa kamu bicara
 sekali pun — dan model ikut tertahan di memori selama itu.
 
-### 4.19 Panjang balasan: batas kata, bukan batas token
+### 4.10 Panjang balasan: batas kata, bukan batas token
 
 Terukur pada qwen2.5:7b:
 
@@ -408,7 +264,7 @@ Panjang **kalimat** diatur terpisah dari panjang **jawaban**, dan itu bukan
 duplikasi: TTS baru bisa mulai berbunyi setelah satu kalimat utuh, jadi satu
 kalimat 36 kata menunda bunyi pertama sama saja dengan tidak streaming.
 
-### 4.20 Streaming: yang dipangkas diamnya, bukan totalnya
+### 4.11 Streaming: yang dipangkas diamnya, bukan totalnya
 
 Jawaban dipotong per kalimat dan langsung disintesis, sementara model masih
 mengarang kalimat berikutnya.
@@ -431,110 +287,35 @@ sambungan kalimat kena 0,4 detik hening — terukur 0,83 detik hening berlebih
 pada balasan tiga kalimat. `Speaker` memberi bantalan sekali di awal dan sekali
 di akhir seluruh ucapan.
 
-### 4.21 Satu penormal teks untuk semua pencocokan niat
-
-Tiap modul dulu menormalkan teksnya sendiri, dan semuanya mengganti apostrof
-dengan **spasi**. Akibatnya `"don't save it"` pecah menjadi `don | t | save |
-it`: tidak ada yang cocok dengan daftar penolakan, lalu kata `save` tertangkap
-sebagai persetujuan.
-
-Jadi **`answer_yes("don't save it")` mengembalikan `True`** — agent menyimpan
-acara padahal user bilang jangan, persis kebalikan dari yang diminta, dan
-persis kegagalan yang seluruh mekanisme konfirmasi ini ada untuk mencegahnya.
-
-`teks.py` menjadi satu-satunya sumber: apostrof **dibuang** (menyambung), tanda
-baca lain menjadi spasi. Ini kelas bug yang sama dengan frasa dua kata di
-`_YES`/`_NO` yang tidak pernah cocok — dan itu alasan normalisasi tidak boleh
-ditulis ulang per modul.
-
-Pencocok frasa penutup sesi punya **dua tingkat** karena alasan serupa. "I'm
-done" menutup sesi, tapi "I'm done with assignment one" adalah laporan tugas
-selesai — kalau dicocokkan di mana pun, tugasmu tidak pernah tertandai karena
-sesinya keburu tutup.
-
-### 4.22 Pertanyaan tertutup dijawab Python, bukan model
-
-Jam, tanggal, dan jadwal punya jawaban yang **sudah pasti**. Menyerahkannya ke
-qwen bukan cuma menambah 3-12 detik, tapi menambah cara untuk salah.
-
-| | Jalur pasti | Lewat model |
-|---|---:|---:|
-| Bunyi pertama, rata-rata | **1,01 dtk** | 5,78 dtk |
-| Ketepatan jam | **6/6** | 4/6 sampai 6/6 salah |
-
-Kegagalan modelnya menarik karena bukan soal akses. Jamnya **ada** di prompt dan
-terbaca benar — yang salah cara dia menyampaikannya: dia memparafrase jadi
-ucapan yang "enak" lalu **membulatkan**. Jam 20:12 menjadi "quarter past eight",
-"half past eight", "eight fifteen".
-
-Hipotesis pertama — beri format yang lebih ramah ucapan (`8:12 pm`) — **diuji
-dan gagal**: 6/6 salah, lebih buruk daripada format 24 jam. Formatnya justru
-mengundang pembulatan. Itu menutup opsi menambal prompt: selama kalimatnya
-disusun model, jamnya tidak akan pernah akurat.
-
-Dua hal yang bikin ini aman:
-
-**`answer()` balikin `None` kalau ragu.** Pertanyaan tak dikenal jatuh ke model.
-Salah rute di sini membuat pertanyaan wajar dijawab kaku dan melenceng — lebih
-buruk daripada lambat. Diuji 12 kalimat yang harus lolos ke model, termasuk
-jebakan seperti *"is the library open today"* (ada "today", bukan soal jadwal)
-dan *"what do you think about my schedule"* (ada "schedule", butuh penilaian).
-
-**Jadwal dikenali dari dua bagian, bukan hafalan frasa.** Kata jadwal + kata
-hari. Daftar frasa utuh terlalu kaku: *"what classes do I have today"* tidak
-mengandung `"classes today"` karena ada `"do i have"` menyelip.
-
-Tiap acara jadi **kalimat sendiri**, bukan satu kalimat panjang berkoma — dan
-itu bukan kosmetik. TTS baru mulai berbunyi setelah satu kalimat utuh, jadi
-jawaban pasti sempat **lebih lambat** dari model (6,26 lawan 5,58 detik) justru
-karena dirakit sebagai satu kalimat. Setelah dipecah: 0,49 detik.
-
-### 4.23 Pertanyaan yang menyelip jadi tulisan
-
-Tiga entri sampah pernah masuk daftar tugas — `Assignment Count for August`,
-`Assignments Due This Month` (dua kali). Semuanya lahir dari **pertanyaan** yang
-terbaca sebagai perintah mencatat.
-
-Pemicunya *"I need to know my assignments this month"*. `"i need to"` ada di
-daftar deklarasi tugas, dan penjaga pertanyaan cuma memeriksa **awal** kalimat —
-sedangkan "I need to **know**" itu bertanya.
-
-Penjaga awal-kalimat saja tidak cukup; sekarang ada daftar penanda tanya yang
-dicek **di mana pun** dalam kalimat: `need to know`, `want to know`,
-`wondering`, `tell me about`. Arahnya sengaja tidak simetris — gagal mengenali
-tugas berarti kamu mengulang sekali, sedangkan salah menulis meninggalkan entri
-palsu yang baru ketahuan berminggu-minggu kemudian.
-
----
-
 ## 5. Penyimpanan
 
-Semua di `memory/` (gitignore):
+Nyaris tidak ada, dan itu disengaja.
 
 | File | Isi | Umur |
 |---|---|---|
-| `facts.md` | Hal tentang user | Sampai dihapus |
-| `history.json` | 20 pesan terakhir | Dibuang setelah 12 jam |
-| `tasks.json` | Daftar tugas | Sampai ditandai selesai |
-| `kalender.ics` | Kalender lokal | Permanen |
-| `google_token.json` | Token OAuth | Diperbarui otomatis |
-| `calendar.ics` | Cache feed ICS | Disegarkan tiap 60 menit |
+| `memory/agent.lock` | Kunci satu-instance | Dilepas OS saat proses mati |
+| `logs/agent.log` | Log | Rotating, 1 MB x 4 |
 
-Penulisan lewat file sementara + `os.replace` — kalau proses mati di tengah
-menulis, file lama tetap utuh.
+**Riwayat percakapan tidak disimpan ke disk.** Dulu disimpan, dan berkali-kali
+membuat model mengarang tentang data yang sudah berubah — sampai mengaku telah
+memindahkan tenggat yang acaranya bahkan sudah dihapus. Riwayat berguna untuk
+menyambung percakapan, tetapi bukan sumber fakta. Restart = mulai bersih.
 
-**Riwayat sengaja punya batas umur.** Menyambungkan obrolan yang terpotong
-restart berguna dalam hitungan jam; 20 pesan dari minggu lalu justru membuat
-salah konteks. Fakta yang bertahan.
+Model besar tetap di cache HuggingFace (`~/.cache/huggingface`), bukan di repo:
+Parakeet dan Silero VAD diambil `onnx-asr` lewat nama model, bukan lewat path.
+
+---
 
 ---
 
 ## 6. Bagian yang bisa ditukar
 
-Lima titik dirancang bisa diganti lewat `.env` tanpa menyentuh kode:
+Empat titik dirancang bisa diganti lewat `.env` tanpa menyentuh kode:
 
-**Otak** — `LLM_BACKEND=ollama|claude`. Keduanya mengimplementasikan antarmuka
-sama (`chat()`, `_oneshot()`), jadi seluruh fitur jalan di dua-duanya.
+**Otak** — `LLM_BACKEND=ollama|claude`. Keduanya di balik `chat()` dan
+`chat_stream()` yang sama. Backend yang tidak mendukung streaming tetap jalan:
+`chat_stream()` bawaannya mengeluarkan satu potong utuh, jadi pemanggilnya tidak
+perlu tahu bedanya.
 
 **Pendengaran** — `STT_BACKEND=parakeet|whisper`. Keduanya di balik
 `get_model()` / `transcribe()` / `unload_model()` yang sama. Parakeet cuma
@@ -545,82 +326,51 @@ VRAM kalau dinaikkan ke GPU.
 Sample rate berbeda (24 kHz vs 22,05 kHz) tapi tidak jadi masalah: `_ke_wav()`
 menulis header WAV, dan pemutarnya membaca laju dari header, bukan dari konstanta.
 
-**Sumber kalender** — file `.ics` lokal, feed ICS jarak jauh, atau Google
-Calendar. `calendar.py` menggabungkan yang aktif; kalau lebih dari satu berisi
-acara yang sama, hasilnya dobel — karena itu hanya satu yang dinyalakan.
-
 **Backend hotkey** — `pynput` (default) atau `keyboard`, dan mode `toggle`
 atau `hold`.
 
 **Gaya interaksi** — `SESSION_MODE=false` (pencet tiap giliran) atau `true`
-(sekali pencet, terus ngobrol). Yang berganti cuma handler-nya; percabangan
-niat, memori, dan kalender dipakai bareng lewat `_route_and_reply()`.
+(sekali pencet, terus ngobrol). Yang berganti cuma handler-nya; transkrip sampai
+jawaban dipakai bareng lewat `_route_and_reply()`.
 
 ---
 
 ## 7. Yang belum ada
 
-- **Wake word** — masuk sesi tanpa menyentuh tombol sama sekali
-- **Memotong agent** — butuh peredam gema, lihat §4.18
-- **Notifikasi proaktif** — agent bicara duluan, misalnya mengingatkan tenggat
-- **Ubah/hapus acara lewat suara** — sekarang hanya bisa membuat
-- **Integrasi LMS** — tenggat tugas masih dicatat manual
-- **Dua bahasa** — `waktu_id.py` masih ada tapi tidak ada perutean bahasanya
+Semua di bawah ini **pernah ada** dan dicopot saat memulai ulang. Riwayat
+git-nya lengkap — ini bukan daftar keinginan, tapi daftar yang tinggal diambil:
+
+- **Kalender** — baca jadwal, buat acara (ICS lokal & Google Calendar)
+- **Daftar tugas** — catat, tandai selesai, pilih mana yang dikerjakan
+- **Memori antar-sesi** — riwayat & fakta yang bertahan setelah restart
+- **Jawaban pasti tanpa LLM** — jam, tanggal, jadwal dihitung Python. Terukur
+  5,7x lebih cepat sampai bunyi pertama, dan jam 6/6 tepat lawan 4/6–6/6 salah
+- **Pengurai waktu deterministik** — `time_en` (33/33) dan `waktu_id`
+
+Yang belum pernah ada:
+
+- **Wake word** — masuk sesi tanpa menyentuh tombol
+- **Memotong agent** — butuh peredam gema, lihat §4.9
+- **Notifikasi proaktif** — agent bicara duluan
 
 ### Batasan yang diketahui pada qwen2.5:7b
 
-Dua hal terukur, bukan dugaan:
+Dua hal terukur, bukan dugaan.
 
 **Jawaban salah meracuni giliran berikutnya.** Ditanya lokasi kelas dengan
-riwayat kosong: 0 dari 8 salah. Tetapi begitu satu jawaban keliru masuk riwayat
-(`Engineering Lecture Theatre 2.04` padahal datanya `Fulton Muir, Rm 2.04`),
+riwayat kosong: 0 dari 8 salah. Tetapi begitu satu jawaban keliru masuk riwayat,
 giliran berikutnya menyalin kekeliruan itu — model lebih memercayai ucapannya
-sendiri daripada jadwal di system prompt. `"forget everything"` mengosongkannya.
+sendiri daripada data di system prompt. Ini alasan riwayat tidak lagi disimpan
+ke disk (§5), dan alasan `OLLAMA_NUM_CTX` dinaikkan ke 8192.
 
-Ini juga alasan `OLLAMA_NUM_CTX` dinaikkan ke 8192: pada default Ollama 4096,
-system prompt (~850 token) plus riwayat yang menumpuk bisa menggeser justru
-jadwalnya keluar konteks.
+Bentuk paling mahalnya: model **mengaku telah melakukan sesuatu yang tidak
+dilakukannya**. Ditanya *"can you delay that?"*, jawabannya *"the deadline is now
+set for September 1st"* — padahal tidak ada satu pun jalur kode yang bisa
+mengubah acara. Sekarang system prompt melarangnya secara eksplisit: agent tidak
+punya alat apa pun, dan harus mengatakannya. Jawaban salah masih ketahuan saat
+dicek; pengakuan palsu membuat orang berhenti mengecek.
 
-**Balasannya lebih panjang dari yang diminta.** System prompt meminta 1–2
-kalimat; qwen kerap memberi 3–4, yang menjadi ~20 detik audio.
-`OLLAMA_NUM_PREDICT=160` adalah batas atas untuk yang benar-benar mengigau,
-bukan pemaksa ringkas. Claude menuruti batasan ini, qwen tidak.
-
-### ISU TERBUKA: label hari sesekali meleset
-
-**Status: belum diperbaiki, belum bisa direproduksi.** Dicatat di sini supaya
-tidak hilang, bukan karena sudah dipahami.
-
-Terjadi 4 Agustus 2026, 06:54. Ditanya *"Do I have assignment for this week?"*,
-qwen menjawab:
-
-> *"Your next classes are **tomorrow** from nine to eleven for COMP4620 ..."*
-
-COMP4620 09:00–11:00 itu **hari itu juga**, bukan besok. Model mengambil isi
-baris `TODAY` lalu melabelinya "tomorrow". Satu menit kemudian, pertanyaan lain
-dijawab benar (*"Today is Tuesday 4 August ..."*).
-
-Yang sudah dipastikan **bukan** penyebabnya:
-
-- **Bukan cache agenda.** `agenda()` menghitung `hari_ini` dari `datetime.now()`
-  setiap giliran; tidak ada teks prompt yang disimpan. Diverifikasi dengan
-  membuang isi prompt saat itu juga — isinya `TODAY (Tuesday August 4)`, benar.
-- **Bukan temperature.** 12 percobaan di 0,7 dan 12 di 0,2: 0 salah.
-- **Bukan riwayat lintas tengah malam.** Hipotesis awalnya: kalimat "besok" yang
-  diucapkan tanggal 3 menjadi salah setelah tanggal berganti, dan agent memang
-  hidup terus sejak 20:23 tanggal 3. Diuji dengan menyuntikkan riwayat kemarin
-  yang persis begitu — 5 percobaan, 0 salah.
-
-Total 22 percobaan tanpa satu pun berhasil menirukan. Sesi live punya riwayat
-yang tidak bisa direkonstruksi, jadi pemicunya masih terbuka.
-
-**Arah perbaikan yang disarankan** — bukan menambal prompt, tapi mengikuti §4.9:
-rutekan pertanyaan jadwal ke jawaban yang dihitung Python, sebagaimana tanggal
-sudah diurai tanpa LLM. Baris `NEXT UP` / `TODAY` / `TOMORROW` sudah dihitung
-Python; model tidak menambahkan apa pun di situ selain risiko. Untungnya
-ganda: benar 100%, dan hilang satu panggilan LLM (~5 detik).
-
----
+**Balasannya lebih panjang dari yang diminta.** Lihat §4.10.
 
 ## 8. Cara mengukur ulang
 
@@ -629,9 +379,16 @@ berubah. Yang perlu diketahui untuk mengukur sendiri:
 
 - **Akurasi STT** — nyalakan `SAVE_RECORDINGS=true`, pakai beberapa hari,
   lalu bandingkan transkrip dengan yang sebenarnya kamu ucapkan
-- **Akurasi jadwal** — bandingkan jawaban agent dengan data mentah dari
-  sumbernya, bukan sekadar "ada jawabannya". Dua kali di proyek ini, tes yang
-  terlalu longgar menyembunyikan kesalahan hari yang nyata
-- **Token & cache** — log obrolan mencantumkan `cache: N baca, M tulis`.
-  Kalau `baca` selalu 0, ada sesuatu yang berubah-ubah tersisip di depan prompt
+- **VAD** — `python -m agent.vad`. Ucapkan kalimat berjeda di tengah: harus
+  keluar sebagai SATU baris, bukan dua. Batuk tidak boleh muncul sama sekali
+- **Jeda terasa** — yang penting waktu sampai **bunyi pertama**, bukan waktu
+  total. Streaming nyaris tidak mengubah total, tapi memangkas diamnya 53–71%
 - **VRAM** — `nvidia-smi`, atau `scripts/status.ps1` untuk ringkasannya
+- **Offline** — `python -m agent.cek_offline`. Untuk bukti yang lebih keras,
+  blokir semua soket non-localhost lalu jalankan rantai penuh; yang dihitung
+  bukan "jalan", tapi **nol percobaan koneksi keluar**
+
+Satu pelajaran yang berulang: **tes yang terlalu longgar menyembunyikan
+kesalahan nyata.** Di proyek ini sudah dua kali tes lulus padahal jawabannya
+salah, karena kriterianya cuma "ada jawabannya". Ukur nilainya, bukan
+keberadaannya.

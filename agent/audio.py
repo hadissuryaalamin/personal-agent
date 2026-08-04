@@ -1,4 +1,4 @@
-"""Capture mic & playback speaker."""
+"""Microphone capture and speaker playback."""
 
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ log = logging.getLogger(__name__)
 
 
 def _pad(data: np.ndarray, samplerate: int) -> np.ndarray:
-    """Sisipin hening di kedua ujung biar suaranya nggak kepotong.
+    """Insert silence at both ends so the audio does not get clipped.
 
-    Tanpa ini, di Windows awal suara hilang (device output masih kebuka pas
-    sampel pertama dikirim) dan akhirnya kepotong (sd.wait() balik pas buffer
-    habis disuapin, padahal device masih mainin sisanya).
+    Without it, Windows loses the start (the output device is still opening
+    when the first samples arrive) and cuts the end (sd.wait() returns once the
+    buffer has been fed, while the device is still playing the rest).
     """
     n = int(samplerate * config.PLAYBACK_PAD_SECONDS)
     if n <= 0:
@@ -41,7 +41,7 @@ def _play_array(data: np.ndarray, samplerate: int, blocking: bool = True) -> Non
 
 
 def play_wav(wav_bytes: bytes, blocking: bool = True) -> None:
-    """Mainin WAV (bytes) ke output device default."""
+    """Play a WAV (bytes) on the default output device."""
     data, samplerate = sf.read(io.BytesIO(wav_bytes), dtype="float32")
     _play_array(data, samplerate, blocking)
 
@@ -51,18 +51,18 @@ def stop_playback() -> None:
 
 
 class Speaker:
-    """Mainin potongan WAV berturut-turut TANPA jeda di sambungannya.
+    """Play WAV chunks back to back with NO gap at the joins.
 
-    Kenapa nggak play_wav() dipanggil berkali-kali: `_pad()` nyisipin hening di
-    dua ujung tiap potongan, jadi tiap sambungan kalimat kena 0,4 detik hening
-    dan balasan 4 kalimat kedengeran patah-patah. Di sini bantalannya cuma
-    ditaruh sekali di awal dan sekali di akhir seluruh ucapan.
+    Why not call play_wav() repeatedly: `_pad()` adds silence to both ends of
+    every chunk, so each sentence boundary costs 0.4 s of silence and a
+    four-sentence reply sounds broken up. Here the padding goes in once at the
+    start and once at the end of the whole utterance.
 
-    Dipakai gini:
+    Used like this:
         sp = Speaker()
-        for wav in potongan:
-            sp.add(wav)      # yang pertama langsung mulai bunyi
-        sp.finish()          # nunggu sampai bener-bener selesai
+        for wav in chunks:
+            sp.add(wav)      # the first one starts playing immediately
+        sp.finish()          # waits until playback is really done
     """
 
     def __init__(self) -> None:
@@ -82,10 +82,10 @@ class Speaker:
             if n > 0:
                 self._stream.write(np.zeros(n, dtype=np.float32))
         elif rate != self._rate:
-            # Nggak kejadian selama satu backend TTS dipakai sepanjang ucapan,
-            # tapi kalau kejadian, diam-diam ngubah laju bikin suaranya jadi
-            # chipmunk — mending kedengeran salahnya.
-            log.warning("laju sampel berubah di tengah ucapan: %s -> %s", self._rate, rate)
+            # Cannot happen while one TTS backend serves a whole utterance,
+            # but if it did, silently changing the rate would turn the voice
+            # into a chipmunk — better to make the mistake visible.
+            log.warning("sample rate changed mid-utterance: %s -> %s", self._rate, rate)
 
         self._stream.write(np.ascontiguousarray(data, dtype=np.float32))
 
@@ -110,7 +110,7 @@ class Speaker:
 
 
 def _tone(freq: float, duration: float, volume: float = 0.25) -> np.ndarray:
-    """Sine pendek dengan fade in/out biar nggak 'klik'."""
+    """A short sine with fade in/out so it does not click."""
     sr = config.SAMPLE_RATE
     n = int(sr * duration)
     t = np.arange(n, dtype=np.float32) / sr
@@ -125,38 +125,40 @@ def _tone(freq: float, duration: float, volume: float = 0.25) -> np.ndarray:
 
 def _beep(freq: float, duration: float = 0.09, blocking: bool = True) -> None:
     try:
-        # Beep-nya pendek banget, jadi justru paling gampang ketelan tanpa bantalan
+        # The beep is very short, which makes it the easiest thing to lose
+        # without padding
         _play_array(_tone(freq, duration), config.SAMPLE_RATE, blocking)
     except Exception:
-        # Beep cuma feedback; jangan sampai bikin pipeline mati
-        log.warning("gagal bunyiin beep", exc_info=True)
+        # A beep is only feedback; it must never kill the pipeline
+        log.warning("failed to play beep", exc_info=True)
 
 
 def beep_start() -> None:
-    """Nada naik: mulai rekam.
+    """Rising tone: recording started.
 
-    Sengaja NON-BLOCKING. Kalau nunggu beep selesai, buffer mic baru dibuang
-    setelahnya — padahal user udah mulai ngomong begitu denger nadanya, jadi
-    kata pertamanya ikut kebuang. Nada 880 Hz yang bocor ke mic nggak masalah:
-    VAD filter Whisper nganggapnya bukan suara orang.
+    Deliberately NON-BLOCKING. If we waited for the beep to finish, the mic
+    buffer would only be flushed afterwards — but the user starts speaking the
+    moment they hear the tone, so their first word would be flushed with it.
+    The 880 Hz tone bleeding into the mic is harmless: the VAD does not read it
+    as speech.
     """
     _beep(880.0, blocking=False)
 
 
 def beep_stop() -> None:
-    """Nada turun: selesai rekam."""
+    """Falling tone: recording finished."""
     _beep(560.0)
 
 
 def beep_error() -> None:
-    """Nada rendah panjang: ada yang error."""
+    """Long low tone: something failed."""
     _beep(240.0, duration=0.25)
 
 
 def beep_busy() -> None:
-    """Dua ketuk pendek: kedengeran, tapi lagi sibuk — pencetanmu diabaikan.
+    """Two short taps: heard you, but busy — your press was ignored.
 
-    Beda dari beep_error biar user bisa bedain 'lagi kerja' sama 'gagal'.
+    Distinct from beep_error so "still working" is never mistaken for "failed".
     """
     _beep(420.0, duration=0.05)
     _beep(420.0, duration=0.05)
@@ -171,18 +173,18 @@ def record_until_release(
     release_grace: float | None = None,
     poll_interval: float = 0.02,
 ) -> np.ndarray:
-    """Rekam mic selama `is_held()` masih True.
+    """Record from the mic for as long as `is_held()` stays True.
 
-    `release_grace` = tenggang sebelum berhenti pas `is_held()` jadi False.
-    Perlu di mode tahan (Windows ngirim UP/DOWN palsu), tapi di mode toggle
-    berhentinya eksplisit jadi dilewatin aja (0).
+    `release_grace` is how long to wait after `is_held()` goes False before
+    actually stopping. Needed in hold mode (Windows sends spurious UP/DOWN
+    pairs); in toggle mode the stop is explicit, so it is skipped (0).
 
-    `on_ready` dipanggil pas stream udah beneran kebuka — dipakai buat bunyiin
-    beep, biar user nggak mulai ngomong sebelum mic-nya nyala (buka stream bisa
-    makan setengah detik).
+    `on_ready` fires once the stream is genuinely open — used to play the beep,
+    so the user does not start talking before the mic is live (opening a stream
+    can take half a second).
 
-    Balikin float32 mono 1-D pada `config.SAMPLE_RATE`. Array kosong kalau
-    rekamannya terlalu pendek (kepencet nggak sengaja).
+    Returns 1-D mono float32 at `config.SAMPLE_RATE`. An empty array means the
+    recording was too short to be anything but a stray press.
     """
     if release_grace is None:
         release_grace = config.RELEASE_GRACE_SECONDS
@@ -191,7 +193,7 @@ def record_until_release(
 
     def callback(indata, _frames, _time_info, status):
         if status:
-            log.debug("status input stream: %s", status)
+            log.debug("input stream status: %s", status)
         frames.put(indata.copy())
 
     with sd.InputStream(
@@ -202,7 +204,7 @@ def record_until_release(
     ):
         if on_ready is not None:
             on_ready()
-        # Buang apa pun yang kerekam sebelum/selama beep
+        # Drop whatever was captured before and during the beep
         while not frames.empty():
             frames.get()
 
@@ -212,7 +214,7 @@ def record_until_release(
             now = time.monotonic()
 
             if is_held():
-                # Kombinasi utuh lagi — ternyata cuma kedipan, lanjut rekam
+                # Combo complete again — only a flicker, keep recording
                 released_at = None
             elif released_at is None:
                 released_at = now
@@ -221,7 +223,7 @@ def record_until_release(
 
             if now - started > config.MAX_RECORD_SECONDS:
                 log.warning(
-                    "rekaman dipotong di %.0f detik (batas aman)",
+                    "recording cut off at %.0f s (safety limit)",
                     config.MAX_RECORD_SECONDS,
                 )
                 break
@@ -237,25 +239,25 @@ def record_until_release(
     audio = np.concatenate(chunks, axis=0).reshape(-1)
     seconds = len(audio) / config.SAMPLE_RATE
     if seconds < config.MIN_RECORD_SECONDS:
-        log.info("rekaman cuma %.2f detik, dibuang", seconds)
+        log.info("recording was only %.2f s, dropped", seconds)
         return np.zeros(0, dtype=np.float32)
 
-    log.info("rekaman %.2f detik (%d sample)", seconds, len(audio))
+    log.info("recorded %.2f s (%d samples)", seconds, len(audio))
     if config.SAVE_RECORDINGS:
         _save_recording(audio)
     return audio
 
 
 def _save_recording(audio: np.ndarray) -> None:
-    """Simpan rekaman mentah buat debugging. Nggak boleh bikin pipeline gagal."""
+    """Save the raw recording for debugging. Must never fail the pipeline."""
     try:
         config.RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
         name = time.strftime("%Y%m%d-%H%M%S") + ".wav"
         path = config.RECORDINGS_DIR / name
         sf.write(path, audio, config.SAMPLE_RATE)
-        log.info("rekaman disimpan: %s", path)
+        log.info("recording saved: %s", path)
     except Exception:
-        log.warning("gagal nyimpen rekaman", exc_info=True)
+        log.warning("failed to save recording", exc_info=True)
 
 
 def list_devices() -> str:

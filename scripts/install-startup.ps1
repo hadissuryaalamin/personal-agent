@@ -1,15 +1,16 @@
 <#
 .SYNOPSIS
-  Daftarin personal-agent ke Task Scheduler biar jalan diam-diam tiap login.
+  Register personal-agent with Task Scheduler so it starts quietly at every login.
 
 .DESCRIPTION
-  Bikin task "PersonalAgent": trigger At log on, action pythonw.exe (tanpa console
-  window), "Start in" = folder repo.
+  Creates the "PersonalAgent" task: At log on trigger, pythonw.exe as the action
+  (no console window), "Start in" set to the repo folder.
 
-  Default jalan tanpa elevasi (cocok buat HOTKEY_BACKEND=pynput). Pakai -Elevated
-  kalau pindah ke HOTKEY_BACKEND=keyboard, yang butuh highest privileges.
+  Runs without elevation by default, which suits HOTKEY_BACKEND=pynput. Pass
+  -Elevated if you switch to HOTKEY_BACKEND=keyboard, which needs highest
+  privileges.
 
-  Registrasi task-nya sendiri tetep butuh PowerShell sebagai Administrator.
+  Registering the task itself still requires PowerShell as Administrator.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\install-startup.ps1
@@ -20,7 +21,7 @@
 param(
     [string]$TaskName = "PersonalAgent",
     [switch]$Uninstall,
-    # Jalanin task with highest privileges — perlu kalau HOTKEY_BACKEND=keyboard
+    # Run the task with highest privileges — needed for HOTKEY_BACKEND=keyboard
     [switch]$Elevated
 )
 
@@ -34,29 +35,29 @@ function Test-Admin {
 }
 
 if (-not (Test-Admin)) {
-    throw "Script ini butuh PowerShell yang dijalanin sebagai Administrator."
+    throw "This script needs PowerShell running as Administrator."
 }
 
 # --- Uninstall ---
 if ($Uninstall) {
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($null -eq $existing) {
-        Write-Host "Task '$TaskName' nggak ada, nggak ngapa-ngapain." -ForegroundColor Yellow
+        Write-Host "Task '$TaskName' does not exist, nothing to do." -ForegroundColor Yellow
         return
     }
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-    Write-Host "Task '$TaskName' dihapus." -ForegroundColor Green
-    Write-Host "Proses yang lagi jalan matiin manual:  Get-Process pythonw | Stop-Process"
+    Write-Host "Task '$TaskName' removed." -ForegroundColor Green
+    Write-Host "Stop any running process by hand:  Get-Process pythonw | Stop-Process"
     return
 }
 
-# --- Cari pythonw.exe ---
+# --- Locate pythonw.exe ---
 $PythonW = Join-Path $RepoRoot ".venv-agent\Scripts\pythonw.exe"
 if (-not (Test-Path $PythonW)) {
     $PythonW = Join-Path $RepoRoot ".venv\Scripts\pythonw.exe"
 }
 if (-not (Test-Path $PythonW)) {
-    throw "pythonw.exe nggak ketemu di .venv-agent\Scripts. Bikin venv-nya dulu (lihat README)."
+    throw "pythonw.exe not found in .venv-agent\Scripts. Create the venv first (see README)."
 }
 
 Write-Host "=== install-startup ===" -ForegroundColor Cyan
@@ -70,7 +71,7 @@ $principal = New-ScheduledTaskPrincipal `
     -LogonType Interactive `
     -RunLevel $(if ($Elevated) { "Highest" } else { "Limited" })
 
-# Task background: nggak usah dimatiin gara-gara baterai / idle / timeout
+# A background task: it must not be stopped by battery, idle, or a time limit
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
@@ -81,16 +82,16 @@ $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable
 
 if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
-    Write-Host "Task '$TaskName' udah ada, ditimpa." -ForegroundColor Yellow
+    Write-Host "Task '$TaskName' already exists, replacing it." -ForegroundColor Yellow
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
 Register-ScheduledTask -TaskName $TaskName `
-    -Description "personal-agent: voice assistant push-to-talk (background)" `
+    -Description "personal-agent: push-to-talk voice assistant (background)" `
     -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
 
-Write-Host "`nTask '$TaskName' terdaftar (At log on, hidden)." -ForegroundColor Green
-Write-Host "Tes sekarang tanpa logout :  Start-ScheduledTask -TaskName $TaskName"
-Write-Host "Cek log                   :  Get-Content '$RepoRoot\logs\agent.log' -Tail 20 -Wait"
-Write-Host "Matiin                    :  Get-Process pythonw | Stop-Process"
-Write-Host "Uninstall                 :  .\scripts\install-startup.ps1 -Uninstall"
+Write-Host "`nTask '$TaskName' registered (At log on, hidden)." -ForegroundColor Green
+Write-Host "Test now without logging out :  Start-ScheduledTask -TaskName $TaskName"
+Write-Host "Watch the log                :  Get-Content '$RepoRoot\logs\agent.log' -Tail 20 -Wait"
+Write-Host "Stop it                      :  Get-Process pythonw | Stop-Process"
+Write-Host "Uninstall                    :  .\scripts\install-startup.ps1 -Uninstall"

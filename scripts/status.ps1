@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Cek agent lagi nyala atau nggak, plus kondisinya.
+  Check whether the agent is running, and how it is doing.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\status.ps1
@@ -11,133 +11,124 @@ param([string]$TaskName = "PersonalAgent")
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LogFile = Join-Path $RepoRoot "logs\agent.log"
 
-function Baris($label, $nilai, $warna = "Gray") {
+function Row($label, $value, $colour = "Gray") {
     Write-Host ("  {0,-12} " -f $label) -NoNewline
-    Write-Host $nilai -ForegroundColor $warna
+    Write-Host $value -ForegroundColor $colour
 }
 
 Write-Host "`n=== personal-agent ===" -ForegroundColor Cyan
 
-# --- Proses ---
-# python.exe DAN pythonw.exe. Autostart pakai pythonw (tanpa console), tapi
-# kalau dijalanin manual dari terminal prosesnya python.exe — dan waktu skrip
-# ini cuma nyari pythonw, agent yang jalan manual nggak pernah kelihatan.
-# Akibatnya fatal: skripnya bilang MATI padahal ada agent lain yang ikut
-# nyambar hotkey, dan pencetanmu ditangkep dua-duanya.
+# --- Process ---
+# Both python.exe AND pythonw.exe. Autostart uses pythonw (no console), but a
+# manual run from a terminal is python.exe — and while this script only looked
+# for pythonw, a manually started agent was invisible to it.
+# The consequence was not cosmetic: it reported STOPPED while another agent was
+# still grabbing the same hotkey, so every press was caught by both.
 $proc = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like "*agent.main*" }
 
 if ($proc) {
-    # venv python.exe itu stub yang jalanin interpreter aslinya sebagai anak,
-    # jadi satu agent wajar muncul sebagai dua proses. Yang dihitung: berapa
-    # WAKTU MULAI yang beda — dua agent terpisah pasti beda detik mulainya.
+    # The venv python.exe is a stub that runs the real interpreter as a child,
+    # so one agent legitimately shows up as two processes. What counts is how
+    # many distinct START TIMES there are — two separate agents cannot share one.
     $pids = ($proc | ForEach-Object { $_.ProcessId }) -join ", "
-    # @() wajib. Tanpa itu, satu grup berisi 2 proses bikin .Count baca jumlah
-    # ANGGOTA (2), bukan jumlah grup (1) — dan skripnya teriak alarm palsu.
-    $angkatan = @($proc | Group-Object { $_.CreationDate.ToString("s") })
-    $mulai = ($proc | Sort-Object CreationDate | Select-Object -First 1).CreationDate
-    $lama = [datetime]::Now - $mulai
-    Baris "Agent" "NYALA" "Green"
-    Baris "PID" $pids
+    # The @() is required. Without it, a single group holding 2 processes makes
+    # .Count report the MEMBER count (2) rather than the group count (1) — and
+    # the script raises a false alarm.
+    $generations = @($proc | Group-Object { $_.CreationDate.ToString("s") })
+    $started = ($proc | Sort-Object CreationDate | Select-Object -First 1).CreationDate
+    $age = [datetime]::Now - $started
+    Row "Agent" "RUNNING" "Green"
+    Row "PID" $pids
 
-    if ($angkatan.Count -gt 1) {
-        Baris "PERINGATAN" "$($angkatan.Count) AGENT JALAN BARENG" "Red"
-        Write-Host "               Semuanya nyambar hotkey yang sama."
-        foreach ($a in ($angkatan | Sort-Object Name)) {
-            $ids = ($a.Group | ForEach-Object { $_.ProcessId }) -join ", "
-            Write-Host "               mulai $($a.Group[0].CreationDate)  PID $ids"
+    if ($generations.Count -gt 1) {
+        Row "WARNING" "$($generations.Count) AGENTS RUNNING AT ONCE" "Red"
+        Write-Host "               They all grab the same hotkey."
+        foreach ($g in ($generations | Sort-Object Name)) {
+            $ids = ($g.Group | ForEach-Object { $_.ProcessId }) -join ", "
+            Write-Host "               started $($g.Group[0].CreationDate)  PID $ids"
         }
-        Write-Host "               Matiin yang lama:  Stop-Process -Id <PID> -Force" -ForegroundColor Yellow
+        Write-Host "               Stop the old one:  Stop-Process -Id <PID> -Force" -ForegroundColor Yellow
     }
-    $durasi = if ($lama.Days -gt 0) {
-        "{0} hari {1} jam" -f $lama.Days, $lama.Hours
-    } elseif ($lama.Hours -gt 0) {
-        "{0} jam {1} menit" -f $lama.Hours, $lama.Minutes
+    $uptime = if ($age.Days -gt 0) {
+        "{0}d {1}h" -f $age.Days, $age.Hours
+    } elseif ($age.Hours -gt 0) {
+        "{0}h {1}m" -f $age.Hours, $age.Minutes
     } else {
-        "{0} menit" -f $lama.Minutes
+        "{0}m" -f $age.Minutes
     }
-    Baris "Sejak" ("{0}  (jalan {1})" -f $mulai, $durasi)
+    Row "Since" ("{0}  (up {1})" -f $started, $uptime)
 } else {
-    Baris "Agent" "MATI" "Red"
+    Row "Agent" "STOPPED" "Red"
 }
 
 # --- Task Scheduler ---
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($task) {
-    Baris "Autostart" "terpasang ($($task.State))" "Green"
+    Row "Autostart" "installed ($($task.State))" "Green"
 } else {
-    Baris "Autostart" "nggak terpasang" "Yellow"
+    Row "Autostart" "not installed" "Yellow"
 }
 
-# --- Model di GPU ---
+# --- Models on the GPU ---
 if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     $vram = (nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader)
-    Baris "VRAM" $vram
-    # Cuma relevan kalau prosesnya hidup, DAN baris lognya milik proses ini —
-    # model ikut mati bareng prosesnya, jadi catatan "dimuat" dari proses
-    # sebelumnya nggak berlaku lagi.
+    Row "VRAM" $vram
+    # Only meaningful while the process is alive, AND only for log lines that
+    # belong to THIS process — models die with the process, so a "loaded" note
+    # from a previous run no longer applies.
     if ($proc -and (Test-Path $LogFile)) {
-        # Polanya ngikutin pesan di stt.py, bukan nama backend — dulu ketulis
-        # "Whisper siap dalam" dan berhenti cocok begitu pindah ke Parakeet,
-        # jadi statusnya selalu bilang "belum dimuat".
+        # The pattern follows the messages in stt.py rather than a backend name.
+        # It used to read "Whisper ready in", which stopped matching the moment
+        # we moved to Parakeet, so the status always claimed "not loaded".
         #
-        # "dilepas dari memori" harus spesifik: baris "Model bakal dilepas
-        # kalau nganggur 15 menit" itu pengumuman setelan pas start, bukan
-        # kejadian model dilepas.
+        # "released from memory" has to be specific: the line "Model will be
+        # released after 15 min idle" is a startup announcement, not an event.
         $last = Get-Content $LogFile |
-            Select-String -Pattern "siap dalam|dilepas dari memori" |
+            Select-String -Pattern "ready in|released from memory" |
             Where-Object {
                 $_.Line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})' -and
-                [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) -ge $mulai
+                [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) -ge $started
             } |
             Select-Object -Last 1
-        if ($last -match "dilepas dari memori") {
-            Baris "Model STT" "dilepas (pertanyaan berikutnya kena muat ulang)" "Yellow"
+        if ($last -match "released from memory") {
+            Row "STT model" "released (next question pays a reload)" "Yellow"
         } elseif ($last) {
-            Baris "Model STT" "dimuat" "Green"
+            Row "STT model" "loaded" "Green"
         } else {
-            Baris "Model STT" "belum dimuat" "Yellow"
+            Row "STT model" "not loaded yet" "Yellow"
         }
     }
 }
 
-# --- Memori ---
-$facts = Join-Path $RepoRoot "memory\facts.md"
-$hist = Join-Path $RepoRoot "memory\history.json"
-$nFakta = if (Test-Path $facts) { (Get-Content $facts | Where-Object { $_.Trim() }).Count } else { 0 }
-$nPesan = if (Test-Path $hist) {
-    try { ((Get-Content $hist -Raw | ConvertFrom-Json).messages).Count } catch { "?" }
-} else { 0 }
-Baris "Memori" "$nFakta fakta, $nPesan pesan"
-
-# --- Aktivitas terakhir ---
+# --- Last activity ---
 if (Test-Path $LogFile) {
-    # Mode sesi nulis "User (giliran 3):", mode pencet nulis "User:". Dulu
-    # cuma nyari "User:" — jadi di mode sesi jamnya nyangkut di percakapan
-    # terakhir sebelum mode sesi dipakai, dan kelihatan kayak agent nggak
-    # dipakai berjam-jam.
-    $terakhir = Get-Content $LogFile | Select-String -Pattern "agent: User[ (:]" | Select-Object -Last 1
-    if ($terakhir) {
-        $t = ($terakhir.Line -split "INFO")[0].Trim()
-        Baris "Terakhir" $t
+    # Session mode writes "User (turn 3):", press mode writes "User:". This used
+    # to look only for "User:", so in session mode the timestamp stuck at the
+    # last pre-session conversation and it looked like the agent had been idle
+    # for hours.
+    $lastUser = Get-Content $LogFile | Select-String -Pattern "agent: User[ (:]" | Select-Object -Last 1
+    if ($lastUser) {
+        $stamp = ($lastUser.Line -split "INFO")[0].Trim()
+        Row "Last used" $stamp
     }
 }
 
 Write-Host ""
 if (-not $proc) {
-    Write-Host "Nyalain :  Start-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
-    Write-Host "   atau :  .\.venv-agent\Scripts\python.exe -m agent.main   (di terminal)" -ForegroundColor Cyan
+    Write-Host "Start :  Start-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
+    Write-Host "   or :  .\.venv-agent\Scripts\python.exe -m agent.main   (in a terminal)" -ForegroundColor Cyan
 } else {
-    # Perintah matiinnya HARUS ngikutin cara dia dijalanin. Dulu selalu
-    # nyaranin Stop-ScheduledTask, padahal agent yang dijalanin manual jalan
-    # sebagai python.exe dan sama sekali nggak dikelola task itu — perintahnya
-    # kelihatan sukses tapi agent-nya tetep hidup.
-    $lewatTask = @($proc | Where-Object { $_.Name -eq "pythonw.exe" }).Count -gt 0
-    if ($lewatTask) {
-        Write-Host "Matiin  :  Stop-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
+    # The stop command MUST match how it was started. This used to always
+    # suggest Stop-ScheduledTask, but a manually started agent runs as
+    # python.exe and is not managed by that task at all — the command looked
+    # like it succeeded while the agent kept running.
+    $viaTask = @($proc | Where-Object { $_.Name -eq "pythonw.exe" }).Count -gt 0
+    if ($viaTask) {
+        Write-Host "Stop  :  Stop-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
     } else {
-        $utama = ($proc | Sort-Object CreationDate | Select-Object -First 1).ProcessId
-        Write-Host "Matiin  :  Ctrl+C di terminalnya, atau  Stop-Process -Id $utama -Force" -ForegroundColor Cyan
+        $main = ($proc | Sort-Object CreationDate | Select-Object -First 1).ProcessId
+        Write-Host "Stop  :  Ctrl+C in its terminal, or  Stop-Process -Id $main -Force" -ForegroundColor Cyan
     }
 }
-Write-Host "Log     :  Get-Content '$LogFile' -Tail 20 -Wait`n" -ForegroundColor Cyan
+Write-Host "Log   :  Get-Content '$LogFile' -Tail 20 -Wait`n" -ForegroundColor Cyan

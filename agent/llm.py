@@ -1,12 +1,13 @@
-"""Otak agent. Dua backend: Ollama lokal (default) atau Claude API.
+"""The agent's brain. Two backends: local Ollama (default) or the Claude API.
 
-Keduanya punya antarmuka sama — `chat()` dan `chat_stream()` — jadi ganti
-backend nggak nyentuh kode pemanggilnya.
+Both share one interface — `chat()` and `chat_stream()` — so swapping backends
+never touches the calling code.
 
-Riwayat cuma hidup selama proses jalan. Nggak disimpen ke disk, dan itu
-disengaja: riwayat yang bertahan antar-sesi berkali-kali bikin model ngarang
-soal data yang udah berubah, sampai ngaku udah ngerjain sesuatu yang nggak
-pernah dikerjain. Nyambungin obrolan itu berguna, tapi bukan sumber fakta.
+History lives only as long as the process. It is deliberately not written to
+disk: history that survived between sessions repeatedly led the model to invent
+things about data that had since changed, up to claiming it had done work it
+never did. Continuing a conversation is useful; treating it as a source of fact
+is not.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-# Tag <think> dari model reasoning, dan markup yang nggak enak dibacakan.
+# <think> tags from reasoning models, and markup that reads badly aloud.
 _TAG = re.compile(r"<think>.*?</think>", re.S | re.I)
 _MARKUP = re.compile(r"[*_`#]+")
 
@@ -29,26 +30,26 @@ def _clean_for_speech(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-# Titik yang BUKAN akhir kalimat. Tanpa ini, "3 p.m." — bentuk yang justru
-# dikeluarkan Parakeet — kepotong jadi dua, dan TTS ngomong "three pee." terus
-# berhenti sejenak sebelum "em."
-_BUKAN_AKHIR = re.compile(
+# Full stops that do NOT end a sentence. Without this, "3 p.m." — the exact
+# form Parakeet produces — splits in two, and the TTS says "three pee." then
+# pauses before "em."
+_NOT_SENTENCE_END = re.compile(
     r"(?:\b(?:[a-z]|mr|mrs|ms|dr|prof|st|vs|etc|e\.g|i\.e|a\.m|p\.m|no)\.)\s*$",
     re.I,
 )
-_AKHIR_KALIMAT = re.compile(r"[.!?]+[\"')\]]*\s")
+_SENTENCE_END = re.compile(r"[.!?]+[\"')\]]*\s")
 
 
-def _potong_kalimat(buf: str) -> tuple[str | None, str]:
-    """Ambil satu kalimat utuh dari depan `buf`.
+def _split_sentence(buf: str) -> tuple[str | None, str]:
+    """Take one complete sentence from the front of `buf`.
 
-    Balikin `(kalimat, sisa)`, atau `(None, buf)` kalau belum ada kalimat utuh.
+    Returns `(sentence, rest)`, or `(None, buf)` when no full sentence is ready.
     """
-    for m in _AKHIR_KALIMAT.finditer(buf):
-        potong = buf[: m.end()]
-        if _BUKAN_AKHIR.search(potong):
-            continue  # singkatan, bukan akhir kalimat
-        return potong.strip(), buf[m.end() :]
+    for m in _SENTENCE_END.finditer(buf):
+        chunk = buf[: m.end()]
+        if _NOT_SENTENCE_END.search(chunk):
+            continue  # an abbreviation, not a sentence end
+        return chunk.strip(), buf[m.end() :]
     return None, buf
 
 
@@ -61,19 +62,19 @@ class _BaseConversation:
 
     @property
     def system_prompt(self) -> str:
-        bagian = [self.base_prompt]
+        parts = [self.base_prompt]
         if config.REPLY_MAX_WORDS > 0:
-            bagian.append(
+            parts.append(
                 f"HARD LIMIT: answer in {config.REPLY_MAX_WORDS} words or fewer. "
                 "Never exceed it. Give the single most useful fact; if they want "
                 "more, they will ask.\n"
-                # Panjang kalimat diatur terpisah dari panjang jawaban: satu
-                # kalimat panjang nunda bunyi pertama, karena TTS baru mulai
-                # setelah kalimatnya utuh.
+                # Sentence length is controlled separately from reply length:
+                # one long sentence delays the first sound, because the TTS
+                # cannot start until a sentence is complete.
                 "Use SHORT sentences, at most 12 words each. Two short sentences "
                 "beat one long one."
             )
-        return "\n\n".join(bagian)
+        return "\n\n".join(parts)
 
     def reset(self) -> None:
         self.messages = []
@@ -87,16 +88,16 @@ class _BaseConversation:
         raise NotImplementedError
 
     def chat_stream(self, text: str):
-        """Sama kayak chat(), tapi ngeluarin KALIMAT satu per satu pas jadi.
+        """Like chat(), but yields SENTENCES as they become available.
 
-        Default-nya ngeluarin satu potong utuh, jadi backend yang nggak dukung
-        streaming tetep jalan tanpa pemanggilnya perlu tau bedanya.
+        The default yields one whole chunk, so a backend without streaming
+        support still works and the caller never has to know the difference.
         """
         yield self.chat(text)
 
 
 class OllamaConversation(_BaseConversation):
-    """Ollama lokal. Gratis, jalan offline."""
+    """Local Ollama. Free, runs offline."""
 
     name = "ollama"
 
@@ -132,7 +133,7 @@ class OllamaConversation(_BaseConversation):
         reply = (data.get("message") or {}).get("content", "").strip()
         if not reply:
             self.messages.pop()
-            raise RuntimeError(f"Ollama balikin respons kosong: {data!r}")
+            raise RuntimeError(f"Ollama returned an empty response: {data!r}")
 
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
@@ -140,19 +141,20 @@ class OllamaConversation(_BaseConversation):
         return _clean_for_speech(reply)
 
     def chat_stream(self, text: str):
-        """Keluarin kalimat begitu jadi, jangan nunggu paragrafnya selesai.
+        """Yield each sentence as soon as it lands, without waiting for the
+        whole paragraph.
 
-        Terukur: waktu sampai bunyi pertama turun 53-71%. Yang dipangkas bukan
-        waktu totalnya, tapi diamnya — dan itu yang bikin percakapan kerasa
-        hidup atau kerasa nge-lag.
+        Measured: time to first sound drops 53-71%. What gets cut is not the
+        total time but the silence — and that is what makes a conversation feel
+        alive rather than laggy.
         """
         import json as _json
 
         import requests
 
         self.messages.append({"role": "user", "content": text})
-        penuh: list[str] = []
-        sisa = ""
+        full: list[str] = []
+        rest = ""
         try:
             with requests.post(
                 config.OLLAMA_CHAT_URL,
@@ -161,37 +163,37 @@ class OllamaConversation(_BaseConversation):
                 stream=True,
             ) as resp:
                 resp.raise_for_status()
-                for baris in resp.iter_lines():
-                    if not baris:
+                for line in resp.iter_lines():
+                    if not line:
                         continue
-                    potong = (_json.loads(baris).get("message") or {}).get("content", "")
-                    if not potong:
+                    chunk = (_json.loads(line).get("message") or {}).get("content", "")
+                    if not chunk:
                         continue
-                    penuh.append(potong)
-                    sisa += potong
-                    # Nunggu kalimat utuh itu sengaja: ngirim potongan setengah
-                    # kalimat ke TTS bikin intonasinya ngawur dan jedanya
-                    # kedengeran di tempat yang salah.
+                    full.append(chunk)
+                    rest += chunk
+                    # Waiting for a whole sentence is deliberate: feeding half
+                    # a sentence to the TTS wrecks the intonation and puts the
+                    # pauses in the wrong places.
                     while True:
-                        kal, sisa_baru = _potong_kalimat(sisa)
-                        if kal is None:
+                        sentence, new_rest = _split_sentence(rest)
+                        if sentence is None:
                             break
-                        sisa = sisa_baru
-                        bersih = _clean_for_speech(kal)
-                        if bersih:
-                            yield bersih
+                        rest = new_rest
+                        clean = _clean_for_speech(sentence)
+                        if clean:
+                            yield clean
         except Exception:
             self.messages.pop()
             raise
 
-        ekor = _clean_for_speech(sisa)
-        if ekor:
-            yield ekor
+        tail = _clean_for_speech(rest)
+        if tail:
+            yield tail
 
-        reply = "".join(penuh).strip()
+        reply = "".join(full).strip()
         if not reply:
             self.messages.pop()
-            raise RuntimeError("Ollama balikin respons kosong")
+            raise RuntimeError("Ollama returned an empty response")
 
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
@@ -199,7 +201,7 @@ class OllamaConversation(_BaseConversation):
 
 
 class ClaudeConversation(_BaseConversation):
-    """Claude API. Lebih pintar, tapi butuh jaringan & kunci berbayar."""
+    """Claude API. Smarter, but needs the network and a paid key."""
 
     name = "claude"
 
@@ -213,8 +215,8 @@ class ClaudeConversation(_BaseConversation):
 
             if not (config.ANTHROPIC_API_KEY or config.ANTHROPIC_AUTH_TOKEN):
                 raise RuntimeError(
-                    "ANTHROPIC_API_KEY belum diisi. Tambahin barisnya di file .env "
-                    "(lihat .env.example), atau pakai LLM_BACKEND=ollama."
+                    "ANTHROPIC_API_KEY is not set. Add it to your .env file "
+                    "(see .env.example), or use LLM_BACKEND=ollama."
                 )
             self._client = anthropic.Anthropic(
                 api_key=config.ANTHROPIC_API_KEY or None,
@@ -248,7 +250,7 @@ class ClaudeConversation(_BaseConversation):
         reply = " ".join(b.text for b in response.content if b.type == "text").strip()
         if not reply:
             self.messages.pop()
-            raise RuntimeError("Claude balikin respons kosong")
+            raise RuntimeError("Claude returned an empty response")
 
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
@@ -268,10 +270,11 @@ def get_conversation() -> _BaseConversation:
             _conversation = ClaudeConversation()
         else:
             log.warning(
-                "LLM_BACKEND '%s' nggak dikenal, balik ke 'ollama'", config.LLM_BACKEND
+                "LLM_BACKEND '%s' not recognised, falling back to 'ollama'",
+                config.LLM_BACKEND,
             )
             _conversation = OllamaConversation()
-        log.info("Backend LLM: %s", _conversation.name)
+        log.info("LLM backend: %s", _conversation.name)
     return _conversation
 
 
@@ -280,9 +283,9 @@ def chat(text: str) -> str:
 
 
 if __name__ == "__main__":
-    #     .venv-agent\Scripts\python.exe -m agent.llm "halo"
+    #     .venv-agent\Scripts\python.exe -m agent.llm "hello"
     import sys
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    pesan = " ".join(sys.argv[1:]) or "Hello, can you hear me?"
-    print(chat(pesan))
+    message = " ".join(sys.argv[1:]) or "Hello, can you hear me?"
+    print(chat(message))

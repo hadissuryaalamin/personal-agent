@@ -1,7 +1,7 @@
 [project]
 name = "personal-agent"
 version = "0.1.0"
-description = "Voice assistant lokal (push-to-talk, Bahasa Indonesia) untuk Windows"
+description = "Local offline voice assistant for Windows (push-to-talk, English)"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "numpy>=1.26",
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Whisper di GPU NVIDIA. ~1.3 GB, cuma perlu kalau WHISPER_DEVICE=cuda.
+# Whisper on an NVIDIA GPU. ~1.3 GB, only needed when WHISPER_DEVICE=cuda.
 gpu = [
     "nvidia-cublas-cu12",
     "nvidia-cudnn-cu12",

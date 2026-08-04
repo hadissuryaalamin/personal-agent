@@ -1,26 +1,26 @@
 # personal-agent
 
-Voice assistant lokal buat Windows. Jalan diam-diam di background, nggak ada
-window. Pencet hotkey → ngomong → dia jawab lewat speaker. **Bahasa Inggris,
-sepenuhnya offline** — nol byte keluar dari mesin ini.
+A local voice assistant for Windows. Runs quietly in the background with no
+window. Press a hotkey, speak, and it answers through the speakers.
+**English, fully offline** — not a byte leaves this machine.
 
 ```
 hotkey → mic → Silero VAD → Parakeet TDT 0.6B → qwen2.5:7b → Kokoro-82M → speaker
 ```
 
-Empat model, empat tugas: **VAD tau kapan kamu selesai ngomong**, **Parakeet
-dengar**, **qwen mikir**, **Kokoro jawab**.
+Four models, four jobs: **the VAD knows when you have finished speaking**,
+**Parakeet hears**, **qwen thinks**, **Kokoro answers**.
 
-Cuma itu. Nggak ada kalender, tugas, memori antar-sesi, atau integrasi apa pun —
-sengaja dikosongin biar bisa dibangun ulang dari dasar yang bersih. Riwayat
-percakapan cuma hidup selama proses jalan.
+That is all it does. No calendar, no task list, no cross-session memory, no
+integrations — deliberately emptied out so it can be rebuilt from a clean base.
+Conversation history lives only as long as the process.
 
-## Yang dibutuhin
+## Requirements
 
 - Windows 10/11
-- [Ollama](https://ollama.com/download) udah terinstall & jalan
-- Python 3.11 (lewat [mise](https://mise.jdx.dev/), ada fallback di bawah)
-- Mikrofon + speaker
+- [Ollama](https://ollama.com/download) installed and running
+- Python 3.11 (via [mise](https://mise.jdx.dev/); a fallback is below)
+- A microphone and speakers
 
 ## Install
 
@@ -31,91 +31,91 @@ cd personal-agent
 # 1. Python 3.11 + venv
 mise trust
 mise install
-mise where python@3.11              # catat path-nya
-& "<path-di-atas>\python.exe" -m venv .venv-agent
+mise where python@3.11              # note the path
+& "<path-from-above>\python.exe" -m venv .venv-agent
 
 # 2. Dependencies
 .\.venv-agent\Scripts\python.exe -m pip install -e .
 
-# 3. Semua bobot model (~5.7 GB)
+# 3. Every model weight (~5.7 GB)
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
-# 4. Konfigurasi
+# 4. Configuration
 copy .env.example .env
 
-# 5. Pastikan beneran siap offline
-.\.venv-agent\Scripts\python.exe -m agent.cek_offline
+# 5. Confirm it really is offline-ready
+.\.venv-agent\Scripts\python.exe -m agent.offline_check
 ```
 
 <details>
-<summary>Tanpa mise</summary>
+<summary>Without mise</summary>
 
 ```powershell
 py -3.11 -m venv .venv-agent
 .\.venv-agent\Scripts\python.exe -m pip install -e .
 ```
 
-Python 3.13+ belum dipakai karena `ctranslate2` (mesinnya faster-whisper) belum
-punya wheel stabil di situ. faster-whisper cuma kepakai kalau
-`STT_BACKEND=whisper`, tapi dependensinya tetap ikut terinstall.
+Python 3.13+ is not used yet because `ctranslate2` (the engine behind
+faster-whisper) has no stable wheel there. faster-whisper is only used when
+`STT_BACKEND=whisper`, but its dependencies install regardless.
 </details>
 
-`scripts\setup.ps1` narik semua bobot di muka. Kalau dilewat, tiap model
-ke-download sendiri pas pertama dipakai — artinya pemakaian pertama butuh
-jaringan, dan itu persis yang bikin mode offline kelihatan "rusak".
+`scripts\setup.ps1` fetches every weight up front. Skip it and each model
+downloads itself on first use — which means the first use needs the network, and
+that is exactly what makes offline mode look broken.
 
-## Jalanin
+## Running it
 
 ```powershell
 .\.venv-agent\Scripts\python.exe -m agent.main
 ```
 
-Pencet **hotkey sekali** buat mulai, ngomong, **pencet lagi** buat berhenti.
-Nggak mau mencet tiap giliran? Lihat [Mode sesi](#mode-sesi).
+Press the hotkey **once** to start, speak, press **again** to stop.
+Don't want to press every turn? See [Session mode](#session-mode).
 
-Karena nggak ada window, feedback-nya bunyi:
+Since there is no window, the feedback is audible:
 
-| Bunyi | Artinya |
+| Sound | Meaning |
 |---|---|
-| beep tinggi (880 Hz) | mulai rekam |
-| beep sedang (560 Hz) | selesai rekam, lagi mikir |
-| dua ketuk pendek (420 Hz) | kedengeran, tapi lagi sibuk |
-| beep rendah panjang (240 Hz) | gagal — cek `logs/agent.log` |
+| high beep (880 Hz) | recording started |
+| mid beep (560 Hz) | recording stopped, thinking |
+| two short taps (420 Hz) | heard you, but busy |
+| long low beep (240 Hz) | something failed — check `logs/agent.log` |
 
-## Mode sesi
+## Session mode
 
-Sekali pencet hotkey buat **masuk sesi**, terus ngomong bolak-balik tanpa mencet
-lagi. Batas kalimat dideteksi suara, bukan tombol.
+Press the hotkey **once** to enter a session, then talk back and forth without
+pressing again. Utterance boundaries come from your voice, not the key.
 
 ```
 SESSION_MODE=true
 ```
 
-Sesi tutup kalau: pencet hotkey lagi, diam 30 detik, atau bilang *"goodbye"* /
-*"that's all"* / *"stop listening"*.
+A session closes when you press the hotkey again, go quiet for 30 seconds, or
+say *"goodbye"* / *"that's all"* / *"stop listening"*.
 
-Batas diam itu **pengaman, bukan kenyamanan**: tanpa itu, lupa nutup berarti
-model nyangkut di memori seharian.
+The silence limit is **a safeguard, not a convenience**: without it, forgetting
+to close means the models sit in memory all day.
 
-**Mic ditutup selama agent ngomong.** Jadi kamu nggak bisa motong di tengah —
-tapi agent juga nggak mungkin denger suaranya sendiri, jadi speaker biasa aman
-(nggak wajib headphone).
+**The mic is closed while the agent speaks.** So you cannot cut it off
+mid-sentence — but it also can never hear itself, which means no echo
+cancellation and ordinary speakers are fine (headphones are not required).
 
-Deteksi suaranya Silero VAD lewat `onnx_asr` — model yang sama yang udah dipakai
-Parakeet, jadi **nol paket pip baru**. Terukur:
+Detection is Silero VAD through `onnx_asr` — the same package already pulling
+Parakeet, so it adds **zero new pip packages**. Measured:
 
-| | Rata-rata peluang | Frame di atas ambang |
+| | Mean probability | Frames above threshold |
 |---|---:|---:|
-| Hening | 0,004 | 0/62 |
-| Desis keras | 0,011 | 0/62 |
-| Ucapan asli | 0,580 | 95/166 |
+| Silence | 0.004 | 0/62 |
+| Loud noise | 0.011 | 0/62 |
+| Real speech | 0.580 | 95/166 |
 
-0,17 ms per frame 32 ms — **190x realtime**, jadi CPU-nya praktis nol.
+0.17 ms per 32 ms frame — **190x realtime**, so the CPU cost is effectively nil.
 
-Kalimat kepotong di tengah? Naikin `VAD_SILENCE_MS`. Agent nyaut ke suara AC?
-Naikin `VAD_THRESHOLD`.
+Sentences getting cut in half? Raise `VAD_SILENCE_MS`. Agent answering the air
+conditioning? Raise `VAD_THRESHOLD`.
 
-## Jalan otomatis pas login
+## Starting automatically at login
 
 ```powershell
 # PowerShell as Administrator
@@ -123,172 +123,181 @@ powershell -ExecutionPolicy Bypass -File scripts\install-startup.ps1
 ```
 
 ```powershell
-powershell -File scripts\status.ps1                       # nyala atau nggak?
-Start-ScheduledTask -TaskName PersonalAgent               # nyalain
-Stop-ScheduledTask -TaskName PersonalAgent                # matiin
-Get-Content logs\agent.log -Tail 20 -Wait                 # lihat langsung
-powershell -File scripts\install-startup.ps1 -Uninstall   # hapus task
+powershell -File scripts\status.ps1                       # running or not?
+Start-ScheduledTask -TaskName PersonalAgent               # start
+Stop-ScheduledTask -TaskName PersonalAgent                # stop
+Get-Content logs\agent.log -Tail 20 -Wait                 # watch live
+powershell -File scripts\install-startup.ps1 -Uninstall   # remove the task
 ```
 
-### Cuma boleh ada satu agent
+### Only one agent may run
 
-Agent nyangkut **hotkey global**. Dua agent artinya tiap pencetan ditangkep
-dua-duanya dan keduanya rebutan mic — dan gejalanya nyasar: yang kelihatan bukan
-"ada dua agent", tapi "fiturnya nggak jalan", karena yang nyaut duluan agent
-lama.
+The agent grabs a **global hotkey**. Two agents means every press is caught by
+both and both fight over the mic — and the symptom misleads: what you see is not
+"there are two agents" but "the feature is broken", because the older agent is
+the one answering first.
 
-Agent kedua sekarang nolak jalan sendiri:
+A second agent now refuses to start on its own:
 
 ```
-Agent lain udah jalan (PID 41696). Yang ini berhenti — dua agent bakal
-rebutan hotkey 'right ctrl'. Cek: powershell -File scripts\status.ps1
+Another agent is already running (PID 41696). This one is stopping — two
+agents would fight over the 'right ctrl' hotkey.
+Check: powershell -File scripts\status.ps1
 ```
 
-Kuncinya kunci file dari OS, bukan file PID: kunci OS dilepas otomatis pas
-proses mati, jadi agent yang crash nggak ninggalin file yang bikin agent
-berikutnya nolak jalan selamanya (diuji, termasuk `kill -9`).
+It uses an OS file lock rather than a PID file: the OS releases the lock when
+the process dies, so a crashed agent does not leave behind a file that blocks
+every future start (tested, including `kill -9`).
 
-**Ngetes dari terminal padahal autostart nyala?** Matiin task-nya dulu:
+**Testing from a terminal while autostart is on?** Stop the task first:
 
 ```powershell
 Stop-ScheduledTask -TaskName PersonalAgent
 .\.venv-agent\Scripts\python.exe -m agent.main
 ```
 
-### Kalau ada yang aneh, cek build-nya duluan
+### If something looks wrong, check the build first
 
-Baris kedua log nyebut commit yang lagi jalan:
+The second line of the log names the running commit:
 
 ```
-build: 9a00404 05/08 08:31 (file terbaru 05/08 08:31)
+build: 9a00404 05/08 08:31 (newest file 05/08 08:31)
 ```
 
-Python muat kode pas proses start — **ngedit file nggak nyentuh proses yang udah
-jalan.** Ini penyebab paling sering dari "perbaikannya nggak jalan".
+Python loads source when the process starts — **editing a file does not touch a
+running process.** This is the single most common cause of "the fix didn't work".
 
-## Konfigurasi
+## Configuration
 
-Default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat `.env`
-(lihat [.env.example](.env.example) — 54 kunci, semuanya beneran dibaca kode).
+Defaults live in [agent/config.py](agent/config.py) and can be overridden in
+`.env` (see [.env.example](.env.example) — 54 keys, every one of them actually
+read by the code).
 
-| Variabel | Default | Keterangan |
+| Variable | Default | Notes |
 |---|---|---|
-| `HOTKEY` | `ctrl+space` | **Pakai tombol tunggal** — lihat di bawah |
-| `SESSION_MODE` | `false` | `true` = ngobrol kontinu |
-| `OFFLINE_MODE` | `true` | Tolak backend jaringan pas startup |
-| `LLM_BACKEND` | `ollama` | `ollama` atau `claude` (butuh `OFFLINE_MODE=false`) |
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Model apa pun yang udah di-`ollama pull` |
-| `REPLY_MAX_WORDS` | `25` | Batas panjang jawaban — lihat di bawah |
-| `STT_BACKEND` | `parakeet` | `parakeet` (Inggris, 0 VRAM) atau `whisper` |
-| `TTS_BACKEND` | `kokoro` | `kokoro` (24 kHz, 54 suara) atau `piper` |
-| `VAD_SILENCE_MS` | `800` | Sepi segini = kalimat dianggap selesai |
+| `HOTKEY` | `ctrl+space` | **Use a single key** — see below |
+| `SESSION_MODE` | `false` | `true` = continuous conversation |
+| `OFFLINE_MODE` | `true` | Reject network backends at startup |
+| `LLM_BACKEND` | `ollama` | `ollama` or `claude` (needs `OFFLINE_MODE=false`) |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | Any model you have `ollama pull`ed |
+| `REPLY_MAX_WORDS` | `25` | Reply length cap — see below |
+| `STT_BACKEND` | `parakeet` | `parakeet` (English, 0 VRAM) or `whisper` |
+| `TTS_BACKEND` | `kokoro` | `kokoro` (24 kHz, 54 voices) or `piper` |
+| `VAD_SILENCE_MS` | `800` | Silence this long ends your sentence |
 
-### Pakai tombol tunggal
+### Use a single key
 
-Tombol yang ditahan **bareng modifier** (`Ctrl+Space`) bikin Windows ngirim
-pasangan UP/DOWN palsu terus-terusan — terukur 18 kali dalam 3 detik. Rekamannya
-jadi serpihan.
+A key held **together with a modifier** (`Ctrl+Space`) makes Windows send
+spurious UP/DOWN pairs — measured at 18 in 3 seconds. The recording shatters
+into fragments.
 
-Tombol yang ditahan **sendirian** cuma ngirim DOWN berulang, nggak pernah UP.
-Makanya default lokalnya `right ctrl`. Pilihan lain: `f8`, `right shift`.
+A key held **on its own** only repeats DOWN, never UP. Hence the local default
+of `right ctrl`. Other good choices: `f8`, `right shift`.
 
-### Panjang jawaban
+### Reply length
 
-qwen nggak nurut sama "one or two sentences". Yang **terbukti manjur** batas kata
-eksplisit, bukan batas token:
+qwen does not obey "one or two sentences". What **does** work is an explicit
+word limit, not a token limit:
 
-| | Kata | Audio |
+| | Words | Audio |
 |---|---:|---:|
-| Apa adanya | 41,0 | 18,4 dtk |
-| `REPLY_MAX_WORDS=25` | 17,8 | 9,1 dtk |
-| + minta kalimat pendek | **13,0** | **7,1 dtk** |
+| Unconstrained | 41.0 | 18.4 s |
+| `REPLY_MAX_WORDS=25` | 17.8 | 9.1 s |
+| + ask for short sentences | **13.0** | **7.1 s** |
 
-Cap token nggak nambah apa-apa (17,0 vs 17,0) dan motong di tengah kata, jadi
-`OLLAMA_NUM_PREDICT` cuma jaring pengaman buat yang bener-bener ngelantur.
+A token cap adds nothing on top (17.0 vs 17.0) and cuts mid-word, so
+`OLLAMA_NUM_PREDICT` is only a safety net for genuine rambling.
 
-Paling kerasa di mode sesi: tanpa barge-in, balasan panjang nggak bisa dipotong.
+It matters most in session mode: without barge-in, a long reply cannot be cut
+short.
 
-## Catatan resource (8 GB VRAM)
+## Resource notes (8 GB VRAM)
 
-Cuma **satu model yang nempatin GPU**:
+Only **one model occupies the GPU**:
 
-| Bagian | Di mana | VRAM | RAM | Kecepatan |
+| Component | Where | VRAM | RAM | Speed |
 |---|---|---:|---:|---|
 | Silero VAD | CPU | 0 | ~50 MB | 190x realtime |
-| Parakeet TDT 0.6B | CPU | 0 | ~2,2 GB | ~0,4 dtk/kalimat |
-| qwen2.5:7b | GPU | ~5 GB | — | ~2–4 dtk |
-| Kokoro-82M | CPU | 0 | ~0,4 GB | ~4x realtime |
+| Parakeet TDT 0.6B | CPU | 0 | ~2.2 GB | ~0.4 s/sentence |
+| qwen2.5:7b | GPU | ~5 GB | — | ~2–4 s |
+| Kokoro-82M | CPU | 0 | ~0.4 GB | ~4x realtime |
 
-Parakeet di CPU **dengan sengaja**: di GPU cuma ~0,2 detik lebih cepat, tapi
-ngerebut VRAM dari qwen — dan qwen yang kegeser ke RAM jauh lebih mahal.
+Parakeet is on CPU **deliberately**: on GPU it is only ~0.2 s faster, but it
+takes VRAM away from qwen — and pushing qwen into RAM costs far more than 0.2 s.
 
-Ollama pakai keep-alive 5 menit, jadi pertanyaan pertama setelah nganggur lama
-kena muat ulang (~7 detik). `OLLAMA_KEEP_ALIVE=-1` bikin instan, bayarannya
-model nempel di VRAM terus.
+Ollama uses a 5-minute keep-alive, so the first question after a long idle
+stretch pays a reload (~7 s). `OLLAMA_KEEP_ALIVE=-1` makes it instant, at the
+cost of the model sitting in VRAM permanently.
 
-## Struktur
+## Layout
 
 ```
 agent/
-  main.py          hotkey, mode sesi, orkestrasi pipeline, logging
-  config.py        semua konstanta dari .env + penegakan mode offline
-  audio.py         rekam mic, playback bersambung, beep
-  vad.py           deteksi suara per frame (Silero)
-  stt.py           Parakeet / Whisper — muat & lepas otomatis
-  llm.py           Ollama / Claude, streaming per kalimat
-  tts.py           Kokoro / Piper
-  teks.py          penormal teks
-  cek_offline.py   verifikasi kesiapan jalan tanpa jaringan
-models/            bobot Kokoro & Piper (gitignore)
-memory/            agent.lock (gitignore)
-scripts/           setup, autostart, status
-logs/              agent.log (rotating, 1 MB x 4)
+  main.py            hotkey, session mode, pipeline orchestration, logging
+  config.py          every constant from .env + offline-mode enforcement
+  audio.py           mic capture, gapless playback, beeps
+  vad.py             per-frame speech detection (Silero)
+  stt.py             Parakeet / Whisper — loads and releases automatically
+  llm.py             Ollama / Claude, sentence-by-sentence streaming
+  tts.py             Kokoro / Piper
+  text.py            text normaliser
+  offline_check.py   verifies readiness to run with no network
+models/              Kokoro & Piper weights (gitignored)
+memory/              agent.lock (gitignored)
+scripts/             setup, autostart, status
+logs/                agent.log (rotating, 1 MB x 4)
 ```
 
-~2.300 baris. **[ARSITEKTUR.md](ARSITEKTUR.md)** menjelaskan alasan di balik tiap
-keputusan, lengkap dengan angka pengukurannya.
+~2,300 lines. **[ARCHITECTURE.md](ARCHITECTURE.md)** explains the reasoning
+behind each decision, with the measurements behind it.
 
-Tiap modul bisa dites sendiri:
+Every module can be exercised on its own:
 
 ```powershell
-.\.venv-agent\Scripts\python.exe -m agent.vad          # deteksi suara
-.\.venv-agent\Scripts\python.exe -m agent.stt          # transkrip
-.\.venv-agent\Scripts\python.exe -m agent.tts "hello"  # suara
-.\.venv-agent\Scripts\python.exe -m agent.llm "hi"     # otak
-.\.venv-agent\Scripts\python.exe -m agent.audio        # mic & speaker
-.\.venv-agent\Scripts\python.exe -m agent.teks         # penormal
+.\.venv-agent\Scripts\python.exe -m agent.vad            # speech detection
+.\.venv-agent\Scripts\python.exe -m agent.stt            # transcription
+.\.venv-agent\Scripts\python.exe -m agent.tts "hello"    # voice
+.\.venv-agent\Scripts\python.exe -m agent.llm "hi"       # brain
+.\.venv-agent\Scripts\python.exe -m agent.audio          # mic & speakers
+.\.venv-agent\Scripts\python.exe -m agent.text           # normaliser
 ```
 
-## Bukti offline
+## Offline proof
 
 ```powershell
-.\.venv-agent\Scripts\python.exe -m agent.cek_offline
+.\.venv-agent\Scripts\python.exe -m agent.offline_check
 ```
 
-Ngecek setelan, bobot di disk, model beneran kemuat, dan Ollama nyaut. Diuji
-dengan **semua soket non-localhost diblokir**: rantai penuh jalan 7/7 langkah,
-**nol** percobaan koneksi keluar.
+Checks the settings, the weights on disk, that the models genuinely load, and
+that Ollama answers. Tested with **every non-localhost socket blocked**: the
+full chain ran 7/7 steps with **zero** outbound connection attempts.
 
 ## Troubleshooting
 
-| Gejala | Cek |
+| Symptom | Check |
 |---|---|
-| Hotkey nggak ngapa-ngapain | `scripts\status.ps1` — ada agent dobel? build lama? |
-| Nggak ada suara sama sekali | Output device pindah. `python -m agent.audio` |
-| Rekaman kepotong-potong | Pakai tombol tunggal, bukan kombinasi |
-| Kalimat kepotong di mode sesi | Naikin `VAD_SILENCE_MS` |
-| Jawaban lama banget | Pertama abis nganggur emang ~7 dtk (Ollama muat ulang) |
-| Perbaikan kelihatan nggak jalan | Cek baris `build:` — proses lama megang kode lama |
+| Hotkey does nothing | `scripts\status.ps1` — two agents? old build? |
+| No sound at all | Output device moved. `python -m agent.audio` |
+| Recording comes out fragmented | Use a single key, not a combination |
+| Sentences cut short in session mode | Raise `VAD_SILENCE_MS` |
+| Answers are very slow | The first one after idle really is ~7 s (Ollama reload) |
+| A fix appears not to work | Check the `build:` line — an old process holds old code |
 
-## Yang belum ada
+## Not here yet
 
-Semuanya dicopot pas mulai ulang, dan riwayat git-nya masih lengkap kalau mau
-diambil lagi:
+Everything below was removed during the restart, and the git history is intact
+if you want any of it back:
 
-- **Kalender** — baca jadwal, bikin acara (ICS lokal & Google Calendar)
-- **Daftar tugas** — catat, tandai selesai, milih mana yang dikerjain
-- **Memori antar-sesi** — riwayat & fakta yang bertahan setelah restart
-- **Jawaban pasti tanpa LLM** — jam, tanggal, jadwal dihitung Python
-- **Pengurai waktu deterministik** — Inggris (`time_en`) & Indonesia (`waktu_id`)
-- **Wake word** — masuk sesi tanpa nyentuh tombol
-- **Motong omongan agent** — butuh peredam gema
+- **Calendar** — read a schedule, create events (local ICS & Google Calendar)
+- **Task list** — capture, mark done, choose what to work on
+- **Cross-session memory** — history and facts that survive a restart
+- **Deterministic answers without the LLM** — clock, date, schedule computed in
+  Python. Measured 5.7x faster to first sound, and 6/6 correct on the clock
+  against 4/6–6/6 wrong through the model
+- **Deterministic time parsing** — `time_en` (33/33) and an Indonesian parser
+
+Never built:
+
+- **Wake word** — enter a session without touching a key
+- **Interrupting the agent** — needs echo cancellation
+- **Proactive notifications** — the agent speaking first

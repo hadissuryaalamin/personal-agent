@@ -1,4 +1,4 @@
-"""Entry point: register hotkey push-to-talk & wiring pipeline STT -> LLM -> TTS."""
+"""Entry point: hotkey listener and the STT -> LLM -> TTS pipeline."""
 
 from __future__ import annotations
 
@@ -11,18 +11,19 @@ import threading
 import time
 from typing import Callable
 
-from . import audio, config, llm, stt, teks, tts, vad
+from . import audio, config, llm, stt, tts, vad
+from . import text as text_utils
 
 log = logging.getLogger("agent")
 
 
-def _versi_build() -> str:
-    """Commit yang lagi jalan + apakah ada file yang lebih baru dari prosesnya.
+def _build_version() -> str:
+    """The running commit, plus whether any file is newer than the process.
 
-    Ditulis ke log startup karena udah dua kali kejadian: kode diperbaiki, tapi
-    yang diuji proses lama yang masih megang kode lama — Python muat kode pas
-    start, ngedit file nggak nyentuh proses yang udah jalan. Gejalanya nyasar,
-    kelihatan kayak perbaikannya nggak jalan.
+    Written to the startup log because it caught us out twice: the code was
+    fixed, but what got tested was an old process still holding the old code —
+    Python loads source at start, and editing a file does not touch a running
+    process. The symptom misleads: it looks like the fix did not work.
     """
     import subprocess
 
@@ -36,68 +37,68 @@ def _versi_build() -> str:
     except Exception:
         commit = "?"
 
-    # File .py yang lebih baru dari commit-nya = ada perubahan yang belum
-    # di-commit; nggak fatal, tapi enak ditandain pas ngebandingin log.
+    # A .py newer than the commit means uncommitted changes; harmless, but
+    # worth flagging when comparing logs.
     try:
-        terbaru = max(
-            p.stat().st_mtime for p in pathlib.Path(__file__).parent.glob("*.py")
+        newest = max(
+            f.stat().st_mtime for f in pathlib.Path(__file__).parent.glob("*.py")
         )
         from datetime import datetime
 
-        return f"{commit} (file terbaru {datetime.fromtimestamp(terbaru):%d/%m %H:%M})"
+        return f"{commit} (newest file {datetime.fromtimestamp(newest):%d/%m %H:%M})"
     except Exception:
         return commit
 
 
-# --- Satu instance saja ------------------------------------------------------
+# --- Single instance ---------------------------------------------------------
 
 
-_kunci = None  # dipegang selama proses hidup; jangan sampai kena garbage collect
+_lock_handle = None  # held for the life of the process; must not be collected
 
 
-def klaim_satu_instance() -> int | None:
-    """Pastiin cuma ada SATU agent. Balikin PID pemegang lama kalau gagal.
+def claim_single_instance() -> int | None:
+    """Ensure only ONE agent runs. Returns the holder's PID on failure.
 
-    Kenapa ditegakkan di kode, bukan diserahin ke kebiasaan: agent nyangkut
-    hotkey global. Dua agent artinya tiap pencetan ditangkep dua-duanya, dan
-    keduanya rebutan mic. Ini pernah kejadian beneran — autostart nyalain satu
-    pas login, terus satu lagi dijalanin manual buat ngetes, dan mode sesi
-    kelihatan kayak nggak jalan padahal yang nyaut agent lama.
+    Why this is enforced in code rather than left to habit: the agent grabs a
+    global hotkey. Two agents means every press is caught by both, and both
+    fight over the microphone. This actually happened — autostart launched one
+    at login, another was started by hand for testing, and session mode looked
+    broken because the old agent was the one answering.
 
-    Pakai kunci file dari OS, bukan sekadar file PID: kunci OS dilepas otomatis
-    pas proses mati, jadi agent yang crash nggak ninggalin file yang bikin agent
-    berikutnya nolak jalan selamanya.
+    Uses an OS file lock rather than a plain PID file: the OS releases the lock
+    when the process dies, so a crashed agent does not leave behind a file that
+    blocks every future start.
     """
-    global _kunci
+    global _lock_handle
     path = config.MEMORY_DIR / "agent.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         import msvcrt
-    except ImportError:  # bukan Windows — lewat, jangan bikin agent gagal jalan
-        log.debug("kunci satu-instance dilewat: msvcrt nggak ada")
+    except ImportError:  # not Windows — skip rather than refuse to start
+        log.debug("single-instance lock skipped: msvcrt unavailable")
         return None
 
     f = open(path, "a+")
     try:
         f.seek(0)
-        # Kunci byte 0 doang. PID ditulis MULAI byte 1, jadi nulis PID nggak
-        # nyentuh byte yang dikunci.
+        # Lock byte 0 only. The PID is written from byte 1 onward, so writing
+        # it never touches the locked byte.
         msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
     except OSError:
         f.seek(1)
-        lama = f.read().strip()
+        held_by = f.read().strip()
         f.close()
         try:
-            return int(lama)
+            return int(held_by)
         except ValueError:
-            return 0  # ada yang megang, tapi PID-nya nggak kebaca
+            return 0  # someone holds it, but the PID is unreadable
 
     f.seek(1)
     f.truncate(1)
     f.write(str(os.getpid()))
     f.flush()
-    _kunci = f  # ditahan sengaja: file ketutup = kunci lepas
+    _lock_handle = f  # held deliberately: closing the file releases the lock
     return None
 
 
@@ -105,7 +106,8 @@ def klaim_satu_instance() -> int | None:
 
 
 def setup_logging() -> None:
-    """Log ke file (wajib: jalan di background tanpa console) + console kalau ada."""
+    """Log to a file (required: runs in the background with no console), plus
+    the console when one exists."""
     config.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     root = logging.getLogger()
@@ -122,7 +124,7 @@ def setup_logging() -> None:
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
 
-    # pythonw.exe nggak punya stdout — cuma pasang console handler kalau beneran ada
+    # pythonw.exe has no stdout — only attach a console handler if one exists
     if sys.stderr is not None:
         console = logging.StreamHandler(sys.stderr)
         console.setFormatter(fmt)
@@ -131,10 +133,10 @@ def setup_logging() -> None:
     for noisy in ("httpx", "httpcore", "urllib3", "huggingface_hub", "filelock"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
-    # Exception yang lolos dari thread mana pun tetep ke-log
+    # Exceptions escaping any thread still reach the log
     sys.excepthook = lambda *exc: log.critical("uncaught exception", exc_info=exc)
     threading.excepthook = lambda args: log.critical(
-        "uncaught exception di thread %s",
+        "uncaught exception in thread %s",
         args.thread.name if args.thread else "?",
         exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
     )
@@ -144,28 +146,28 @@ def setup_logging() -> None:
 
 
 class _BackendBase:
-    """Bagian yang sama buat semua backend hotkey.
+    """Everything the hotkey backends share.
 
-    Dua mode:
-    - toggle: pencetan pertama mulai rekam, pencetan kedua berhenti
-    - hold:   rekam selama tombol ditahan (push-to-talk)
+    Two modes:
+    - toggle: first press starts recording, second press stops
+    - hold:   record while the key is held (push-to-talk)
     """
 
     name = "?"
-    # Pencetan yang lebih rapat dari ini dianggap satu pencetan. Melindungi
-    # dari event UP/DOWN palsu yang dikirim Windows selama tombol ditahan.
+    # Presses closer together than this count as one. Guards against the
+    # spurious UP/DOWN events Windows sends while a key is held.
     EDGE_DEBOUNCE = 0.3
 
     def __init__(self, combo: str, on_activate: Callable[[Callable[[], bool]], None]):
         self.combo_label = combo
         self.on_activate = on_activate
-        self._busy = False  # pipeline lagi jalan
-        self._recording = False  # mode toggle: lagi ngerekam
+        self._busy = False  # pipeline is running
+        self._recording = False  # toggle mode: currently recording
         self._last_edge = 0.0
         self._is_held: Callable[[], bool] = lambda: False
 
     def _on_edge(self) -> None:
-        """Kombinasi hotkey baru aja jadi lengkap (dipanggil sekali per pencetan)."""
+        """The hotkey combo just became complete (fires once per press)."""
         now = time.monotonic()
         if now - self._last_edge < self.EDGE_DEBOUNCE:
             return
@@ -176,23 +178,23 @@ class _BackendBase:
             return
 
         if self._recording:
-            self._recording = False  # pencetan kedua: berhenti rekam
+            self._recording = False  # second press: stop recording
             log.debug("toggle: stop")
         elif not self._busy:
-            self._recording = True  # pencetan pertama: mulai rekam
+            self._recording = True  # first press: start recording
             log.debug("toggle: start")
             self._launch(lambda: self._recording)
         else:
-            log.info("masih ngerjain yang sebelumnya, hotkey diabaikan")
-            # Jangan diam: user perlu tau dia kedengeran, cuma lagi sibuk
+            log.info("still working on the previous turn, hotkey ignored")
+            # Do not stay silent: the user needs to know they were heard
             threading.Thread(target=audio.beep_busy, daemon=True).start()
 
     def _launch(self, is_recording: Callable[[], bool]) -> None:
-        """Jalanin pipeline di thread terpisah.
+        """Run the pipeline on its own thread.
 
-        WAJIB terpisah: callback backend jalan di thread yang sama dengan yang
-        ngeproses event keyboard. Kalau di-block, pencetan kedua (toggle) atau
-        event lepas (hold) nggak akan pernah kebaca.
+        This MUST be separate: the backend callback runs on the same thread
+        that processes keyboard events. Block it and the second press (toggle)
+        or the release event (hold) is never seen.
         """
         if self._busy:
             return
@@ -209,7 +211,7 @@ class _BackendBase:
 
 
 class KeyboardBackend(_BackendBase):
-    """Backend `keyboard`. Paling akurat, tapi di Windows butuh admin."""
+    """The `keyboard` backend. Most accurate, but needs admin on Windows."""
 
     name = "keyboard"
 
@@ -224,18 +226,18 @@ class KeyboardBackend(_BackendBase):
             suppress=config.HOTKEY_SUPPRESS,
         )
         log.info(
-            "Hotkey '%s' aktif, mode %s (backend keyboard). Ctrl+C buat berhenti.",
+            "Hotkey '%s' active, %s mode (keyboard backend). Ctrl+C to stop.",
             self.combo_label,
-            "sesi" if config.SESSION_MODE else config.HOTKEY_MODE,
+            "session" if config.SESSION_MODE else config.HOTKEY_MODE,
         )
         kb.wait()
 
 
 class PynputBackend(_BackendBase):
-    """Backend `pynput`. Jalan tanpa admin, dipilih lewat HOTKEY_BACKEND=pynput.
+    """The `pynput` backend. Works without admin; select via HOTKEY_BACKEND=pynput.
 
-    Catatan: pynput nggak bisa nge-suppress hotkey, jadi `Ctrl+Space` tetep
-    diterusin ke aplikasi yang lagi fokus.
+    Note: pynput cannot suppress the hotkey, so `Ctrl+Space` still reaches
+    whichever application has focus.
     """
 
     name = "pynput"
@@ -267,8 +269,8 @@ class PynputBackend(_BackendBase):
             for p in combo.split("+")
             if p.strip()
         }
-        # Simpan key mentah yang lagi ditahan; nama-namanya dihitung pas dibutuhin,
-        # biar nahan ctrl kiri & kanan bareng nggak bikin state-nya kacau.
+        # Store the raw keys held down; names are resolved on demand, so
+        # holding left and right ctrl together cannot corrupt the state.
         self._pressed: set[str] = set()
         self._is_held = self._combo_complete
         self._combo_was_complete = False
@@ -281,16 +283,16 @@ class PynputBackend(_BackendBase):
         if isinstance(key, pk.KeyCode):
             if key.char:
                 return key.char.lower()
-            # Pas modifier ditahan, char-nya jadi control character. Pakai vk.
+            # While a modifier is held the char becomes a control character; use vk.
             if key.vk is not None and 65 <= key.vk <= 90:
                 return chr(key.vk).lower()
         return None
 
     def _names(self, raw: str) -> set[str]:
-        """Nama-nama yang dipenuhi satu tombol.
+        """Every name a single key satisfies.
 
-        ctrl_r cocok buat 'ctrl' maupun 'right ctrl', jadi user bisa milih mau
-        spesifik sisi atau nggak.
+        ctrl_r matches both 'ctrl' and 'right ctrl', so you can be side-specific
+        or not, as you prefer.
         """
         for suffix, side in self._SIDES.items():
             if raw.endswith(suffix):
@@ -310,7 +312,7 @@ class PynputBackend(_BackendBase):
         if raw is None:
             return
         self._pressed.add(raw)
-        # Cuma picu pas kombinasi baru jadi lengkap, bukan tiap auto-repeat
+        # Fire only when the combo becomes complete, not on every auto-repeat
         if self._combo_complete() and not self._combo_was_complete:
             self._combo_was_complete = True
             self._on_edge()
@@ -326,9 +328,9 @@ class PynputBackend(_BackendBase):
         from pynput import keyboard as pk
 
         log.info(
-            "Hotkey '%s' aktif, mode %s (backend pynput). Ctrl+C buat berhenti.",
+            "Hotkey '%s' active, %s mode (pynput backend). Ctrl+C to stop.",
             self.combo_label,
-            "sesi" if config.SESSION_MODE else config.HOTKEY_MODE,
+            "session" if config.SESSION_MODE else config.HOTKEY_MODE,
         )
         with pk.Listener(on_press=self._on_press, on_release=self._on_release) as ln:
             ln.join()
@@ -339,7 +341,7 @@ def make_backend(on_activate):
         return KeyboardBackend(config.HOTKEY, on_activate)
     if config.HOTKEY_BACKEND != "pynput":
         log.warning(
-            "HOTKEY_BACKEND '%s' nggak dikenal, balik ke 'pynput'",
+            "HOTKEY_BACKEND '%s' not recognised, falling back to 'pynput'",
             config.HOTKEY_BACKEND,
         )
     return PynputBackend(config.HOTKEY, on_activate)
@@ -350,37 +352,37 @@ def make_backend(on_activate):
 # Memory-wipe phrases. Matched locally, not through the LLM: an irreversible
 # command must not hinge on a model's guess.
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
-    """Satu putaran: rekam -> transcribe -> LLM -> ngomong."""
-    # 0. Kalau model lagi terlepas, mulai muat SEKARANG — barengan sama user
-    #    ngomong. Durasi ngomong (biasanya 3-5 detik) jadi kepakai buat muat,
-    #    bukan nganggur. get_model() punya lock sendiri, jadi transcribe di
-    #    bawah bakal nunggu dengan rapi kalau muatnya belum kelar.
+    """One turn: record -> transcribe -> LLM -> speak."""
+    # 0. If the model has been released, start loading it NOW — in parallel
+    #    with the user speaking. The time they spend talking (typically 3-5 s)
+    #    is spent loading instead of idling. get_model() has its own lock, so
+    #    the transcribe below waits politely if loading is not finished.
     if not stt.is_loaded():
-        threading.Thread(target=stt.warmup, name="muat-duluan", daemon=True).start()
+        threading.Thread(target=stt.warmup, name="preload", daemon=True).start()
 
-    # 1. Rekam
+    # 1. Record
     try:
-        # beep dibunyiin dari dalam, pas mic udah beneran siap
+        # the beep plays from inside, once the mic is genuinely ready
         clip = audio.record_until_release(
             is_recording,
             on_ready=audio.beep_start,
-            # Mode toggle berhenti eksplisit, nggak perlu tenggang anti-kedip
+            # Toggle mode stops explicitly, so no anti-flicker grace is needed
             release_grace=0.0 if config.HOTKEY_MODE == "toggle" else None,
         )
         audio.beep_stop()
     except Exception:
-        log.exception("gagal merekam mic")
+        log.exception("failed to record from the mic")
         audio.beep_error()
         return
 
     if clip.size == 0:
-        log.info("nggak ada audio yang kepakai, skip")
+        log.info("no usable audio, skipping")
         return
 
     # 2. STT
-    # Muat model bisa makan 10-35 detik kalau file-nya dingin. Tanpa kabar apa
-    # pun, diam selama itu nggak bisa dibedain dari mati — user bakal mencet
-    # ulang dan makin bingung. Piper udah di-warmup jadi ngomongnya instan.
+    # Loading can take 10-35 s from a cold disk cache. With no word at all,
+    # that silence is indistinguishable from a dead agent — the user presses
+    # again and gets more confused. TTS is already warm, so this speaks instantly.
     if not stt.is_loaded():
         log.info("model still loading, telling the user first")
         _say_safely("One moment, just getting ready.")
@@ -388,12 +390,12 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
     try:
         text = stt.transcribe(clip)
     except Exception:
-        log.exception("gagal transcribe")
+        log.exception("transcription failed")
         audio.beep_error()
         return
 
     if not text:
-        log.info("transcript kosong, skip")
+        log.info("empty transcript, skipping")
         audio.beep_error()
         return
     log.info("User: %s", text)
@@ -401,122 +403,123 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
 
 
 def _route_and_reply(text: str) -> None:
-    """Satu titik masuk buat mode pencet maupun mode sesi.
+    """One entry point shared by press mode and session mode.
 
-    Sekarang cuma nerusin ke LLM. Bentuknya dipertahankan sebagai fungsi
-    terpisah karena di sinilah percabangan niat bakal nempel kalau nanti ada
-    fitur lagi — dan urutan pengecekannya pernah kebukti gampang salah.
+    It only forwards to the LLM now. It stays a separate function because this
+    is where intent routing will attach when features come back — and the order
+    of those checks has already proved easy to get wrong.
     """
     _speak_streaming(text)
 
 
 def _speak_streaming(text: str) -> None:
-    """Jawab sambil ngomong: kalimat pertama dibunyiin selagi model masih
-    ngarang kalimat berikutnya.
+    """Speak while answering: the first sentence plays while the model is still
+    writing the next one.
 
-    Terukur: waktu sampai bunyi pertama turun 53-71% dibanding nunggu seluruh
-    jawaban jadi. Yang dipangkas bukan waktu totalnya, tapi diamnya — dan itu
-    yang bikin percakapan kerasa hidup atau kerasa nge-lag.
+    Measured: time to first sound drops 53-71% against waiting for the whole
+    answer. What gets cut is not the total time but the silence — and that is
+    what makes a conversation feel alive rather than laggy.
     """
     conv = llm.get_conversation()
     sp = audio.Speaker()
-    ada = False
+    spoke_any = False
     try:
-        for kalimat in conv.chat_stream(text):
-            sp.add(tts.speak(kalimat))
-            ada = True
+        for sentence in conv.chat_stream(text):
+            sp.add(tts.speak(sentence))
+            spoke_any = True
         sp.finish()
     except Exception:
-        # Yang udah kebunyiin biarin selesai; jangan motong di tengah kata.
+        # Let whatever is already playing finish; never cut mid-word.
         try:
             sp.finish()
         except Exception:
-            log.debug("gagal nutup playback", exc_info=True)
-        log.exception("gagal jawab (%s)", config.LLM_BACKEND)
-        if not ada:
+            log.debug("failed to close playback", exc_info=True)
+        log.exception("failed to answer (%s)", config.LLM_BACKEND)
+        if not spoke_any:
             _say_safely("Sorry, my brain isn't reachable right now.")
 
 
 def handle_session(is_active: Callable[[], bool]) -> None:
-    """Mode sesi: sekali pencet hotkey, terus ngobrol tanpa mencet lagi.
+    """Session mode: press the hotkey once, then keep talking without pressing.
 
-    Batas kalimat ditentuin VAD, bukan tombol. Sesi tutup kalau kamu mencet
-    hotkey lagi ATAU diam selama SESSION_IDLE_SECONDS.
+    Utterance boundaries come from the VAD, not the key. The session closes when
+    you press the hotkey again OR go quiet for SESSION_IDLE_SECONDS.
 
-    Mic ditutup selama agent ngomong — itu konsekuensi sadar dari nggak ada
-    barge-in. Untungnya: agent nggak mungkin denger suaranya sendiri, jadi
-    nggak perlu peredam gema dan speaker biasa aman dipakai.
+    The mic is closed while the agent speaks — the deliberate consequence of
+    having no barge-in. The upside: the agent can never hear itself, so no echo
+    cancellation is needed and ordinary speakers are fine.
     """
     if not stt.is_loaded():
         threading.Thread(target=stt.warmup, name="muat-duluan", daemon=True).start()
 
     audio.beep_start()
-    log.info("sesi dibuka (tutup: hotkey lagi, atau diam %.0f detik)",
+    log.info("session opened (close: hotkey again, or %.0f s of silence)",
              config.SESSION_IDLE_SECONDS)
-    giliran = 0
-    mulai = time.monotonic()
+    turn = 0
+    started_at = time.monotonic()
 
     try:
         while is_active():
             try:
-                clip, alasan = vad.rekam_ucapan(berhenti=lambda: not is_active())
+                clip, reason = vad.record_utterance(should_stop=lambda: not is_active())
             except Exception:
-                log.exception("gagal merekam mic")
+                log.exception("failed to record from the mic")
                 audio.beep_error()
                 return
 
             if clip is None:
-                log.info("sesi ditutup: %s", alasan)
+                log.info("session closed: %s", reason)
                 break
 
             if not stt.is_loaded():
-                log.info("model masih dimuat, kabarin user dulu")
+                log.info("model still loading, telling the user first")
                 _say_safely("One moment, just getting ready.")
 
             try:
                 text = stt.transcribe(clip)
             except Exception:
-                log.exception("gagal transcribe")
+                log.exception("transcription failed")
                 audio.beep_error()
-                continue  # satu ucapan gagal nggak boleh nutup sesi
+                continue  # one failed utterance must not close the session
 
             if not text:
-                log.info("transcript kosong, lanjut nunggu")
+                log.info("empty transcript, still listening")
                 continue
 
-            giliran += 1
-            log.info("User (giliran %d): %s", giliran, text)
+            turn += 1
+            log.info("User (turn %d): %s", turn, text)
 
             if _wants_end_session(text):
-                log.info("sesi ditutup lewat ucapan")
+                log.info("session closed by voice")
                 _say_safely("Okay, talk to you later.")
                 break
 
             try:
                 _route_and_reply(text)
             except Exception:
-                # Satu giliran yang gagal jangan ngebunuh sesinya — user tinggal
-                # ngomong lagi. Yang fatal cuma mic-nya yang nggak bisa dibuka.
-                log.exception("giliran %d gagal", giliran)
+                # One failed turn must not kill the session — the user can just
+                # speak again. Only a mic that will not open is fatal.
+                log.exception("turn %d failed", turn)
                 audio.beep_error()
     finally:
         audio.beep_stop()
-        log.info("sesi selesai: %d giliran, %.0f detik", giliran,
-                 time.monotonic() - mulai)
+        log.info("session done: %d turns, %.0f s", turn,
+                 time.monotonic() - started_at)
 
 
-# Frasa penutup sesi. Dicocokin lokal, bukan lewat LLM — sama alasannya kayak
-# "forget everything": perintah kontrol nggak boleh gantung pada tebakan model.
-# Dua tingkat, dan pemisahannya penting.
+# Session-ending phrases. Matched locally, not through the LLM: a control
+# command must not hinge on a model's guess.
 #
-# KUAT = nggak mungkin punya arti lain, jadi boleh cocok di mana pun kalimat.
+# Two tiers, and the split matters.
+#
+# STRONG = cannot mean anything else, so it may match anywhere in the sentence.
 _END_STRONG = (
     "goodbye", "good bye", "bye bye", "talk to you later", "see you later",
     "stop listening", "end session", "end the session",
 )
-# LEMAH = cuma nutup kalau berdiri di UJUNG ucapan. "I'm done" nutup sesi, tapi
-# "I'm done with assignment one" itu laporan tugas selesai — kalau dicocokin di
-# mana pun, tugasmu nggak akan pernah ketandai karena sesinya keburu tutup.
+# WEAK = only closes when it sits at the END of the utterance. "I'm done" ends
+# the session, but "I'm done with assignment one" is a report about work — match
+# it anywhere and that sentence could never reach anything else.
 _END_WEAK = (
     "bye", "stop", "thanks", "thank you", "see you",
     "thats all", "thats it", "were done", "im done", "we are done", "i am done",
@@ -524,7 +527,7 @@ _END_WEAK = (
 
 
 def _wants_end_session(text: str) -> bool:
-    t = teks.normal(text)
+    t = text_utils.normalize(text)
     if not t:
         return False
     if any(f in t for f in _END_STRONG):
@@ -532,61 +535,61 @@ def _wants_end_session(text: str) -> bool:
     return any(t == f or t.endswith(" " + f) for f in _END_WEAK)
 
 
-def _ucap_kalimat(text: str) -> None:
-    """Ucapkan per kalimat, mulai bunyi begitu kalimat pertama jadi.
+def _speak_sentences(text: str) -> None:
+    """Speak sentence by sentence, starting as soon as the first one is ready.
 
-    Alasannya sama kayak jalur streaming: TTS baru bisa mulai setelah kalimat
-    utuh, jadi nyintesis seluruh jawaban dulu bikin diamnya kepanjangan.
-    Jawaban pasti sempat lebih lambat dari model persis gara-gara ini.
+    Same reason as the streaming path: the TTS cannot start until a sentence is
+    complete, so synthesising the whole answer first makes the silence too long.
     """
-    from .llm import _potong_kalimat
+    from .llm import _split_sentence
 
     sp = audio.Speaker()
     try:
-        # Spasi di ujung wajib: _potong_kalimat() nyari tanda baca yang DIIKUTI
-        # spasi, jadi kalimat terakhir nggak bakal kedeteksi tanpa ini.
-        sisa = text.rstrip() + " "
-        ada = False
+        # The trailing space is required: _split_sentence() looks for
+        # punctuation FOLLOWED by a space, so the final sentence would never be
+        # detected without it.
+        rest = text.rstrip() + " "
+        spoke_any = False
         while True:
-            kal, sisa = _potong_kalimat(sisa)
-            if kal is None:
+            sentence_out, rest = _split_sentence(rest)
+            if sentence_out is None:
                 break
-            sp.add(tts.speak(kal))
-            ada = True
-        ekor = sisa.strip()
-        if ekor:
-            sp.add(tts.speak(ekor))
-            ada = True
-        if not ada:
+            sp.add(tts.speak(sentence_out))
+            spoke_any = True
+        tail = rest.strip()
+        if tail:
+            sp.add(tts.speak(tail))
+            spoke_any = True
+        if not spoke_any:
             sp.add(tts.speak(text))
         sp.finish()
     except Exception:
         try:
             sp.finish()
         except Exception:
-            log.debug("gagal nutup playback", exc_info=True)
-        log.exception("gagal ngomong")
+            log.debug("failed to close playback", exc_info=True)
+        log.exception("failed to speak")
         audio.beep_error()
 
 
 def _say_safely(text: str) -> None:
-    """Ngomong tanpa bikin error baru (dipakai buat ngabarin kegagalan)."""
+    """Speak without raising a new error (used to report failures)."""
     try:
         audio.play_wav(tts.speak(text))
     except Exception:
-        log.exception("gagal ngomong pesan error")
+        log.exception("failed to speak the error message")
         audio.beep_error()
 
 
 def warmup() -> None:
-    """Load model di background biar pencetan pertama nggak lama.
+    """Load models in the background so the first press is not slow.
 
-    TTS selalu dimuat: CPU-only, 0 VRAM, cuma ~1,5-2,7 detik. STT tergantung
-    WHISPER_WARMUP — kalau modelnya toh bakal dilepas pas nganggur, muat di awal
-    cuma nahan memori percuma sampai ambang idle kelewat.
+    TTS always loads: CPU-only, 0 VRAM, only ~1.5-2.7 s. STT follows
+    WHISPER_WARMUP — if the model is going to be released when idle, loading it
+    up front just holds memory until the idle threshold passes.
 
-    VAD ikut dimuat cuma di mode sesi, dan selalu: 0 VRAM, ~1 detik, tapi kalau
-    baru dimuat pas hotkey dipencet, kata pertamamu kepotong.
+    The VAD loads only in session mode, and always: 0 VRAM, ~1 s, but if it
+    loaded on the first key press your first word would be clipped.
     """
 
     def _run():
@@ -598,12 +601,12 @@ def warmup() -> None:
                 stt.warmup()
             else:
                 log.info(
-                    "STT (%s) nggak di-warmup; dimuat pas pertanyaan pertama",
+                    "STT (%s) not warmed up; loads on the first question",
                     config.STT_BACKEND,
                 )
-            log.info("Warmup selesai, siap dipakai.")
+            log.info("Warmup done, ready.")
         except Exception:
-            log.exception("warmup gagal (model bakal di-load pas dipakai)")
+            log.exception("warmup failed (models will load on demand)")
 
     threading.Thread(target=_run, name="warmup", daemon=True).start()
 
@@ -611,7 +614,7 @@ def warmup() -> None:
 def main() -> int:
     setup_logging()
     log.info("=" * 60)
-    log.info("build: %s", _versi_build())
+    log.info("build: %s", _build_version())
     otak = (
         config.OLLAMA_MODEL if config.LLM_BACKEND == "ollama" else config.CLAUDE_MODEL
     )
@@ -621,7 +624,7 @@ def main() -> int:
         config.LANGUAGE,
         config.OFFLINE_MODE,
         config.HOTKEY,
-        "SESI" if config.SESSION_MODE else config.HOTKEY_MODE,
+        "SESSION" if config.SESSION_MODE else config.HOTKEY_MODE,
         config.HOTKEY_BACKEND,
         config.STT_BACKEND,
         config.STT_DEVICE,
@@ -630,40 +633,42 @@ def main() -> int:
         config.TTS_BACKEND,
     )
 
-    # Sebelum apa-apa: pastiin nggak ada agent lain. Dicek DULUAN karena agent
-    # kedua yang terlanjur muat model bakal makan memori percuma sebelum nyerah.
-    lain = klaim_satu_instance()
-    if lain is not None:
+    # Before anything else: make sure no other agent is running. Checked FIRST
+    # because a second agent that has already loaded models would waste memory
+    # before giving up.
+    other_pid = claim_single_instance()
+    if other_pid is not None:
         log.error(
-            "Agent lain udah jalan (PID %s). Yang ini berhenti — dua agent bakal "
-            "rebutan hotkey '%s'. Cek: powershell -File scripts\status.ps1",
-            lain or "?",
+            "Another agent is already running (PID %s). This one is stopping — "
+            "two agents would fight over the '%s' hotkey. "
+            "Check: powershell -File scripts\\status.ps1",
+            other_pid or "?",
             config.HOTKEY,
         )
         return 3
 
-    # Setelan yang bentrok sama mode offline harus ketahuan di log startup,
-    # bukan pas user udah nanya.
+    # Settings that clash with offline mode must surface in the startup log,
+    # not once the user has already asked something.
     try:
-        config.wajib_offline()
+        config.require_offline()
     except config.OfflineViolation:
-        log.exception("setelan bentrok sama OFFLINE_MODE, agent nggak jalan")
+        log.exception("settings clash with OFFLINE_MODE, agent not starting")
         return 2
 
     warmup()
-    # Mode sesi ganti seluruh gaya interaksinya, bukan sekadar setelan:
-    # hotkey jadi pembuka sesi, bukan tombol rekam.
+    # Session mode changes the whole interaction style, not just a setting:
+    # the hotkey opens a session instead of being a record button.
     backend = make_backend(handle_session if config.SESSION_MODE else handle_utterance)
 
     try:
         backend.run()
     except KeyboardInterrupt:
-        log.info("dihentikan lewat Ctrl+C")
+        log.info("stopped with Ctrl+C")
     except ImportError:
-        log.exception("backend hotkey '%s' nggak bisa di-import", backend.name)
+        log.exception("hotkey backend '%s' could not be imported", backend.name)
         return 1
     except Exception:
-        log.exception("hotkey listener mati")
+        log.exception("hotkey listener died")
         return 1
     return 0
 

@@ -1,13 +1,14 @@
-"""Speech-to-text. Dua backend di balik antarmuka yang sama.
+"""Speech-to-text. Two backends behind the same interface.
 
-- **Parakeet** (default) — nvidia/parakeet-tdt-0.6b-v2 lewat onnx-asr.
-  English saja. Terukur di mesin ini: 0,40 detik/kalimat di CPU, **nol VRAM**,
-  ~2,2 GB RAM. Secepat Whisper di GPU tanpa memakan VRAM sama sekali, jadi
-  VRAM-nya bisa dipakai penuh sama LLM.
-- **Whisper** — faster-whisper, 99 bahasa. Dipertahankan buat non-Inggris.
+- **Parakeet** (default) — nvidia/parakeet-tdt-0.6b-v2 through onnx-asr.
+  English only. Measured on this machine: 0.40 s per sentence on CPU, **zero
+  VRAM**, ~2.2 GB RAM. As fast as Whisper on GPU without touching VRAM at all,
+  which leaves the whole GPU to the LLM.
+- **Whisper** — faster-whisper, 99 languages. Kept for non-English.
 
-Antarmuka publiknya dijaga tetap: get_model(), is_loaded(), unload_model(),
-warmup(), transcribe(). main.py nggak tahu backend mana yang dipakai.
+The public interface is deliberately stable: get_model(), is_loaded(),
+unload_model(), warmup(), transcribe(). main.py never knows which backend is in
+use.
 """
 
 from __future__ import annotations
@@ -26,30 +27,31 @@ from . import config
 log = logging.getLogger(__name__)
 
 _model = None
-_cuda_siap = False
+_cuda_ready = False
 
-# Lindungi _model dari dilepas pas lagi dipakai transcribe(). Reentrant karena
-# transcribe() manggil get_model() yang juga ngambil lock ini.
+# Protects _model from being released while transcribe() is using it.
+# Reentrant because transcribe() calls get_model(), which takes the same lock.
 _lock = threading.RLock()
-_terakhir_dipakai = 0.0
-_pelepas_jalan = False
+_last_used = 0.0
+_unloader_running = False
 
 
-def _daftarin_dll_cuda() -> None:
-    """Bikin DLL CUDA dari paket pip kebaca (Windows).
+def _register_cuda_dlls() -> None:
+    """Make CUDA DLLs from pip packages loadable (Windows).
 
-    ctranslate2 nyari cublas64_12.dll / cudnn*.dll lewat LoadLibrary biasa, yang
-    baca PATH — bukan lewat direktori add_dll_directory. Paket nvidia-cublas-cu12
-    & nvidia-cudnn-cu12 naruhnya di site-packages/nvidia/*/bin yang nggak ada di
-    PATH, jadi dua-duanya didaftarin manual (PATH-nya yang beneran nolong).
+    ctranslate2 looks for cublas64_12.dll / cudnn*.dll with a plain LoadLibrary,
+    which reads PATH — not the add_dll_directory list. The nvidia-cublas-cu12
+    and nvidia-cudnn-cu12 packages put them in site-packages/nvidia/*/bin, which
+    is not on PATH, so both mechanisms are registered here (PATH is the one that
+    actually helps).
     """
-    global _cuda_siap
-    if _cuda_siap or os.name != "nt":
+    global _cuda_ready
+    if _cuda_ready or os.name != "nt":
         return
     try:
         import nvidia
 
-        # `nvidia` itu namespace package: __file__ = None, jadi pakai __path__
+        # `nvidia` is a namespace package: __file__ is None, so use __path__
         folders = [
             str(f)
             for root in nvidia.__path__
@@ -59,44 +61,42 @@ def _daftarin_dll_cuda() -> None:
             os.add_dll_directory(folder)
         if folders:
             os.environ["PATH"] = os.pathsep.join(folders) + os.pathsep + os.environ["PATH"]
-        log.info("%d folder DLL CUDA didaftarin", len(folders))
-        _cuda_siap = True
+        log.info("registered %d CUDA DLL folders", len(folders))
+        _cuda_ready = True
     except ImportError:
         log.warning(
-            "paket CUDA dari pip nggak ketemu. Kalau device=cuda gagal, "
-            "jalanin: pip install -e \".[gpu]\""
+            'CUDA pip packages not found. If device=cuda fails, run: '
+            'pip install -e ".[gpu]"'
         )
 
 
-# --- Backend ---------------------------------------------------------------
+# --- Backends ---------------------------------------------------------------
 
 
 class _Parakeet:
-    nama = "parakeet"
+    name = "parakeet"
 
     def __init__(self) -> None:
         import onnx_asr
 
         if config.STT_DEVICE.startswith("cuda"):
-            _daftarin_dll_cuda()
+            _register_cuda_dlls()
             providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         else:
             providers = ["CPUExecutionProvider"]
 
-        log.info(
-            "Load %s (device=%s)...", config.STT_MODEL, config.STT_DEVICE
-        )
+        log.info("Loading %s (device=%s)...", config.STT_MODEL, config.STT_DEVICE)
         self._m = onnx_asr.load_model(config.STT_MODEL, providers=providers)
 
-        # onnxruntime diam-diam jatuh ke CPU kalau provider yang diminta nggak
-        # ada. Lebih baik dikabari daripada bingung kenapa lambat.
+        # onnxruntime silently falls back to CPU when the requested provider is
+        # missing. Better to say so than to leave you wondering why it is slow.
         if config.STT_DEVICE.startswith("cuda"):
             import onnxruntime as ort
 
             if "CUDAExecutionProvider" not in ort.get_available_providers():
                 log.warning(
-                    "CUDA diminta tapi onnxruntime yang terpasang CPU-only — "
-                    "jalan di CPU. Pasang onnxruntime-gpu kalau mau GPU."
+                    "CUDA requested but the installed onnxruntime is CPU-only — "
+                    "running on CPU. Install onnxruntime-gpu for GPU."
                 )
 
     def transcribe(self, audio: np.ndarray) -> str:
@@ -104,16 +104,16 @@ class _Parakeet:
 
 
 class _Whisper:
-    nama = "whisper"
+    name = "whisper"
 
     def __init__(self) -> None:
         if config.WHISPER_DEVICE.startswith("cuda"):
-            _daftarin_dll_cuda()
+            _register_cuda_dlls()
 
         from faster_whisper import WhisperModel
 
         log.info(
-            "Load Whisper '%s' (device=%s, compute=%s)...",
+            "Loading Whisper '%s' (device=%s, compute=%s)...",
             config.WHISPER_MODEL,
             config.WHISPER_DEVICE,
             config.WHISPER_COMPUTE,
@@ -130,126 +130,127 @@ class _Whisper:
             language=config.WHISPER_LANG,
             initial_prompt=config.WHISPER_PROMPT or None,
             beam_size=5,
-            # Buang bagian hening biar halusinasi berkurang
+            # Drop silent stretches to cut down on hallucination
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 400},
             condition_on_previous_text=False,
         )
-        teks = " ".join(seg.text.strip() for seg in segments).strip()
-        log.debug("Whisper: %.1f detik audio", info.duration)
-        return teks
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+        log.debug("Whisper: %.1f s of audio", info.duration)
+        return text
 
 
-def _bikin_backend():
+def _make_backend():
     if config.STT_BACKEND == "whisper":
         return _Whisper()
     if config.STT_BACKEND != "parakeet":
         log.warning(
-            "STT_BACKEND %r nggak dikenal, pakai 'parakeet'", config.STT_BACKEND
+            "STT_BACKEND %r not recognised, falling back to 'parakeet'",
+            config.STT_BACKEND,
         )
     return _Parakeet()
 
 
-# --- Siklus hidup ----------------------------------------------------------
+# --- Lifecycle --------------------------------------------------------------
 
 
 def get_model():
-    """Muat model STT (lazy singleton)."""
-    global _model, _terakhir_dipakai
+    """Load the STT model (lazy singleton)."""
+    global _model, _last_used
 
     with _lock:
-        _terakhir_dipakai = time.monotonic()
+        _last_used = time.monotonic()
         if _model is not None:
             return _model
 
         t0 = time.monotonic()
-        _model = _bikin_backend()
-        log.info("%s siap dalam %.1f detik", _model.nama, time.monotonic() - t0)
-        _mulai_pelepas_idle()
+        _model = _make_backend()
+        log.info("%s ready in %.1f s", _model.name, time.monotonic() - t0)
+        _start_idle_unloader()
         return _model
 
 
 def is_loaded() -> bool:
-    """Model lagi siap di memori? Dipakai buat mutusin perlu ngabarin user apa nggak."""
+    """Is the model resident right now? Used to decide whether to warn the user."""
     return _model is not None
 
 
 def warmup() -> None:
-    """Panggil pas startup biar pertanyaan pertama nggak kena delay muat."""
+    """Call at startup so the first question doesn't pay the load time."""
     get_model()
 
 
 def unload_model() -> bool:
-    """Lepas model dari memori. Balikin True kalau tadinya emang ke-load."""
+    """Release the model from memory. True if it had actually been loaded."""
     global _model
     with _lock:
         if _model is None:
             return False
         _model = None
         gc.collect()
-        log.info("model STT dilepas dari memori (nganggur)")
+        log.info("STT model released from memory (idle)")
         return True
 
 
-def _pelepas_idle() -> None:
-    batas = config.WHISPER_IDLE_UNLOAD_SECONDS
-    jeda = max(1.0, min(30.0, batas / 10))
+def _idle_unloader() -> None:
+    limit = config.WHISPER_IDLE_UNLOAD_SECONDS
+    interval = max(1.0, min(30.0, limit / 10))
     while True:
-        time.sleep(jeda)
+        time.sleep(interval)
         with _lock:
             if _model is None:
                 continue
-            nganggur = time.monotonic() - _terakhir_dipakai
-        if nganggur >= batas:
+            idle = time.monotonic() - _last_used
+        if idle >= limit:
             unload_model()
 
 
-def _mulai_pelepas_idle() -> None:
-    """Nyalain pengawas idle sekali aja, pas model pertama kali ke-load."""
-    global _pelepas_jalan
-    if _pelepas_jalan or config.WHISPER_IDLE_UNLOAD_SECONDS <= 0:
+def _start_idle_unloader() -> None:
+    """Start the idle watchdog once, when the model is first loaded."""
+    global _unloader_running
+    if _unloader_running or config.WHISPER_IDLE_UNLOAD_SECONDS <= 0:
         return
-    _pelepas_jalan = True
-    threading.Thread(target=_pelepas_idle, name="stt-idle", daemon=True).start()
-    batas = config.WHISPER_IDLE_UNLOAD_SECONDS
+    _unloader_running = True
+    threading.Thread(target=_idle_unloader, name="stt-idle", daemon=True).start()
+    limit = config.WHISPER_IDLE_UNLOAD_SECONDS
     log.info(
-        "Model bakal dilepas kalau nganggur %s",
-        f"{batas:.0f} detik" if batas < 60 else f"{batas / 60:.0f} menit",
+        "Model will be released after %s idle",
+        f"{limit:.0f} s" if limit < 60 else f"{limit / 60:.0f} min",
     )
 
 
-# --- Transkripsi -----------------------------------------------------------
+# --- Transcription ----------------------------------------------------------
 
 
 def transcribe(audio: np.ndarray) -> str:
-    """Transcribe audio float32 mono 16 kHz jadi teks."""
+    """Transcribe mono float32 16 kHz audio into text."""
     if audio is None or len(audio) == 0:
         return ""
 
     audio = np.asarray(audio, dtype=np.float32).reshape(-1)
 
-    # Lock ditahan selama transcribe biar pengawas idle nggak ngelepas model
-    # di tengah jalan. get_model() reentrant, jadi aman.
+    # The lock is held for the whole transcription so the idle watchdog cannot
+    # pull the model out from under it. get_model() is reentrant, so this is safe.
     with _lock:
-        return _transcribe_terkunci(audio)
+        return _transcribe_locked(audio)
 
 
-def _transcribe_terkunci(audio: np.ndarray) -> str:
-    global _terakhir_dipakai
+def _transcribe_locked(audio: np.ndarray) -> str:
+    global _last_used
 
     model = get_model()
-    durasi = len(audio) / config.SAMPLE_RATE
+    seconds = len(audio) / config.SAMPLE_RATE
 
     t0 = time.monotonic()
     text = model.transcribe(audio)
     log.info(
-        "STT %.1f detik audio -> %.1f detik proses: %r",
-        durasi,
+        "STT %.1f s audio -> %.1f s processing: %r",
+        seconds,
         time.monotonic() - t0,
         text,
     )
-    # Dicatat setelah selesai: hitungan nganggur mulai dari akhir pemakaian
-    _terakhir_dipakai = time.monotonic()
+    # Recorded after the work, so the idle countdown starts from end of use
+    _last_used = time.monotonic()
     return text
 
 

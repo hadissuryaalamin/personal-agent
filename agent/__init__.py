@@ -1,3 +1,2 @@
-"""personal-agent — voice assistant lokal push-to-talk."""
-
-__version__ = "0.1.0"
+"""personal-agent — a local, offline push-to-talk voice assistant."""
+__all__ = []

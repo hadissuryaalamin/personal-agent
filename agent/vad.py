@@ -1,20 +1,21 @@
-"""Deteksi suara (VAD) buat mode sesi: tau kapan kamu mulai & berhenti ngomong.
+"""Voice activity detection: knowing when you start and stop speaking.
 
-Pakai Silero VAD lewat onnx_asr — model yang sama yang udah dipakai buat
-Parakeet, jadi **nol paket pip baru**. Alasannya sama kayak waktu milih
-Parakeet: nambah dependensi berat buat satu fungsi kecil itu mahal di mesin
-yang harus jalan offline.
+Uses Silero VAD through onnx_asr — the same package already pulling Parakeet, so
+this adds **zero new pip packages**. Same reasoning as choosing Parakeet: taking
+on a heavy dependency for one small job is expensive on a machine that has to
+run offline.
 
-`onnx_asr` sendiri nyediain VAD untuk memotong rekaman utuh (batch). Yang
-dibutuhin di sini beda: keputusan **per frame, sambil jalan**, karena mode sesi
-harus tau kapan kalimatmu selesai tanpa nunggu kamu mencet apa pun. Jadi
-sesi ONNX-nya dipakai langsung, frame demi frame.
+`onnx_asr` ships its own VAD, but it segments a finished recording in one batch.
+What session mode needs is different: a decision **per frame, as audio arrives**,
+because it has to know your sentence ended without you pressing anything. So the
+ONNX session is driven directly, frame by frame.
 
-Satu frame = 512 sampel @ 16 kHz = 32 ms.
+One frame = 512 samples @ 16 kHz = 32 ms.
 """
 
 import logging
 import queue
+import threading
 import time
 from collections.abc import Callable
 
@@ -25,46 +26,47 @@ from . import config
 
 log = logging.getLogger(__name__)
 
-# Silero v5 di 16 kHz. Angkanya dari model, bukan pilihan bebas.
+# Silero v5 at 16 kHz. These come from the model, they are not free choices.
 HOP = 512
 CONTEXT = 64
 FRAME_MS = HOP * 1000 // 16000  # 32
 
-_sesi = None
-_lock = __import__("threading").Lock()
+_session = None
+_lock = threading.Lock()
 
 
 def _model():
-    """Muat sekali. Dipisah dari stt.get_model() karena umurnya beda: VAD
-    dipegang selama sesi ngobrol, model STT boleh dilepas di antara giliran."""
-    global _sesi
+    """Load once. Kept separate from stt.get_model() because their lifetimes
+    differ: the VAD is held for the whole session, while the STT model may be
+    released between turns."""
+    global _session
     with _lock:
-        if _sesi is None:
+        if _session is None:
             import onnx_asr
 
             t0 = time.perf_counter()
-            _sesi = onnx_asr.load_vad("silero")._model
-            log.info("VAD Silero siap (%.1f detik)", time.perf_counter() - t0)
-        return _sesi
+            _session = onnx_asr.load_vad("silero")._model
+            log.info("Silero VAD ready (%.1f s)", time.perf_counter() - t0)
+        return _session
 
 
 def is_loaded() -> bool:
-    return _sesi is not None
+    return _session is not None
 
 
 def unload() -> bool:
-    global _sesi
+    global _session
     with _lock:
-        ada, _sesi = _sesi is not None, None
-    return ada
+        was_loaded, _session = _session is not None, None
+    return was_loaded
 
 
 class Detector:
-    """Ngasih peluang-ada-suara per frame, sambil bawa state antar frame.
+    """Speech probability per frame, carrying state between frames.
 
-    Statenya penting: Silero itu rekuren. Frame yang sama bisa dinilai beda
-    tergantung apa yang barusan kedengeran, dan itu justru yang bikin dia
-    nggak gampang ketipu suara kipas atau ketukan keyboard.
+    The state matters: Silero is recurrent. The same frame can score differently
+    depending on what was just heard, and that is exactly what keeps it from
+    being fooled by a fan or a keyboard tap.
     """
 
     def __init__(self) -> None:
@@ -73,68 +75,69 @@ class Detector:
 
     def reset(self) -> None:
         self._state = np.zeros((2, 1, 128), dtype=np.float32)
-        self._ekor = np.zeros(CONTEXT, dtype=np.float32)
+        self._tail = np.zeros(CONTEXT, dtype=np.float32)
 
     def prob(self, frame: np.ndarray) -> float:
-        """`frame` = HOP sampel float32. Balikin peluang 0..1."""
+        """`frame` is HOP float32 samples. Returns a probability in 0..1."""
         if len(frame) < HOP:
             frame = np.pad(frame, (0, HOP - len(frame)))
-        masuk = np.concatenate([self._ekor, frame[:HOP]])[None, :].astype(np.float32)
-        keluar, state_baru = self._m.run(
+        window = np.concatenate([self._tail, frame[:HOP]])[None, :].astype(np.float32)
+        out, new_state = self._m.run(
             ["output", "stateN"],
-            {"input": masuk, "state": self._state, "sr": np.array(16000, dtype=np.int64)},
+            {"input": window, "state": self._state, "sr": np.array(16000, dtype=np.int64)},
         )
-        self._state = state_baru
-        self._ekor = frame[HOP - CONTEXT : HOP].copy()
-        return float(keluar[0, 0])
+        self._state = new_state
+        self._tail = frame[HOP - CONTEXT : HOP].copy()
+        return float(out[0, 0])
 
 
-def rekam_ucapan(
-    berhenti: Callable[[], bool],
-    batas_sepi: float | None = None,
-    on_mulai_bicara: Callable[[], None] | None = None,
+def record_utterance(
+    should_stop: Callable[[], bool],
+    silence_limit: float | None = None,
+    on_speech_start: Callable[[], None] | None = None,
 ) -> tuple[np.ndarray | None, str]:
-    """Tunggu sampai kamu ngomong, rekam, berhenti pas kamu diam.
+    """Wait until you speak, record, and stop when you go quiet.
 
-    Balikin `(audio, alasan)`:
-      - `(array, "ok")`   : ada ucapan, udah selesai
-      - `(None, "stop")`  : `berhenti()` jadi True
-      - `(None, "sepi")`  : nggak ada suara sampai `batas_sepi` lewat
+    Returns `(audio, reason)`:
+      - `(array, "ok")`      : an utterance was captured
+      - `(None, "stopped")`  : `should_stop()` became True
+      - `(None, "silence")`  : nothing was said before `silence_limit` elapsed
 
-    Alasannya dipisah dengan sengaja: pemanggil harus bisa bedain "user nutup
-    sesi" dari "sesi mati sendiri". Suara yang kependekan (batuk, ketukan meja)
-    NGGAK dibalikin sebagai alasan tersendiri — itu ditelan di dalam sini,
-    karena batuk nggak boleh nutup sesi ngobrol.
+    The reasons are kept separate on purpose: the caller must be able to tell
+    "the user closed the session" from "the session timed out". A sound that is
+    too short (a cough, a tap on the desk) is NOT a reason of its own — it is
+    swallowed in here, because a cough must not close a conversation.
 
-    `on_mulai_bicara` dipanggil sekali begitu suara kedeteksi — dipakai buat
-    matiin timer sesi, bukan buat bunyiin apa pun.
+    `on_speech_start` fires once when speech is detected — for cancelling a
+    session timer, not for playing anything.
     """
-    if batas_sepi is None:
-        batas_sepi = config.SESSION_IDLE_SECONDS
+    if silence_limit is None:
+        silence_limit = config.SESSION_IDLE_SECONDS
 
     det = Detector()
-    antre: "queue.Queue[np.ndarray]" = queue.Queue()
+    frames: "queue.Queue[np.ndarray]" = queue.Queue()
 
     def callback(indata, _n, _t, status):
         if status:
-            log.debug("status input stream: %s", status)
-        antre.put(indata[:, 0].copy())
+            log.debug("input stream status: %s", status)
+        frames.put(indata[:, 0].copy())
 
-    diam_perlu = int(config.VAD_SILENCE_MS / FRAME_MS)
-    min_bicara = int(config.VAD_MIN_SPEECH_MS / FRAME_MS)
-    # Simpen sedikit audio SEBELUM suara kedeteksi. VAD selalu telat sedikit
-    # ngenalin awal kata, dan tanpa bantalan ini konsonan pertama kepotong.
+    silence_needed = int(config.VAD_SILENCE_MS / FRAME_MS)
+    speech_needed = int(config.VAD_MIN_SPEECH_MS / FRAME_MS)
+    # Keep a little audio from BEFORE speech is detected. The VAD is always
+    # slightly late to recognise a word onset, and without this padding the
+    # first consonant is clipped off.
     pad = max(1, int(config.VAD_SPEECH_PAD_MS / FRAME_MS))
 
-    sebelum: list[np.ndarray] = []
-    isi: list[np.ndarray] = []
-    bicara = False
-    n_bicara = 0
-    n_diam = 0
-    # Tenggat sepi dihitung dari awal fungsi dan SENGAJA nggak di-reset sama
-    # suara pendek. Kalau di-reset, ruangan berisik bisa nahan sesi kebuka
-    # selamanya tanpa kamu ngomong sekali pun.
-    tenggat = time.monotonic() + batas_sepi
+    before: list[np.ndarray] = []
+    body: list[np.ndarray] = []
+    speaking = False
+    n_speech = 0
+    n_silence = 0
+    # The silence deadline is measured from entry and deliberately NOT reset by
+    # short sounds. If it were, a noisy room could hold the session open forever
+    # without you saying a word.
+    deadline = time.monotonic() + silence_limit
 
     with sd.InputStream(
         samplerate=config.SAMPLE_RATE,
@@ -144,83 +147,83 @@ def rekam_ucapan(
         callback=callback,
     ):
         while True:
-            if berhenti():
-                return None, "stop"
+            if should_stop():
+                return None, "stopped"
 
             try:
-                blok = antre.get(timeout=0.1)
+                block = frames.get(timeout=0.1)
             except queue.Empty:
-                if not bicara and time.monotonic() >= tenggat:
-                    return None, "sepi"
+                if not speaking and time.monotonic() >= deadline:
+                    return None, "silence"
                 continue
 
-            p = det.prob(blok)
+            p = det.prob(block)
 
-            if not bicara:
-                sebelum.append(blok)
-                if len(sebelum) > pad:
-                    sebelum.pop(0)
+            if not speaking:
+                before.append(block)
+                if len(before) > pad:
+                    before.pop(0)
 
                 if p >= config.VAD_THRESHOLD:
-                    n_bicara += 1
-                    if n_bicara >= min_bicara:
-                        bicara = True
-                        isi = list(sebelum)
-                        sebelum.clear()
-                        if on_mulai_bicara:
-                            on_mulai_bicara()
+                    n_speech += 1
+                    if n_speech >= speech_needed:
+                        speaking = True
+                        body = list(before)
+                        before.clear()
+                        if on_speech_start:
+                            on_speech_start()
                 else:
-                    n_bicara = 0
-                    if time.monotonic() >= tenggat:
-                        return None, "sepi"
+                    n_speech = 0
+                    if time.monotonic() >= deadline:
+                        return None, "silence"
                 continue
 
-            isi.append(blok)
-            # Ambang lepas sengaja lebih rendah dari ambang tangkap. Dengan satu
-            # ambang, jeda alami di tengah kalimat kebaca sebagai selesai dan
-            # kalimatmu kepotong dua.
+            body.append(block)
+            # The release threshold is deliberately lower than the capture
+            # threshold. With a single threshold, a natural mid-sentence pause
+            # reads as the end and your sentence gets cut in two.
             if p < config.VAD_THRESHOLD - 0.15:
-                n_diam += 1
-                if n_diam < diam_perlu:
+                n_silence += 1
+                if n_silence < silence_needed:
                     continue
             else:
-                n_diam = 0
-                if len(isi) * FRAME_MS / 1000 <= config.MAX_RECORD_SECONDS:
+                n_silence = 0
+                if len(body) * FRAME_MS / 1000 <= config.MAX_RECORD_SECONDS:
                     continue
-                log.warning("ucapan dipotong di %.0f detik", config.MAX_RECORD_SECONDS)
+                log.warning("utterance cut off at %.0f s", config.MAX_RECORD_SECONDS)
 
-            audio = np.concatenate(isi)
-            durasi = len(audio) / config.SAMPLE_RATE
-            if durasi >= config.MIN_RECORD_SECONDS:
+            audio = np.concatenate(body)
+            seconds = len(audio) / config.SAMPLE_RATE
+            if seconds >= config.MIN_RECORD_SECONDS:
                 return audio, "ok"
 
-            # Kependekan — batuk, ketukan meja, decak. Balik nunggu, JANGAN
-            # nutup sesi.
-            log.debug("suara %.2f dtk kependekan, lanjut nunggu", durasi)
-            bicara = False
-            n_bicara = n_diam = 0
-            isi = []
-            sebelum.clear()
+            # Too short — a cough, a tap, a click. Go back to waiting; do NOT
+            # close the session.
+            log.debug("sound of %.2f s too short, still waiting", seconds)
+            speaking = False
+            n_speech = n_silence = 0
+            body = []
+            before.clear()
             det.reset()
 
 
 if __name__ == "__main__":
-    # Uji manual: ngomong, lihat apa batas kalimatnya ketangkep bener.
+    # Manual check: speak, and see whether the sentence boundaries land right.
     #
     #     .venv-agent\Scripts\python.exe -m agent.vad
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     from . import audio as audio_io
 
-    print("Ngomong sesuatu. Diam 30 detik buat berhenti. Ctrl+C juga bisa.")
+    print("Say something. 30 seconds of silence ends it. Ctrl+C also works.")
     n = 0
     while True:
         t0 = time.monotonic()
-        clip, alasan = rekam_ucapan(lambda: False)
+        clip, reason = record_utterance(lambda: False)
         if clip is None:
-            print(f"({alasan} — selesai)")
+            print(f"({reason} — done)")
             break
         n += 1
-        print(f"  ucapan {n}: {len(clip)/config.SAMPLE_RATE:.2f} dtk "
-              f"(nunggu+rekam {time.monotonic()-t0:.1f} dtk)")
+        print(f"  utterance {n}: {len(clip)/config.SAMPLE_RATE:.2f} s "
+              f"(wait + record {time.monotonic()-t0:.1f} s)")
         audio_io.beep_stop()

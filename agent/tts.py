@@ -1,10 +1,11 @@
-"""Text-to-speech. Dua backend di balik satu antarmuka: `speak(text) -> WAV`.
+"""Text-to-speech. Two backends behind one interface: `speak(text) -> WAV`.
 
-- **Kokoro** (default) — 82 juta parameter, 54 suara, 24 kHz, CPU. Terukur
-  ~4,3x realtime di mesin ini.
-- **Piper** — dipertahankan buat bahasa yang nggak didukung Kokoro.
+- **Kokoro** (default) — 82M parameters, 54 voices, 24 kHz, CPU. Measured at
+  ~4.3x realtime on this machine.
+- **Piper** — kept for languages Kokoro does not cover.
 
-`main.py` cuma perlu tahu `speak()`. Mengganti backend itu satu baris di .env.
+`main.py` only needs to know about `speak()`. Switching backends is one line in
+.env.
 """
 
 from __future__ import annotations
@@ -23,32 +24,32 @@ _backend = None
 
 
 class _Kokoro:
-    """kokoro-onnx. CPU-only, nol VRAM, jadi sengaja tetap residen."""
+    """kokoro-onnx. CPU-only and zero VRAM, so it deliberately stays resident."""
 
-    nama = "kokoro"
+    name = "kokoro"
 
     def __init__(self) -> None:
         from kokoro_onnx import Kokoro
 
-        for berkas in (config.KOKORO_MODEL, config.KOKORO_VOICES):
-            if not berkas.exists():
+        for f in (config.KOKORO_MODEL, config.KOKORO_VOICES):
+            if not f.exists():
                 raise FileNotFoundError(
-                    f"Berkas Kokoro nggak ketemu: {berkas}. Jalanin scripts\\setup.ps1"
+                    f"Kokoro file not found: {f}. Run scripts\\setup.ps1"
                 )
 
-        log.info("Load Kokoro: %s", config.KOKORO_MODEL.name)
+        log.info("Loading Kokoro: %s", config.KOKORO_MODEL.name)
         self._k = Kokoro(str(config.KOKORO_MODEL), str(config.KOKORO_VOICES))
 
-        tersedia = set(self._k.get_voices())
+        available = set(self._k.get_voices())
         self.voice = config.KOKORO_VOICE
-        if self.voice not in tersedia:
-            pengganti = sorted(tersedia)[0]
+        if self.voice not in available:
+            fallback = sorted(available)[0]
             log.warning(
-                "suara %r nggak ada, pakai %r. Pilihan: %s",
-                self.voice, pengganti, ", ".join(sorted(tersedia)[:8]),
+                "voice %r not found, using %r. Options: %s",
+                self.voice, fallback, ", ".join(sorted(available)[:8]),
             )
-            self.voice = pengganti
-        log.info("Kokoro siap (suara=%s, %d pilihan)", self.voice, len(tersedia))
+            self.voice = fallback
+        log.info("Kokoro ready (voice=%s, %d available)", self.voice, len(available))
 
     def speak(self, text: str) -> bytes:
         samples, sr = self._k.create(
@@ -57,26 +58,26 @@ class _Kokoro:
             speed=config.KOKORO_SPEED,
             lang=config.KOKORO_LANG,
         )
-        return _ke_wav(samples, sr)
+        return _to_wav(samples, sr)
 
 
 class _Piper:
-    nama = "piper"
+    name = "piper"
 
     def __init__(self) -> None:
         from piper import PiperVoice
 
         model = config.PIPER_VOICE
         cfg = model.with_suffix(model.suffix + ".json")
-        for berkas in (model, cfg):
-            if not berkas.exists():
+        for f in (model, cfg):
+            if not f.exists():
                 raise FileNotFoundError(
-                    f"Voice Piper nggak ketemu: {berkas}. Jalanin scripts\\setup.ps1"
+                    f"Piper voice not found: {f}. Run scripts\\setup.ps1"
                 )
 
-        log.info("Load voice Piper: %s", model.name)
+        log.info("Loading Piper voice: %s", model.name)
         self._v = PiperVoice.load(model, config_path=cfg)
-        log.info("Voice siap (sample_rate=%d Hz)", self._v.config.sample_rate)
+        log.info("Voice ready (sample_rate=%d Hz)", self._v.config.sample_rate)
 
     def speak(self, text: str) -> bytes:
         buf = io.BytesIO()
@@ -85,9 +86,9 @@ class _Piper:
         return buf.getvalue()
 
 
-def _ke_wav(samples: np.ndarray, sample_rate: int) -> bytes:
-    """float32 [-1,1] -> WAV 16-bit. audio.play_wav() baca sample rate dari
-    header, jadi 24 kHz Kokoro maupun 22 kHz Piper sama-sama jalan."""
+def _to_wav(samples: np.ndarray, sample_rate: int) -> bytes:
+    """float32 [-1,1] -> 16-bit WAV. audio.play_wav() reads the sample rate from
+    the header, so Kokoro at 24 kHz and Piper at 22 kHz both just work."""
     pcm = np.clip(np.asarray(samples, dtype=np.float32), -1.0, 1.0)
     pcm = (pcm * 32767).astype(np.int16)
     buf = io.BytesIO()
@@ -100,11 +101,7 @@ def _ke_wav(samples: np.ndarray, sample_rate: int) -> bytes:
 
 
 def get_voice():
-    """Muat backend TTS sekali (lazy singleton).
-
-    Nama fungsinya dipertahankan dari versi Piper supaya pemanggil lama
-    (warmup di main.py) nggak perlu berubah.
-    """
+    """Load the TTS backend once (lazy singleton)."""
     global _backend
     if _backend is not None:
         return _backend
@@ -114,17 +111,18 @@ def get_voice():
     else:
         if config.TTS_BACKEND != "kokoro":
             log.warning(
-                "TTS_BACKEND %r nggak dikenal, pakai 'kokoro'", config.TTS_BACKEND
+                "TTS_BACKEND %r not recognised, falling back to 'kokoro'",
+                config.TTS_BACKEND,
             )
         _backend = _Kokoro()
     return _backend
 
 
 def speak(text: str) -> bytes:
-    """Ubah `text` jadi WAV (bytes, siap dilempar ke audio.play_wav)."""
+    """Turn `text` into WAV bytes, ready for audio.play_wav()."""
     text = (text or "").strip()
     if not text:
-        raise ValueError("teks kosong")
+        raise ValueError("empty text")
 
     data = get_voice().speak(text)
     log.debug("TTS: %d chars -> %d bytes wav", len(text), len(data))

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import os
+import pathlib
 import re
 import sys
 import threading
@@ -30,6 +31,39 @@ from . import (
 )
 
 log = logging.getLogger("agent")
+
+
+def _versi_build() -> str:
+    """Commit yang lagi jalan + apakah ada file yang lebih baru dari prosesnya.
+
+    Ditulis ke log startup karena udah dua kali kejadian: kode diperbaiki, tapi
+    yang diuji proses lama yang masih megang kode lama — Python muat kode pas
+    start, ngedit file nggak nyentuh proses yang udah jalan. Gejalanya nyasar,
+    kelihatan kayak perbaikannya nggak jalan.
+    """
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%h %ad", "--date=format:%d/%m %H:%M"],
+            cwd=pathlib.Path(__file__).resolve().parent.parent,
+            capture_output=True, text=True, timeout=5,
+        )
+        commit = r.stdout.strip() or "?"
+    except Exception:
+        commit = "?"
+
+    # File .py yang lebih baru dari commit-nya = ada perubahan yang belum
+    # di-commit; nggak fatal, tapi enak ditandain pas ngebandingin log.
+    try:
+        terbaru = max(
+            p.stat().st_mtime for p in pathlib.Path(__file__).parent.glob("*.py")
+        )
+        from datetime import datetime
+
+        return f"{commit} (file terbaru {datetime.fromtimestamp(terbaru):%d/%m %H:%M})"
+    except Exception:
+        return commit
 
 
 # --- Satu instance saja ------------------------------------------------------
@@ -754,6 +788,7 @@ def warmup() -> None:
 def main() -> int:
     setup_logging()
     log.info("=" * 60)
+    log.info("build: %s", _versi_build())
     otak = (
         config.OLLAMA_MODEL if config.LLM_BACKEND == "ollama" else config.CLAUDE_MODEL
     )

@@ -156,6 +156,14 @@ _QUESTION = (
     "is there", "are there", "am i", "tell me", "read me", "anything",
     "should i", "remind me what",
 )
+# Pertanyaan yang NGGAK diawali kata tanya. "I need to know my assignments"
+# itu nanya, tapi diawali "i need to" — yang ada di _ADD_DECLARE. Tanpa ini,
+# pertanyaan berubah jadi tugas: kejadian beneran, ninggalin entri
+# "Assignment Count for August" di daftar tugas.
+_TANYA_TERSELIP = (
+    "need to know", "want to know", "like to know", "have to know",
+    "wondering", "curious", "remind me of", "tell me about",
+)
 
 
 def wants_add_task(text: str) -> bool:
@@ -163,6 +171,8 @@ def wants_add_task(text: str) -> bool:
         return False
     t = _flat(text)
     if any(t.startswith(q) for q in _QUESTION):
+        return False
+    if any(q in t for q in _TANYA_TERSELIP):
         return False
     if any(k in t for k in _DONE_INTENT):
         return False  # that's a completion report, not a new task
@@ -174,6 +184,8 @@ def wants_mark_done(text: str) -> bool:
         return False
     t = _flat(text)
     if any(t.startswith(q) for q in _QUESTION):
+        return False
+    if any(q in t for q in _TANYA_TERSELIP):
         return False
     return any(k in t for k in _DONE_INTENT)
 

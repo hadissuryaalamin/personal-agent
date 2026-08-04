@@ -64,6 +64,7 @@ menit sehari, jadi menahan model di memori sepanjang hari itu pemborosan.
 | `vad.py` | 226 | Deteksi suara buat mode sesi (Silero, per frame) |
 | `cek_offline.py` | 128 | Verifikasi kesiapan jalan tanpa jaringan |
 | `kalender_lokal.py` | 102 | Kalender file `.ics` (baca + tulis) |
+| `jawab_pasti.py` | 332 | Jawaban jam/tanggal/jadwal tanpa LLM |
 | `teks.py` | 55 | Penormal teks buat semua pencocokan niat |
 
 ### Arah ketergantungan
@@ -450,6 +451,59 @@ Pencocok frasa penutup sesi punya **dua tingkat** karena alasan serupa. "I'm
 done" menutup sesi, tapi "I'm done with assignment one" adalah laporan tugas
 selesai — kalau dicocokkan di mana pun, tugasmu tidak pernah tertandai karena
 sesinya keburu tutup.
+
+### 4.22 Pertanyaan tertutup dijawab Python, bukan model
+
+Jam, tanggal, dan jadwal punya jawaban yang **sudah pasti**. Menyerahkannya ke
+qwen bukan cuma menambah 3-12 detik, tapi menambah cara untuk salah.
+
+| | Jalur pasti | Lewat model |
+|---|---:|---:|
+| Bunyi pertama, rata-rata | **1,01 dtk** | 5,78 dtk |
+| Ketepatan jam | **6/6** | 4/6 sampai 6/6 salah |
+
+Kegagalan modelnya menarik karena bukan soal akses. Jamnya **ada** di prompt dan
+terbaca benar — yang salah cara dia menyampaikannya: dia memparafrase jadi
+ucapan yang "enak" lalu **membulatkan**. Jam 20:12 menjadi "quarter past eight",
+"half past eight", "eight fifteen".
+
+Hipotesis pertama — beri format yang lebih ramah ucapan (`8:12 pm`) — **diuji
+dan gagal**: 6/6 salah, lebih buruk daripada format 24 jam. Formatnya justru
+mengundang pembulatan. Itu menutup opsi menambal prompt: selama kalimatnya
+disusun model, jamnya tidak akan pernah akurat.
+
+Dua hal yang bikin ini aman:
+
+**`answer()` balikin `None` kalau ragu.** Pertanyaan tak dikenal jatuh ke model.
+Salah rute di sini membuat pertanyaan wajar dijawab kaku dan melenceng — lebih
+buruk daripada lambat. Diuji 12 kalimat yang harus lolos ke model, termasuk
+jebakan seperti *"is the library open today"* (ada "today", bukan soal jadwal)
+dan *"what do you think about my schedule"* (ada "schedule", butuh penilaian).
+
+**Jadwal dikenali dari dua bagian, bukan hafalan frasa.** Kata jadwal + kata
+hari. Daftar frasa utuh terlalu kaku: *"what classes do I have today"* tidak
+mengandung `"classes today"` karena ada `"do i have"` menyelip.
+
+Tiap acara jadi **kalimat sendiri**, bukan satu kalimat panjang berkoma — dan
+itu bukan kosmetik. TTS baru mulai berbunyi setelah satu kalimat utuh, jadi
+jawaban pasti sempat **lebih lambat** dari model (6,26 lawan 5,58 detik) justru
+karena dirakit sebagai satu kalimat. Setelah dipecah: 0,49 detik.
+
+### 4.23 Pertanyaan yang menyelip jadi tulisan
+
+Tiga entri sampah pernah masuk daftar tugas — `Assignment Count for August`,
+`Assignments Due This Month` (dua kali). Semuanya lahir dari **pertanyaan** yang
+terbaca sebagai perintah mencatat.
+
+Pemicunya *"I need to know my assignments this month"*. `"i need to"` ada di
+daftar deklarasi tugas, dan penjaga pertanyaan cuma memeriksa **awal** kalimat —
+sedangkan "I need to **know**" itu bertanya.
+
+Penjaga awal-kalimat saja tidak cukup; sekarang ada daftar penanda tanya yang
+dicek **di mana pun** dalam kalimat: `need to know`, `want to know`,
+`wondering`, `tell me about`. Arahnya sengaja tidak simetris — gagal mengenali
+tugas berarti kamu mengulang sekali, sedangkan salah menulis meninggalkan entri
+palsu yang baru ketahuan berminggu-minggu kemudian.
 
 ---
 

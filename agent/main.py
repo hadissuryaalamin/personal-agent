@@ -19,6 +19,7 @@ from . import (
     config,
     gcal,
     jadwal_baru,
+    jawab_pasti,
     kalender_lokal,
     llm,
     stt,
@@ -533,7 +534,22 @@ def _route_and_reply(text: str) -> None:
         _start_event(text)
         return
 
-    # e. LLM + ngomong, kalimat per kalimat
+    # e. Pertanyaan berjawaban tertutup — jam, tanggal, jadwal — dijawab dari
+    #    hitungan Python, nggak lewat model sama sekali. Terukur: model salah
+    #    baca jam 4/6 sampai 6/6 (dia MEMBULATKAN 20:12 jadi "quarter past
+    #    eight"), sesekali nyebut kelas hari ini sebagai "tomorrow", dan
+    #    nambah 3-12 detik buat data yang udah pasti.
+    #
+    #    answer() balikin None kalau ragu, jadi pertanyaan yang nggak dikenali
+    #    tetep jatuh ke model. Prinsipnya sama kayak time_en.py: yang tertutup
+    #    dikerjain kode, yang butuh pemahaman bahasa dikerjain model.
+    pasti = jawab_pasti.answer(text)
+    if pasti:
+        log.info("dijawab tanpa LLM: %s", pasti)
+        _ucap_kalimat(pasti)
+        return
+
+    # f. Sisanya ke LLM, ngomong kalimat per kalimat
     _speak_streaming(text)
 
 
@@ -657,6 +673,43 @@ def _wants_end_session(text: str) -> bool:
     if any(f in t for f in _END_STRONG):
         return True
     return any(t == f or t.endswith(" " + f) for f in _END_WEAK)
+
+
+def _ucap_kalimat(text: str) -> None:
+    """Ucapkan per kalimat, mulai bunyi begitu kalimat pertama jadi.
+
+    Alasannya sama kayak jalur streaming: TTS baru bisa mulai setelah kalimat
+    utuh, jadi nyintesis seluruh jawaban dulu bikin diamnya kepanjangan.
+    Jawaban pasti sempat lebih lambat dari model persis gara-gara ini.
+    """
+    from .llm import _potong_kalimat
+
+    sp = audio.Speaker()
+    try:
+        # Spasi di ujung wajib: _potong_kalimat() nyari tanda baca yang DIIKUTI
+        # spasi, jadi kalimat terakhir nggak bakal kedeteksi tanpa ini.
+        sisa = text.rstrip() + " "
+        ada = False
+        while True:
+            kal, sisa = _potong_kalimat(sisa)
+            if kal is None:
+                break
+            sp.add(tts.speak(kal))
+            ada = True
+        ekor = sisa.strip()
+        if ekor:
+            sp.add(tts.speak(ekor))
+            ada = True
+        if not ada:
+            sp.add(tts.speak(text))
+        sp.finish()
+    except Exception:
+        try:
+            sp.finish()
+        except Exception:
+            log.debug("gagal nutup playback", exc_info=True)
+        log.exception("gagal ngomong")
+        audio.beep_error()
 
 
 def _say_safely(text: str) -> None:

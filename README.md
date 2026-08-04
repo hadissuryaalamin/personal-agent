@@ -186,7 +186,7 @@ Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file
 | `WHISPER_MODEL` | `small` | Cuma kalau `STT_BACKEND=whisper` |
 | `PIPER_VOICE` | — | Cuma kalau `TTS_BACKEND=piper` |
 
-Daftar lengkapnya — 60 kunci, semuanya beneran dibaca kode — ada di
+Daftar lengkapnya — 67 kunci, semuanya beneran dibaca kode — ada di
 [.env.example](.env.example).
 
 ### Mode sesi (ngobrol kontinu)
@@ -388,6 +388,40 @@ mati, effort low):
 Jedanya praktis sama. Sonnet menang di keringkasan jawaban (enak buat
 dibacakan), Haiku menang telak di biaya. Beban kerja di sini — balasan pendek,
 konteks kecil — nggak memberi Sonnet ruang buat unggul jauh.
+
+### Pertanyaan tertutup dijawab tanpa LLM
+
+Jam, tanggal, dan jadwal **nggak lewat model sama sekali**. Jawabannya dirakit
+Python dari data yang sama, lalu langsung diucapkan.
+
+| Pertanyaan | Jalur pasti | Lewat model |
+|---|---:|---:|
+| What time is it? | 0,62 dtk | 3,87 dtk |
+| What classes do I have today? | 0,49 dtk | 6,90 dtk |
+| What's on tomorrow? | 0,47 dtk | 7,03 dtk |
+| When is my next class? | 2,46 dtk | 5,31 dtk |
+| **rata-rata** | **1,01 dtk** | **5,78 dtk** |
+
+**5,7x lebih cepat** sampai bunyi pertama — dan lebih benar. Jam yang dijawab
+model salah 4/6 sampai 6/6; lewat jalur ini 6/6 tepat.
+
+Kenapa model salah padahal jamnya jelas ketulis di prompt: dia nggak baca terus
+lapor, dia **parafrase jadi ucapan yang "enak"** lalu membulatkan. Jam 20:12
+jadi *"quarter past eight"*, *"half past eight"*, *"eight fifteen"*. Dikasih
+format yang lebih ramah ucapan (`8:12 pm`) malah **lebih parah** — 6/6 salah,
+karena justru ngundang pembulatan.
+
+Kalau pertanyaannya nggak dikenali, jawabannya `None` dan tetap jatuh ke model.
+Ini disengaja: salah rute di sini bikin pertanyaan wajar dijawab kaku dan
+melenceng, yang lebih buruk daripada lambat.
+
+Prinsipnya sama persis kayak [time_en.py](agent/time_en.py) yang udah lebih dulu
+ngambil alih penguraian tanggal (2/10 -> 5/5). Lihat
+[jawab_pasti.py](agent/jawab_pasti.py), dan uji sendiri:
+
+```powershell
+.\.venv-agent\Scripts\python.exe -m agent.jawab_pasti
+```
 
 ### Batasan qwen2.5:7b
 

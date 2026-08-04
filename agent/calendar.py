@@ -262,6 +262,12 @@ def _acara() -> list[dict]:
     return _cache or []
 
 
+def _tgl(e: dict) -> date:
+    """Tanggal mulai, apa pun bentuknya (date buat acara sepanjang hari)."""
+    m = e["mulai"]
+    return m.date() if isinstance(m, datetime) else m
+
+
 def _label_hari(d: date, hari_ini: date) -> str:
     beda = (d - hari_ini).days
     nama = f"{DAYS[d.weekday()]} {d.day} {MONTHS[d.month]}"
@@ -455,3 +461,63 @@ def konteks_waktu() -> str:
         f"Right now it is {DAYS[n.weekday()]}, {n.day} {MONTHS[n.month]} "
         f"{n.year}, {n.strftime('%H:%M')} in {config.CALENDAR_TZ}."
     )
+
+
+if __name__ == "__main__":
+    # Lihat jadwal & tenggat sendiri, tanpa nanya agent.
+    #
+    #     .venv-agent\Scripts\python.exe -m agent.calendar          # 14 hari
+    #     .venv-agent\Scripts\python.exe -m agent.calendar 60       # 60 hari
+    import sys
+
+    from . import tugas
+
+    logging.basicConfig(level=logging.WARNING)
+
+    hari = int(sys.argv[1]) if len(sys.argv) > 1 else 14
+    tz = ZoneInfo(config.CALENDAR_TZ)
+    sekarang = datetime.now(tz)
+    hari_ini = sekarang.date()
+    batas = hari_ini + timedelta(days=hari)
+
+    print(f"\n=== JADWAL {hari} HARI ({hari_ini} s/d {batas}) ===\n")
+
+    semua = sorted(
+        (e for e in _acara() if hari_ini <= _tgl(e) < batas),
+        key=lambda e: (_tgl(e), str(e["mulai"])),
+    )
+    if not semua:
+        print("  (kosong)")
+    per_hari: dict = {}
+    for e in semua:
+        per_hari.setdefault(_tgl(e), []).append(e)
+
+    for d, isi in per_hari.items():
+        print(f"{_label_hari(d, hari_ini)}")
+        for e in isi:
+            if e.get("sepanjang_hari"):
+                jam = "sepanjang hari"
+            else:
+                jam = f"{e['mulai']:%H:%M}-{e['selesai']:%H:%M}"
+            jenis = f" ({e['jenis']})" if e.get("jenis") else ""
+            lok = f"  @ {' '.join(str(e['lokasi']).split())}" if e.get("lokasi") else ""
+            kode = f"{e['kode']} " if e.get("kode") else ""
+            print(f"   {jam:>13s}  {kode}{e['judul']}{jenis}{lok}")
+        print()
+
+    print("=== TUGAS ===\n")
+    daftar = tugas.all_tasks()
+    if not daftar:
+        print("  (kosong)")
+    for t in sorted(daftar, key=lambda t: t.get("due") or "9999"):
+        sisa = ""
+        if t.get("due"):
+            try:
+                d = datetime.strptime(t["due"], "%Y-%m-%d").date()
+                n = (d - hari_ini).days
+                sisa = f"  [{t['due']}, {n} hari lagi]" if n >= 0 else f"  [{t['due']}, TELAT {-n} hari]"
+            except ValueError:
+                sisa = f"  [{t['due']}]"
+        jam = f"  ~{t['estimate_hours']} jam" if t.get("estimate_hours") else ""
+        print(f"   {t['title']}{sisa}{jam}")
+    print()

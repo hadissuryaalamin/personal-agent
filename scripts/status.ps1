@@ -77,14 +77,21 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
     # model ikut mati bareng prosesnya, jadi catatan "dimuat" dari proses
     # sebelumnya nggak berlaku lagi.
     if ($proc -and (Test-Path $LogFile)) {
+        # Polanya ngikutin pesan di stt.py, bukan nama backend — dulu ketulis
+        # "Whisper siap dalam" dan berhenti cocok begitu pindah ke Parakeet,
+        # jadi statusnya selalu bilang "belum dimuat".
+        #
+        # "dilepas dari memori" harus spesifik: baris "Model bakal dilepas
+        # kalau nganggur 15 menit" itu pengumuman setelan pas start, bukan
+        # kejadian model dilepas.
         $last = Get-Content $LogFile |
-            Select-String -Pattern "Whisper siap dalam|Whisper dilepas" |
+            Select-String -Pattern "siap dalam|dilepas dari memori" |
             Where-Object {
                 $_.Line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})' -and
                 [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null) -ge $mulai
             } |
             Select-Object -Last 1
-        if ($last -match "dilepas") {
+        if ($last -match "dilepas dari memori") {
             Baris "Model STT" "dilepas (pertanyaan berikutnya kena muat ulang)" "Yellow"
         } elseif ($last) {
             Baris "Model STT" "dimuat" "Green"
@@ -105,7 +112,11 @@ Baris "Memori" "$nFakta fakta, $nPesan pesan"
 
 # --- Aktivitas terakhir ---
 if (Test-Path $LogFile) {
-    $terakhir = Get-Content $LogFile | Select-String -Pattern "User:" | Select-Object -Last 1
+    # Mode sesi nulis "User (giliran 3):", mode pencet nulis "User:". Dulu
+    # cuma nyari "User:" — jadi di mode sesi jamnya nyangkut di percakapan
+    # terakhir sebelum mode sesi dipakai, dan kelihatan kayak agent nggak
+    # dipakai berjam-jam.
+    $terakhir = Get-Content $LogFile | Select-String -Pattern "agent: User[ (:]" | Select-Object -Last 1
     if ($terakhir) {
         $t = ($terakhir.Line -split "INFO")[0].Trim()
         Baris "Terakhir" $t
@@ -115,7 +126,18 @@ if (Test-Path $LogFile) {
 Write-Host ""
 if (-not $proc) {
     Write-Host "Nyalain :  Start-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
+    Write-Host "   atau :  .\.venv-agent\Scripts\python.exe -m agent.main   (di terminal)" -ForegroundColor Cyan
 } else {
-    Write-Host "Matiin  :  Stop-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
+    # Perintah matiinnya HARUS ngikutin cara dia dijalanin. Dulu selalu
+    # nyaranin Stop-ScheduledTask, padahal agent yang dijalanin manual jalan
+    # sebagai python.exe dan sama sekali nggak dikelola task itu — perintahnya
+    # kelihatan sukses tapi agent-nya tetep hidup.
+    $lewatTask = @($proc | Where-Object { $_.Name -eq "pythonw.exe" }).Count -gt 0
+    if ($lewatTask) {
+        Write-Host "Matiin  :  Stop-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
+    } else {
+        $utama = ($proc | Sort-Object CreationDate | Select-Object -First 1).ProcessId
+        Write-Host "Matiin  :  Ctrl+C di terminalnya, atau  Stop-Process -Id $utama -Force" -ForegroundColor Cyan
+    }
 }
 Write-Host "Log     :  Get-Content '$LogFile' -Tail 20 -Wait`n" -ForegroundColor Cyan

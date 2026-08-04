@@ -19,17 +19,36 @@ function Baris($label, $nilai, $warna = "Gray") {
 Write-Host "`n=== personal-agent ===" -ForegroundColor Cyan
 
 # --- Proses ---
-$proc = Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" -ErrorAction SilentlyContinue |
+# python.exe DAN pythonw.exe. Autostart pakai pythonw (tanpa console), tapi
+# kalau dijalanin manual dari terminal prosesnya python.exe — dan waktu skrip
+# ini cuma nyari pythonw, agent yang jalan manual nggak pernah kelihatan.
+# Akibatnya fatal: skripnya bilang MATI padahal ada agent lain yang ikut
+# nyambar hotkey, dan pencetanmu ditangkep dua-duanya.
+$proc = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like "*agent.main*" }
 
 if ($proc) {
-    # venv pythonw.exe itu stub yang jalanin interpreter aslinya sebagai anak,
-    # jadi satu agent wajar muncul sebagai dua proses
+    # venv python.exe itu stub yang jalanin interpreter aslinya sebagai anak,
+    # jadi satu agent wajar muncul sebagai dua proses. Yang dihitung: berapa
+    # WAKTU MULAI yang beda — dua agent terpisah pasti beda detik mulainya.
     $pids = ($proc | ForEach-Object { $_.ProcessId }) -join ", "
+    # @() wajib. Tanpa itu, satu grup berisi 2 proses bikin .Count baca jumlah
+    # ANGGOTA (2), bukan jumlah grup (1) — dan skripnya teriak alarm palsu.
+    $angkatan = @($proc | Group-Object { $_.CreationDate.ToString("s") })
     $mulai = ($proc | Sort-Object CreationDate | Select-Object -First 1).CreationDate
     $lama = [datetime]::Now - $mulai
     Baris "Agent" "NYALA" "Green"
     Baris "PID" $pids
+
+    if ($angkatan.Count -gt 1) {
+        Baris "PERINGATAN" "$($angkatan.Count) AGENT JALAN BARENG" "Red"
+        Write-Host "               Semuanya nyambar hotkey yang sama."
+        foreach ($a in ($angkatan | Sort-Object Name)) {
+            $ids = ($a.Group | ForEach-Object { $_.ProcessId }) -join ", "
+            Write-Host "               mulai $($a.Group[0].CreationDate)  PID $ids"
+        }
+        Write-Host "               Matiin yang lama:  Stop-Process -Id <PID> -Force" -ForegroundColor Yellow
+    }
     $durasi = if ($lama.Days -gt 0) {
         "{0} hari {1} jam" -f $lama.Days, $lama.Hours
     } elseif ($lama.Hours -gt 0) {

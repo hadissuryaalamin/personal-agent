@@ -155,7 +155,7 @@ class KeyboardBackend(_BackendBase):
         log.info(
             "Hotkey '%s' aktif, mode %s (backend keyboard). Ctrl+C buat berhenti.",
             self.combo_label,
-            config.HOTKEY_MODE,
+            "sesi" if config.SESSION_MODE else config.HOTKEY_MODE,
         )
         kb.wait()
 
@@ -257,7 +257,7 @@ class PynputBackend(_BackendBase):
         log.info(
             "Hotkey '%s' aktif, mode %s (backend pynput). Ctrl+C buat berhenti.",
             self.combo_label,
-            config.HOTKEY_MODE,
+            "sesi" if config.SESSION_MODE else config.HOTKEY_MODE,
         )
         with pk.Listener(on_press=self._on_press, on_release=self._on_release) as ln:
             ln.join()

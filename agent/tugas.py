@@ -35,7 +35,14 @@ _TASK_WORDS = (
     "task", "assignment", "homework", "deadline", "due", "quiz", "exam",
     "report", "essay", "paper", "lab report", "problem set", "readings",
 )
-_ADD_INTENT = ("add", "create", "new", "remind me", "note", "put", "log", "track")
+# Kata perintah nyatet. "write" sempat nggak ada, dan "Write an assignment on
+# 14 August" jatuh ke model — yang bukannya nyatet, malah ngelaporin isi daftar
+# tugas. Nggak ada satu kata baku buat ini; orang bilang add/write/note/jot,
+# jadi daftarnya emang harus lebar.
+_ADD_INTENT = (
+    "add", "create", "new", "remind me", "note", "put", "log", "track",
+    "write", "jot", "record", "save a", "save the", "enter",
+)
 # Spoken declarations carry no add verb — "I have an assignment due Monday" is
 # how a new task actually arrives, far more often than "add a task ...".
 # Bentuknya ngikutin teks.normal(): apostrof disambung, jadi "I've" -> "ive".

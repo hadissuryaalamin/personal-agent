@@ -192,7 +192,18 @@ MEMORY_DIR = _path(os.getenv("MEMORY_DIR", "memory"))
 # Riwayat yang lebih tua dari ini nggak dimuat lagi. Nyambungin obrolan yang
 # kepotong restart itu berguna dalam hitungan jam; seminggu kemudian, 20 pesan
 # terakhir dari minggu lalu justru bikin salah konteks.
-HISTORY_MAX_AGE_HOURS = float(os.getenv("HISTORY_MAX_AGE_HOURS", "12"))
+# Riwayat lebih tua dari ini nggak dimuat pas agent nyala.
+#
+# Dulu 12 jam, dan itu kelewat longgar: pola pemakaiannya sesi malam terus sesi
+# pagi, jaraknya ~10 jam — selalu lolos. Dua kali bikin celaka:
+#   - Riwayat Bahasa Indonesia bikin agent Inggris jawab pakai Indonesia
+#   - Riwayat yang nyebut acara deadline bikin model ngarang soal acara yang
+#     UDAH DIHAPUS, sampai ngaku "the deadline is now set for September 1st"
+#
+# 4 jam masih nyambungin obrolan dalam satu rentang kerja, tapi tidur malam
+# selalu mulai dari bersih. Riwayat itu buat nyambung percakapan, bukan buat
+# jadi sumber fakta — sumbernya kalender & daftar tugas, yang selalu terkini.
+HISTORY_MAX_AGE_HOURS = float(os.getenv("HISTORY_MAX_AGE_HOURS", "4"))
 # Batas jumlah fakta yang disimpan. Semuanya masuk ke tiap permintaan, jadi
 # kalau dibiarin numpuk, biaya token naik terus.
 FACTS_MAX_ITEMS = int(os.getenv("FACTS_MAX_ITEMS", "30"))
@@ -238,6 +249,16 @@ Important rules:
 - No abbreviations or symbols that are awkward to say out loud.
 - If you don't know, say so. Don't make things up.
 - If something needs a long answer, give the gist first and offer to go on.
+
+NEVER claim to have done something you did not do. You cannot change, move, or
+delete calendar events or tasks — you can only add new ones, and only after
+reading the details back and getting a yes. If asked to reschedule, delay, or
+delete anything, say plainly that you can't do it yet and that they'll need to
+edit it themselves. Do not say "done", "I've updated it", or "it's now set to"
+unless the change was actually confirmed and saved in this conversation.
+
+A wrong answer still gets caught when the user checks. A false claim of having
+acted makes them stop checking, which is worse.
 """
 
 

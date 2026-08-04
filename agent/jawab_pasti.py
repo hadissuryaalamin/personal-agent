@@ -25,6 +25,7 @@ pertanyaan wajar dijawab kaku dan melenceng — lebih buruk daripada lambat.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -121,6 +122,30 @@ _TUGAS = (
     "what should i work on", "what do i need to do", "whats due",
     "what is due", "anything due", "what tasks", "my tasks", "todo list",
     "what should i do today",
+)
+
+# Yang agent BELUM bisa. Dijawab jujur di sini, jangan sampai ke model.
+#
+# Ini yang paling mahal dari semua kesalahan yang pernah kejadian. Ditanya
+# "can you delay that?", qwen jawab "Sure ... the deadline is now set for
+# September 1st" — padahal acaranya udah dihapus DAN agent sama sekali nggak
+# punya fungsi ubah/hapus acara (cuma bikin_acara yang ada). Dia ngaku
+# ngerjain sesuatu yang mustahil dia kerjain, dan user nggak punya cara tau
+# selain ngecek kalendernya sendiri.
+#
+# Jawaban salah masih ketahuan pas dicek. Pengakuan palsu bikin kamu berhenti
+# ngecek — itu jauh lebih berbahaya.
+_UBAH_ACARA = re.compile(
+    r"\b("
+    r"delay|postpone|reschedule|move|push back|bring forward|shift"
+    r"|change (the |my )?(date|time|deadline|event|class)"
+    r"|delete|remove|cancel"
+    r"|edit|update|rename"
+    r")\b"
+)
+_SASARAN_ACARA = re.compile(
+    r"\b(event|class|lecture|tutorial|deadline|due date|appointment"
+    r"|meeting|calendar|schedule|assignment|task|it|that)\b"
 )
 
 
@@ -252,6 +277,14 @@ def answer(text: str) -> str | None:
 
     try:
         now = _sekarang()
+
+        # Dicek PALING AWAL. Kalau kelewat, yang jawab model — dan model bakal
+        # bilang "sure, done" buat sesuatu yang nggak pernah kejadian.
+        if _UBAH_ACARA.search(t) and _SASARAN_ACARA.search(t):
+            return (
+                "I can't change or delete calendar events yet. "
+                "I can only add new ones. You'll need to edit that one yourself."
+            )
 
         if _cocok(t, _JAM):
             return f"It's {_jam_ucap(now)}."

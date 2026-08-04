@@ -149,20 +149,31 @@ def _flat(text: str) -> str:
     return teks.normal(text)
 
 
-# "what do I have due tomorrow" mentions a task and contains "i have", but it
-# is a question about the list, not a new entry. Same guard as jadwal_baru.
-_QUESTION = (
-    "what", "when", "where", "which", "who", "how", "do i", "did i",
-    "is there", "are there", "am i", "tell me", "read me", "anything",
-    "should i", "remind me what",
-)
-# Pertanyaan yang NGGAK diawali kata tanya. "I need to know my assignments"
-# itu nanya, tapi diawali "i need to" — yang ada di _ADD_DECLARE. Tanpa ini,
-# pertanyaan berubah jadi tugas: kejadian beneran, ninggalin entri
-# "Assignment Count for August" di daftar tugas.
-_TANYA_TERSELIP = (
-    "need to know", "want to know", "like to know", "have to know",
-    "wondering", "curious", "remind me of", "tell me about",
+# Penanda pertanyaan, dicek DI MANA PUN dalam kalimat.
+#
+# Dulu cuma dicek di awal kalimat, dan itu bocor tiga kali:
+#   "I need to know my assignments this month"
+#   "Can you show me uh how many assignments do I have in this month?"
+# Dua-duanya nanya, dua-duanya ketulis jadi tugas — karena kata tanyanya
+# ada di TENGAH, dan "i have"/"i need to" cocok sama pemicu deklarasi.
+#
+# Arahnya sengaja nggak simetris: gagal ngenalin tugas cuma bikin kamu
+# ngulang sekali, sedangkan salah nulis ninggalin entri palsu yang baru
+# ketahuan berminggu-minggu kemudian.
+#
+# Pakai batas kata (\b) — tanpa itu "how" nyangkut di "show", dan tiap
+# kalimat yang ngandung "show" bakal dianggap pertanyaan.
+_TANYA = re.compile(
+    r"\b("
+    r"what|when|where|which|who|why"
+    r"|how many|how much|how long|how do|how is"
+    r"|do i have|do i need|did i|have i"
+    r"|is there|are there|am i"
+    r"|tell me|show me|read me|list my|list the"
+    r"|need to know|want to know|like to know|have to know"
+    r"|wondering|curious|remind me of|remind me what"
+    r"|anything|should i"
+    r")\b"
 )
 
 
@@ -170,9 +181,7 @@ def wants_add_task(text: str) -> bool:
     if not _mentions_task(text):
         return False
     t = _flat(text)
-    if any(t.startswith(q) for q in _QUESTION):
-        return False
-    if any(q in t for q in _TANYA_TERSELIP):
+    if _TANYA.search(t):
         return False
     if any(k in t for k in _DONE_INTENT):
         return False  # that's a completion report, not a new task
@@ -183,9 +192,7 @@ def wants_mark_done(text: str) -> bool:
     if not _mentions_task(text):
         return False
     t = _flat(text)
-    if any(t.startswith(q) for q in _QUESTION):
-        return False
-    if any(q in t for q in _TANYA_TERSELIP):
+    if _TANYA.search(t):
         return False
     return any(k in t for k in _DONE_INTENT)
 

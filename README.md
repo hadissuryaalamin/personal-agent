@@ -134,6 +134,31 @@ powershell -File scripts\install-startup.ps1 -Uninstall   # hapus task
 terpasang apa nggak, VRAM, model STT lagi dimuat apa dilepas, isi memori, dan
 kapan terakhir kamu ngomong sama dia.
 
+### Cuma boleh ada satu agent
+
+Agent nyangkut **hotkey global**. Dua agent artinya tiap pencetan ditangkep
+dua-duanya dan keduanya rebutan mic — dan gejalanya nyasar: yang kelihatan
+bukan "ada dua agent", tapi "fitur barunya nggak jalan", karena yang nyaut
+duluan justru agent lama.
+
+Agent kedua sekarang **nolak jalan sendiri**:
+
+```
+Agent lain udah jalan (PID 41696). Yang ini berhenti — dua agent bakal
+rebutan hotkey 'right ctrl'. Cek: powershell -File scripts\status.ps1
+```
+
+Kuncinya kunci file dari OS, bukan sekadar file PID: kunci OS dilepas otomatis
+pas prosesnya mati, jadi agent yang crash nggak ninggalin file yang bikin agent
+berikutnya nolak jalan selamanya (diuji, termasuk `kill -9`).
+
+**Mau ngetes dari terminal padahal autostart nyala?** Matiin dulu task-nya:
+
+```powershell
+Stop-ScheduledTask -TaskName PersonalAgent
+.\.venv-agent\Scripts\python.exe -m agent.main
+```
+
 ## Konfigurasi
 
 Semua default ada di [agent/config.py](agent/config.py), bisa ditimpa lewat file `.env`

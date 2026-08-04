@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import os
 import re
 import sys
 import threading
@@ -28,6 +29,58 @@ from . import (
 )
 
 log = logging.getLogger("agent")
+
+
+# --- Satu instance saja ------------------------------------------------------
+
+
+_kunci = None  # dipegang selama proses hidup; jangan sampai kena garbage collect
+
+
+def klaim_satu_instance() -> int | None:
+    """Pastiin cuma ada SATU agent. Balikin PID pemegang lama kalau gagal.
+
+    Kenapa ditegakkan di kode, bukan diserahin ke kebiasaan: agent nyangkut
+    hotkey global. Dua agent artinya tiap pencetan ditangkep dua-duanya, dan
+    keduanya rebutan mic. Ini pernah kejadian beneran — autostart nyalain satu
+    pas login, terus satu lagi dijalanin manual buat ngetes, dan mode sesi
+    kelihatan kayak nggak jalan padahal yang nyaut agent lama.
+
+    Pakai kunci file dari OS, bukan sekadar file PID: kunci OS dilepas otomatis
+    pas proses mati, jadi agent yang crash nggak ninggalin file yang bikin agent
+    berikutnya nolak jalan selamanya.
+    """
+    global _kunci
+    path = config.MEMORY_DIR / "agent.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        import msvcrt
+    except ImportError:  # bukan Windows — lewat, jangan bikin agent gagal jalan
+        log.debug("kunci satu-instance dilewat: msvcrt nggak ada")
+        return None
+
+    f = open(path, "a+")
+    try:
+        f.seek(0)
+        # Kunci byte 0 doang. PID ditulis MULAI byte 1, jadi nulis PID nggak
+        # nyentuh byte yang dikunci.
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        f.seek(1)
+        lama = f.read().strip()
+        f.close()
+        try:
+            return int(lama)
+        except ValueError:
+            return 0  # ada yang megang, tapi PID-nya nggak kebaca
+
+    f.seek(1)
+    f.truncate(1)
+    f.write(str(os.getpid()))
+    f.flush()
+    _kunci = f  # ditahan sengaja: file ketutup = kunci lepas
+    return None
 
 
 # --- Logging ----------------------------------------------------------------
@@ -666,8 +719,20 @@ def main() -> int:
         config.TTS_BACKEND,
     )
 
-    # Sebelum apa-apa dimuat: setelan yang bentrok sama mode offline harus
-    # ketahuan di log startup, bukan pas user udah nanya.
+    # Sebelum apa-apa: pastiin nggak ada agent lain. Dicek DULUAN karena agent
+    # kedua yang terlanjur muat model bakal makan memori percuma sebelum nyerah.
+    lain = klaim_satu_instance()
+    if lain is not None:
+        log.error(
+            "Agent lain udah jalan (PID %s). Yang ini berhenti — dua agent bakal "
+            "rebutan hotkey '%s'. Cek: powershell -File scripts\status.ps1",
+            lain or "?",
+            config.HOTKEY,
+        )
+        return 3
+
+    # Setelan yang bentrok sama mode offline harus ketahuan di log startup,
+    # bukan pas user udah nanya.
     try:
         config.wajib_offline()
     except config.OfflineViolation:

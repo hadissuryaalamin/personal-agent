@@ -285,34 +285,55 @@ class OllamaConversation(_BaseConversation):
 
         try:
             for attempt in range(config.TOOL_MAX_ROUNDS + 1):
-                held: str | None = None
+                held: list[str] = []
+                suspect = False
+
                 for sentence in self._stream_once():
-                    # The FIRST sentence is held back until we know whether a
-                    # tool call came with it. Costs nothing: a sentence is only
-                    # yielded once complete anyway. Without this, a stall gets
-                    # spoken before we can tell it was one, and speech cannot
-                    # be retracted.
-                    if held is None and not spoken:
-                        held = sentence
+                    # The FIRST sentence decides how the rest is treated. It
+                    # costs nothing to wait for: a sentence is only yielded
+                    # once complete anyway.
+                    if not held and not spoken:
+                        held.append(sentence)
+                        suspect = _looks_like_stall(sentence)
+                        if not suspect:
+                            spoken.append(sentence)
+                            yield sentence
+                            held.clear()
                         continue
-                    if held is not None:
-                        spoken.append(held)
-                        yield held
-                        held = None
+
+                    if suspect:
+                        # Once the opening reads as a stall, the whole reply is
+                        # withheld — not just that sentence. Measured failure:
+                        # "Checking your schedule... You have 5 assignments due
+                        # this month." The store held one. Releasing the first
+                        # sentence the moment a second arrived let the invented
+                        # number straight through.
+                        held.append(sentence)
+                        continue
+
                     spoken.append(sentence)
                     yield sentence
 
                 calls = getattr(self, "_last_calls", None)
 
-                if held is not None:
-                    stalled = not calls and _looks_like_stall(held)
-                    if stalled and attempt < config.TOOL_MAX_ROUNDS:
-                        # A promise with no tool call behind it. Drop it unsaid
-                        # and ask again rather than voicing a dead end.
-                        log.info("stall with no tool call, retrying: %r", held)
+                if suspect and not calls:
+                    if attempt < config.TOOL_MAX_ROUNDS:
+                        log.info("stall with no tool call, retrying: %r", held[0])
                         continue
-                    spoken.append(held)
-                    yield held
+                    # Out of retries. Saying the stall would promise a lookup
+                    # that is never coming; saying nothing sounds like a crash.
+                    log.warning("gave up after %d stalls: %r",
+                                attempt + 1, " ".join(held))
+                    fallback = "Sorry, I couldn't read your schedule just then."
+                    spoken.append(fallback)
+                    yield fallback
+                    self._last_text = fallback
+                    break
+
+                # Not a stall after all — release what was held.
+                for sentence in held:
+                    spoken.append(sentence)
+                    yield sentence
 
                 if not calls:
                     break

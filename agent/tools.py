@@ -43,7 +43,8 @@ SCHEMA = [
                 "on, what is due, when a class is, where a class is, or how much "
                 "work is left. Never answer those from memory. Entries marked "
                 "already_finished have already happened today - skip them when "
-                "asked what is NEXT."
+                "asked what is NEXT. Call the tool immediately; never reply "
+                "that you are about to check, or that you will look it up."
             ),
             "parameters": {
                 "type": "object",
@@ -60,8 +61,10 @@ SCHEMA = [
                     "days": {
                         "type": "integer",
                         "description": (
-                            "How many days ahead to look. 1 = today only, "
-                            "7 = this week, 14 = the next two weeks."
+                            "How many days ahead to look. ALWAYS give a number. "
+                            "1 = today, 2 = tomorrow, 7 = this week, "
+                            "14 = the next two weeks, 30 = this month, "
+                            "90 = this semester. If unsure, use 30."
                         ),
                     },
                 },

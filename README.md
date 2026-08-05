@@ -127,9 +127,48 @@ classes, tasks, and reminders together.
 .\.venv-agent\Scripts\python.exe -m agent.events list 60      # next 60 days
 .\.venv-agent\Scripts\python.exe -m agent.events add task "Assignment 1" 2026-08-14 --course ENGN4122 --hours 8
 .\.venv-agent\Scripts\python.exe -m agent.events add reminder "Pay rego" 2026-08-19T09:00
+.\.venv-agent\Scripts\python.exe -m agent.events log "Assignment 1" 3     # worked 3 hours
 .\.venv-agent\Scripts\python.exe -m agent.events done "Assignment 1"
 .\.venv-agent\Scripts\python.exe -m agent.events rm "Pay rego"
 ```
+
+### Tracking effort
+
+`log` records time worked, and the countdown follows:
+
+```
+$ python -m agent.events log "Assignment 1" 3
+Assignment 1: 3h of 8h, 5h left
+
+$ python -m agent.events log "Assignment 1" 2
+Assignment 1: 5h of 8h, 3h left
+```
+
+```
+=== OPEN TASKS (1) ===
+
+   Assignment 1  [9d left]  —  5h of 8h, 3h left
+
+   3 hours of work outstanding
+```
+
+It **adds to hours spent** rather than subtracting from the estimate. Subtracting
+would leave 5 where 8 used to be, and that original 8 is the more useful number:
+comparing it against what the task actually took is the only way to learn how
+wrong your estimates run.
+
+Both figures are shown, not just the remainder — *5 of 8* tells you how far in
+you are, which a bare *3h left* does not.
+
+Log a negative number to correct a mistake (`log "Assignment 1" -1`). It will not
+go below zero. Overrunning the estimate is reported honestly rather than clamped:
+
+```
+Assignment 1: 11h of 8h, 3h over
+```
+
+Overrun tasks contribute 0 to "hours of work outstanding" — the total answers
+"how much is left", and a task past its estimate has no meaningful remainder.
 
 `done` and `rm` match on any distinctive fragment of the title, so you never
 type a full id. If the fragment matches more than one entry it lists them and

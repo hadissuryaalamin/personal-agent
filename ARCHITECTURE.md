@@ -352,7 +352,35 @@ moving a weekly class means editing every row.
 twice replaces rather than duplicates, which is what makes the ICS import safe
 to re-run.
 
-### 4.13 JSON, not a database
+### 4.13 Effort is logged as spent, not deducted from the estimate
+
+A task carries two numbers: `estimate_hours` (what you thought) and
+`spent_hours` (what you have actually put in). Logging work adds to the second
+rather than subtracting from the first.
+
+The tempting shortcut — decrement the estimate from 8 to 5 — destroys the
+original figure. That figure is the more valuable of the two: comparing what a
+task was estimated at against what it really took is the only way to find out
+how wrong your estimates run, and that is knowledge no other field can recover
+once it is overwritten.
+
+Both numbers are shown together (*5 of 8, 3 left*) rather than just the
+remainder. *3h left* says nothing about whether you are nearly finished or have
+barely begun.
+
+Two edges are handled deliberately rather than clamped away:
+
+- **Overrun is reported, not hidden.** 11 hours against an 8-hour estimate reads
+  *11h of 8h, 3h over*. Silently capping it at 8 would erase exactly the signal
+  worth having.
+- **Overrun contributes 0 to the outstanding total.** That total answers "how
+  much work is left", and a task past its estimate has no meaningful remainder
+  to add. Letting it go negative would quietly cancel out other tasks' hours.
+
+A negative log corrects a mis-entry, but the total is floored at zero: below
+that reads as a bug in the log rather than as work undone.
+
+### 4.14 JSON, not a database
 
 A few hundred entries do not justify SQLite. What plain JSON buys:
 

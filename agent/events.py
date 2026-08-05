@@ -218,6 +218,39 @@ def add(
     return e
 
 
+def log_hours(event_id: str, hours: float) -> dict | None:
+    """Record time worked on a task. Adds to `spent_hours`.
+
+    Adding to what was spent, rather than subtracting from the estimate, is
+    deliberate. Subtracting would leave 5 where 8 used to be, and the original
+    8 is the more useful number: comparing it against what the task actually
+    took is the only way to find out how wrong your estimates run.
+
+    Negative hours are allowed, for correcting a mis-log.
+    """
+    with _lock:
+        items = load()
+        for e in items:
+            if e.get("id") != event_id:
+                continue
+            spent = round(float(e.get("spent_hours", 0)) + hours, 2)
+            # Never let a correction push it below zero — that reads as a bug
+            # in the log rather than as work undone.
+            e["spent_hours"] = max(0.0, spent)
+            save(items)
+            log.info("event %s spent_hours=%s", event_id, e["spent_hours"])
+            return e
+    return None
+
+
+def remaining(e: dict) -> float | None:
+    """Hours left, or None when there is no estimate to count down from."""
+    est = e.get("estimate_hours")
+    if not est:
+        return None
+    return round(float(est) - float(e.get("spent_hours", 0)), 2)
+
+
 def mark_done(event_id: str, done: bool = True) -> dict | None:
     with _lock:
         items = load()
@@ -290,11 +323,30 @@ def one_line(e: dict) -> str:
         bits.append(f"({e['session']})")
     if e.get("location"):
         bits.append(f"@ {' '.join(str(e['location']).split())}")
-    if e.get("estimate_hours"):
-        bits.append(f"~{e['estimate_hours']:g}h")
+    bits.append(effort_label(e))
     if e.get("done"):
         bits.append("[done]")
-    return "  ".join(bits)
+    return "  ".join(b for b in bits if b)
+
+
+def effort_label(e: dict) -> str:
+    """'~8h', or '3h of 8h, 5h left' once work has been logged.
+
+    Both numbers are shown rather than just the remainder: seeing 3 of 8 tells
+    you how far in you are, which a bare '5h left' does not.
+    """
+    est = e.get("estimate_hours")
+    spent = float(e.get("spent_hours", 0) or 0)
+    if not est and not spent:
+        return ""
+    if not est:
+        return f"{spent:g}h done"
+    left = remaining(e)
+    if not spent:
+        return f"~{float(est):g}h"
+    if left is not None and left < 0:
+        return f"{spent:g}h of {float(est):g}h, {-left:g}h over"
+    return f"{spent:g}h of {float(est):g}h, {left:g}h left"
 
 
 def agenda(days: int = 14) -> str:
@@ -323,16 +375,24 @@ def agenda(days: int = 14) -> str:
         out.append("  (none)")
     for t in tasks:
         d = day_of(t)
-        left = (d - start).days if d else None
+        days_left = (d - start).days if d else None
         due = ""
-        if left is not None:
+        if days_left is not None:
             due = (
-                "  [due today]" if left == 0
-                else "  [due tomorrow]" if left == 1
-                else f"  [OVERDUE by {-left}d]" if left < 0
-                else f"  [{left}d left]"
+                "  [due today]" if days_left == 0
+                else "  [due tomorrow]" if days_left == 1
+                else f"  [OVERDUE by {-days_left}d]" if days_left < 0
+                else f"  [{days_left}d left]"
             )
-        out.append(f"   {t.get('title', '?')}{due}")
+        effort = effort_label(t)
+        out.append(f"   {t.get('title', '?')}{due}" + (f"  —  {effort}" if effort else ""))
+
+    hours_left = sum(
+        r for t in tasks if (r := remaining(t)) is not None and r > 0
+    )
+    if hours_left:
+        out.append("")
+        out.append(f"   {hours_left:g} hours of work outstanding")
     return "\n".join(out)
 
 
@@ -362,6 +422,10 @@ def _cli() -> int:
     p_add.add_argument("--hours", type=float, default=0, help="estimated effort")
     p_add.add_argument("--notes", default="")
 
+    p_log = sub.add_parser("log", help="record hours worked on a task")
+    p_log.add_argument("id_part", help="any distinctive part of the id or title")
+    p_log.add_argument("hours", type=float, help="negative to correct a mis-log")
+
     p_done = sub.add_parser("done", help="mark a task or reminder finished")
     p_done.add_argument("id_part", help="any distinctive part of the id or title")
 
@@ -380,7 +444,7 @@ def _cli() -> int:
         print(f"added: {e['id']}\n  {one_line(e)}")
         return 0
 
-    if cmd in ("done", "rm"):
+    if cmd in ("log", "done", "rm"):
         # Match on a fragment so you never have to type a full id. Ambiguity is
         # reported rather than resolved by guessing — picking the wrong entry
         # here deletes the wrong thing.
@@ -398,7 +462,14 @@ def _cli() -> int:
                 print(f"  {e['id']}")
             return 1
         e = hits[0]
-        if cmd == "done":
+        if cmd == "log":
+            updated = log_hours(e["id"], args.hours)
+            print(f"{updated['title']}: {effort_label(updated)}")
+            left = remaining(updated)
+            if left is not None and left <= 0:
+                print("  (estimate used up — mark it done when it really is:")
+                print(f"   python -m agent.events done \"{updated['title']}\")")
+        elif cmd == "done":
             mark_done(e["id"])
             print(f"done: {e['title']}")
         else:
@@ -419,6 +490,8 @@ if __name__ == "__main__":
     #   python -m agent.events list 60                            # next 60 days
     #   python -m agent.events add task "Assignment 1" 2026-08-14 --course ENGN4122 --hours 8
     #   python -m agent.events add reminder "Pay rego" 2026-08-19T09:00
+    #   python -m agent.events log "Assignment 1" 3     # worked 3 hours
+    #   python -m agent.events log "Assignment 1" -1    # correct a mis-log
     #   python -m agent.events done "Assignment 1"
     #   python -m agent.events rm "Pay rego"
     logging.basicConfig(level=logging.WARNING)

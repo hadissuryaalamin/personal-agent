@@ -11,8 +11,10 @@ hotkey → mic → Silero VAD → Parakeet TDT 0.6B → qwen2.5:7b → Kokoro-82
 Four models, four jobs: **the VAD knows when you have finished speaking**,
 **Parakeet hears**, **qwen thinks**, **Kokoro answers**.
 
-That is all it does. No calendar, no task list, no cross-session memory, no
-integrations — deliberately emptied out so it can be rebuilt from a clean base.
+It also keeps an **event store** — your class schedule, tasks, and reminders in
+one JSON file. The store is real and populated; nothing in the voice pipeline
+reads it yet. See [The event store](#the-event-store).
+
 Conversation history lives only as long as the process.
 
 ## Requirements
@@ -114,6 +116,68 @@ Parakeet, so it adds **zero new pip packages**. Measured:
 
 Sentences getting cut in half? Raise `VAD_SILENCE_MS`. Agent answering the air
 conditioning? Raise `VAD_THRESHOLD`.
+
+## The event store
+
+Everything that sits on a timeline lives in one file, `memory/events.json`:
+classes, tasks, and reminders together.
+
+```powershell
+.\.venv-agent\Scripts\python.exe -m agent.events              # next 14 days
+.\.venv-agent\Scripts\python.exe -m agent.events list 60      # next 60 days
+.\.venv-agent\Scripts\python.exe -m agent.events add task "Assignment 1" 2026-08-14 --course ENGN4122 --hours 8
+.\.venv-agent\Scripts\python.exe -m agent.events add reminder "Pay rego" 2026-08-19T09:00
+.\.venv-agent\Scripts\python.exe -m agent.events done "Assignment 1"
+.\.venv-agent\Scripts\python.exe -m agent.events rm "Pay rego"
+```
+
+`done` and `rm` match on any distinctive fragment of the title, so you never
+type a full id. If the fragment matches more than one entry it lists them and
+does nothing — deleting the wrong entry is not worth a guess.
+
+**What unifies the three kinds is `start`.** Everything has a moment it belongs
+to; they differ in precision and in whether they occupy time:
+
+| Kind | Fields | Meaning |
+|---|---|---|
+| `class` | `start` + `end` | a slot on the calendar |
+| `task` | `start` | a deadline, no slot |
+| `reminder` | `start` | a point in time, no slot |
+
+`start` is either a date (`2026-08-14`, meaning sometime that day) or a date and
+time (`2026-08-14T17:00`, meaning exactly then). That single rule removes any
+need for an "all day" flag.
+
+```json
+{
+  "id": "class-intelligent-autonomous-systems-2026-07-27T0900",
+  "kind": "class",
+  "title": "Intelligent Autonomous Systems",
+  "start": "2026-07-27T09:00",
+  "end": "2026-07-27T11:00",
+  "course": "ENGN4122",
+  "session": "lecture",
+  "location": "Fulton Muir, Rm 2.04"
+}
+```
+
+Plain JSON, so you can open it in Notepad and fix a typo. Every occurrence is
+stored on its own — a weekly class is 12 rows, not one recurrence rule. Nothing
+has to expand a pattern into dates, so what you read is exactly what the code
+sees; the cost is that moving a weekly class means editing every row.
+
+Ids are derived from kind + title + start, so importing the same source twice
+replaces rather than duplicates.
+
+**Importing an .ics** (one-off, then the .ics is no longer needed):
+
+```powershell
+.\.venv-agent\Scripts\python.exe scripts\import_ics.py --dry-run
+.\.venv-agent\Scripts\python.exe scripts\import_ics.py
+```
+
+`memory/` is gitignored, so this file is **not** backed up by git. Copy it
+somewhere if the contents matter.
 
 ## Starting automatically at login
 
@@ -240,15 +304,16 @@ agent/
   stt.py             Parakeet / Whisper — loads and releases automatically
   llm.py             Ollama / Claude, sentence-by-sentence streaming
   tts.py             Kokoro / Piper
+  events.py          class / task / reminder store (+ its CLI)
   text.py            text normaliser
   offline_check.py   verifies readiness to run with no network
 models/              Kokoro & Piper weights (gitignored)
-memory/              agent.lock (gitignored)
+memory/              events.json, agent.lock (gitignored)
 scripts/             setup, autostart, status
 logs/                agent.log (rotating, 1 MB x 4)
 ```
 
-~2,300 lines. **[ARCHITECTURE.md](ARCHITECTURE.md)** explains the reasoning
+~2,756 lines. **[ARCHITECTURE.md](ARCHITECTURE.md)** explains the reasoning
 behind each decision, with the measurements behind it.
 
 Every module can be exercised on its own:
@@ -260,6 +325,7 @@ Every module can be exercised on its own:
 .\.venv-agent\Scripts\python.exe -m agent.llm "hi"       # brain
 .\.venv-agent\Scripts\python.exe -m agent.audio          # mic & speakers
 .\.venv-agent\Scripts\python.exe -m agent.text           # normaliser
+.\.venv-agent\Scripts\python.exe -m agent.events         # event store
 ```
 
 ## Offline proof
@@ -288,8 +354,9 @@ full chain ran 7/7 steps with **zero** outbound connection attempts.
 Everything below was removed during the restart, and the git history is intact
 if you want any of it back:
 
-- **Calendar** — read a schedule, create events (local ICS & Google Calendar)
-- **Task list** — capture, mark done, choose what to work on
+- **Voice access to the event store** — it exists and is populated, but nothing
+  in the pipeline reads or writes it yet. This is the obvious next step
+- **Google Calendar sync** — two-way, over OAuth
 - **Cross-session memory** — history and facts that survive a restart
 - **Deterministic answers without the LLM** — clock, date, schedule computed in
   Python. Measured 5.7x faster to first sound, and 6/6 correct on the clock

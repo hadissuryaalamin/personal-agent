@@ -35,9 +35,14 @@ Four models for four jobs: **Silero VAD knows when you have finished speaking**
 (CPU, 0 VRAM), **Parakeet hears** (CPU, 0 VRAM), **qwen2.5:7b thinks** (GPU,
 ~5 GB), **Kokoro speaks** (CPU, 0 VRAM). Only one occupies the GPU — see §4.7.
 
-Nothing else. A calendar, a task list, cross-session memory, and a deterministic
-answerer all existed once and were **deliberately removed** during a restart;
-the git history is intact if any of it is wanted back.
+Alongside them sits an **event store** (§4.12) — classes, tasks, and reminders
+in one JSON file. It holds real data, but nothing in the pipeline reads it yet:
+it is groundwork, not a wired-up feature.
+
+Nothing else. A calendar integration, a separate task list, cross-session
+memory, and a deterministic answerer all existed once and were **deliberately
+removed** during a restart; the git history is intact if any of it is wanted
+back.
 
 ### Two layers, not one
 
@@ -60,14 +65,16 @@ few minutes, so holding models in memory all day is pure waste.
 | `vad.py` | 226 | Per-frame speech detection (Silero) |
 | `tts.py` | 142 | Kokoro / Piper: text -> WAV |
 | `offline_check.py` | 128 | Verifies readiness to run with no network |
+| `events.py` | 425 | Class / task / reminder store, and its CLI |
 | `text.py` | 55 | Text normaliser |
 
-About 2,300 lines in total.
+About 2,756 lines in total.
 
 ### Dependency direction
 
 ```
 main ──▶ audio, vad, stt, llm, tts, text
+events ──▶ config          (standalone; nothing in the pipeline reads it yet)
 everything ──▶ config
 ```
 
@@ -295,6 +302,7 @@ Almost none, deliberately.
 
 | File | Contents | Lifetime |
 |---|---|---|
+| `memory/events.json` | Classes, tasks, reminders | Until you delete them |
 | `memory/agent.lock` | Single-instance lock | Released by the OS on exit |
 | `logs/agent.log` | Log | Rotating, 1 MB x 4 |
 
@@ -307,6 +315,56 @@ restart starts clean.
 Large model weights live in the HuggingFace cache (`~/.cache/huggingface`),
 not the repo: Parakeet and Silero VAD are fetched by `onnx-asr` by model name
 rather than by path.
+
+### 4.12 One event store, not three
+
+Classes, tasks, and reminders share one file and one schema rather than living
+in a calendar file, a task file, and a reminder file.
+
+The previous design had exactly that split — an `.ics` for the calendar and a
+`tasks.json` for the task list — and the cost showed up in the question asked
+most often: *"what's on today?"* That needed two lookups, two formats, and two
+sets of date handling, and the two disagreed about what a date even was (ICS
+`DTSTART` versus an ISO string).
+
+What makes one schema honest is `start`. Everything on a timeline has a moment
+it belongs to; the kinds differ only in precision and in whether they occupy
+time:
+
+| Kind | Fields | Meaning |
+|---|---|---|
+| `class` | `start` + `end` | a slot |
+| `task` | `start` | a deadline, no slot |
+| `reminder` | `start` | a point in time, no slot |
+
+`start` is a date (`2026-08-14`) or a date and time (`2026-08-14T17:00`). That
+one rule replaces what would otherwise be an `all_day` flag — and a flag that
+can disagree with the value beside it is a bug waiting to happen.
+
+**One row per occurrence, not a recurrence rule.** A weekly class is 12 rows.
+The 79 imported rows collapse to 8 weekly patterns, so a rule-based store would
+be about a tenth the size — but then nothing you read in the file is what the
+code actually sees, because a pattern has to be expanded into dates first. The
+expansion is where recurring-calendar bugs live. The cost accepted instead:
+moving a weekly class means editing every row.
+
+**Ids are derived, not random**: `kind-title-start`. Importing the same source
+twice replaces rather than duplicates, which is what makes the ICS import safe
+to re-run.
+
+### 4.13 JSON, not a database
+
+A few hundred entries do not justify SQLite. What plain JSON buys:
+
+- You can open it in Notepad and fix a typo
+- A git diff shows what changed in words, not as a binary blob
+- No schema migration when a field is added
+
+Written through a temp file then renamed, so a process that dies mid-write
+leaves the old file intact rather than half of a new one.
+
+This stops being the right call somewhere around tens of thousands of entries,
+or when queries need more than a linear scan. Neither is close.
 
 ---
 
@@ -342,8 +400,9 @@ Everything below **existed** and was removed during the restart. The git history
 is complete — this is not a wishlist, it is a list of things waiting to be
 picked back up:
 
-- **Calendar** — read a schedule, create events (local ICS & Google Calendar)
-- **Task list** — capture, mark done, choose what to work on
+- **Voice access to the event store** — the store exists and holds real data
+  (§4.12), but nothing in the pipeline reads or writes it. The obvious next step
+- **Google Calendar sync** — two-way, over OAuth
 - **Cross-session memory** — history and facts surviving a restart
 - **Deterministic answers without the LLM** — clock, date, and schedule computed
   in Python. Measured 5.7x faster to first sound, and 6/6 correct on the clock

@@ -68,6 +68,12 @@ OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
 # --- Language ---
 LANGUAGE = os.getenv("LANGUAGE", "en").lower()
 
+# --- Local time ---
+# Which wall clock "today" and "tomorrow" refer to in the event store. The
+# machine clock is the only time source — the agent is offline, so there is
+# nothing to sync against.
+TIMEZONE = os.getenv("TIMEZONE", "Australia/Canberra")
+
 # --- Offline mode ---
 # When true, backends that need the internet are rejected at startup rather than
 # being left to fail quietly mid-conversation.

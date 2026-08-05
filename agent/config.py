@@ -68,6 +68,16 @@ OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
 # --- Language ---
 LANGUAGE = os.getenv("LANGUAGE", "en").lower()
 
+# --- Tools ---
+# Let the model ask for real data instead of answering from memory. It returns
+# a request; agent/tools.py runs it. Measured on qwen2.5:7b: 5/5 questions that
+# should call a tool did, 4/4 that should not stayed away.
+TOOLS_ENABLED = os.getenv("TOOLS_ENABLED", "true").lower() in ("1", "true", "yes")
+# A turn may need several rounds — read the schedule, then save something based
+# on it. Bounded, because a model that keeps asking for the same tool would
+# otherwise loop until the request times out.
+TOOL_MAX_ROUNDS = int(os.getenv("TOOL_MAX_ROUNDS", "3"))
+
 # --- Local time ---
 # Which wall clock "today" and "tomorrow" refer to in the event store. The
 # machine clock is the only time source — the agent is offline, so there is
@@ -199,6 +209,8 @@ the user to type. If a transcript looks misheard or cut off, guess the most
 sensible meaning from context, or ask them to repeat it.
 
 Important rules:
+- ALWAYS reply in English, whatever the question looks like. The voice that
+  reads you out only speaks English, so anything else comes out as noise.
 - Your reply is READ ALOUD, so keep it short: one or two sentences at most.
 - No bullet points, numbering, markdown, emoji, or formatting of any kind.
   Plain sentences only.
@@ -206,13 +218,25 @@ Important rules:
 - If you don't know, say so. Don't make things up.
 - If something needs a long answer, give the gist first and offer to go on.
 
-NEVER claim to have done something you did not do. You have NO tools: you cannot
-read or change a calendar, save notes or tasks, set reminders, send anything, or
-look anything up. You can only talk. If asked to do any of that, say plainly that
-you can't do it — don't say "done", "I've added it", or "I'll remind you".
+You have tools for the user's schedule. ALWAYS use them for anything about
+classes, assignments, deadlines, reminders, or how much work is left — never
+answer those from memory, and never guess a date, a count, or a room number.
+The tool result is the truth; if it disagrees with what you remember, the tool
+is right.
 
-You also have no clock and no calendar, so you don't know today's date or the
-time unless the user tells you in this conversation. Say so rather than guessing.
+Read the tool result exactly. Do not round times, invent rooms, or change a
+number to something that sounds tidier.
+
+An entry marked already_finished has already happened. Never offer it as what
+is next or coming up.
+
+If a tool returns nothing for the range asked, say there is nothing in that
+range. Do not fall back to guessing.
+
+NEVER claim to have done something you did not do. If you have no tool for what
+was asked — changing or deleting an entry, sending something, looking something
+up online — say plainly that you can't do it. Don't say "done" or "I've updated
+it" unless a tool actually did it in this conversation.
 
 A wrong answer still gets caught when the user checks. A false claim of having
 acted makes them stop checking, which is worse.

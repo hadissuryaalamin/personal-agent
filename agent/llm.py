@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import re
 
-from . import config
+from . import config, tools
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +51,51 @@ def _split_sentence(buf: str) -> tuple[str | None, str]:
             continue  # an abbreviation, not a sentence end
         return chunk.strip(), buf[m.end() :]
     return None, buf
+
+
+# The model announcing it is about to look something up, without actually
+# emitting a tool call. Two shapes, both measured on qwen2.5:7b at 3 in 8:
+#
+#   "CallCheck for your next class time and location."   <- mangled tool call
+#   "Let me check your schedule."                        <- empty promise
+#
+# Either one spoken aloud is worse than a wrong answer: it sounds like the
+# agent is working when nothing is happening, and no answer ever arrives.
+_STALL = re.compile(
+    r"^\s*(?:"
+    r"call\w*\s*(?:check|get|read)"          # CallCheck, Callget_schedule
+    r"|let(?:'?s| me)\s+(?:check|look|see|find)"
+    r"|i(?:'?ll| will)\s+(?:check|look|see|find)"
+    r"|checking\b|looking\b|one moment while"
+    r")",
+    re.I,
+)
+
+
+# The other shape a failed tool call takes: it comes out looking like code
+# rather than prose. Measured examples, all spoken aloud as gibberish:
+#
+#   .GetOrdinal("nextlecture")
+#   Callget_schedule(kind="class")
+#
+# A real spoken answer never contains a bare function call, a snake_case
+# identifier, or a leading dot — so shape alone is enough to spot it, without
+# having to guess at the next wording the model will invent.
+_CODEY = re.compile(
+    r"^\s*[.\w]*\w+\s*\(|"     # foo(  /  .GetOrdinal(
+    r"^\s*\.\w|"               # leading dot
+    r"\b\w+_\w+\s*\(",         # snake_case(
+)
+
+
+def _looks_like_stall(text: str) -> bool:
+    """A promise to look something up, or a mangled tool call — not an answer.
+
+    Only meaningful when no tool call came with it. The same sentence next to a
+    real tool call is harmless narration.
+    """
+    text = text or ""
+    return bool(_STALL.match(text) or _CODEY.search(text))
 
 
 class _BaseConversation:
@@ -101,8 +146,8 @@ class OllamaConversation(_BaseConversation):
 
     name = "ollama"
 
-    def _payload(self, stream: bool) -> dict:
-        return {
+    def _payload(self, stream: bool, with_tools: bool = True) -> dict:
+        body = {
             "model": config.OLLAMA_MODEL,
             "messages": [{"role": "system", "content": self.system_prompt}]
             + self.messages,
@@ -113,32 +158,118 @@ class OllamaConversation(_BaseConversation):
                 "num_ctx": config.OLLAMA_NUM_CTX,
             },
         }
+        if with_tools and tools.enabled():
+            body["tools"] = tools.SCHEMA
+        return body
 
-    def chat(self, text: str) -> str:
+    def _run_tools(self, calls: list[dict]) -> None:
+        """Execute what the model asked for and append the results.
+
+        The assistant's request is appended too, not just the result. Ollama
+        needs the pair to make sense of the exchange — a `tool` message with no
+        preceding `tool_calls` reads as a reply to nothing.
+        """
+        self.messages.append({"role": "assistant", "content": "", "tool_calls": calls})
+        for call in calls:
+            fn = call.get("function", {})
+            result = tools.run(fn.get("name", ""), fn.get("arguments"))
+            self.messages.append({"role": "tool", "content": result})
+
+    def _post(self, stream: bool = False) -> dict:
         import requests
 
+        resp = requests.post(
+            config.OLLAMA_CHAT_URL,
+            json=self._payload(stream=stream),
+            timeout=config.OLLAMA_TIMEOUT,
+        )
+        resp.raise_for_status()
+        return resp.json().get("message") or {}
+
+    def chat(self, text: str) -> str:
+        n_before = len(self.messages)
         self.messages.append({"role": "user", "content": text})
         try:
-            resp = requests.post(
-                config.OLLAMA_CHAT_URL,
-                json=self._payload(stream=False),
-                timeout=config.OLLAMA_TIMEOUT,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+            msg = self._post()
+            # A model may need several rounds: read the schedule, then save
+            # something based on it. Bounded, because a model that keeps asking
+            # for the same tool would otherwise loop until the timeout.
+            for _ in range(config.TOOL_MAX_ROUNDS):
+                calls = msg.get("tool_calls") or []
+                if not calls:
+                    break
+                self._run_tools(calls)
+                msg = self._post()
         except Exception:
-            self.messages.pop()
+            del self.messages[n_before:]
             raise
 
-        reply = (data.get("message") or {}).get("content", "").strip()
+        reply = (msg.get("content") or "").strip()
         if not reply:
-            self.messages.pop()
-            raise RuntimeError(f"Ollama returned an empty response: {data!r}")
+            del self.messages[n_before:]
+            raise RuntimeError("Ollama returned an empty response")
 
         self.messages.append({"role": "assistant", "content": reply})
         self._trim()
         log.info("LLM ollama (%d chars): %s", len(reply), reply)
         return _clean_for_speech(reply)
+
+    def _stream_once(self):
+        """One streamed request. Yields text as it arrives; returns any tool
+        calls the model made instead of answering.
+
+        Streaming is kept even when tools are in play. The alternative — a
+        non-streamed round to check for tool calls first — would cost the
+        53-71% silence reduction on every ordinary question, to serve the ones
+        that need a tool. Ollama streams `tool_calls` in their own chunks, so
+        both can be read off the same response.
+        """
+        import json as _json
+
+        import requests
+
+        calls: list[dict] = []
+        rest = ""
+        full: list[str] = []
+
+        with requests.post(
+            config.OLLAMA_CHAT_URL,
+            json=self._payload(stream=True),
+            timeout=config.OLLAMA_TIMEOUT,
+            stream=True,
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                msg = _json.loads(line).get("message") or {}
+                if msg.get("tool_calls"):
+                    calls.extend(msg["tool_calls"])
+                chunk = msg.get("content", "")
+                if not chunk:
+                    continue
+                full.append(chunk)
+                rest += chunk
+                # Waiting for a whole sentence is deliberate: feeding half a
+                # sentence to the TTS wrecks the intonation and puts the pauses
+                # in the wrong places.
+                while True:
+                    sentence, new_rest = _split_sentence(rest)
+                    if sentence is None:
+                        break
+                    rest = new_rest
+                    clean = _clean_for_speech(sentence)
+                    if clean:
+                        yield clean
+
+        tail = _clean_for_speech(rest)
+        if tail:
+            yield tail
+
+        # Handed back through the generator rather than returned, so the caller
+        # can act on them after consuming the text.
+        self._last_calls = calls
+        self._last_text = "".join(full).strip()
 
     def chat_stream(self, text: str):
         """Yield each sentence as soon as it lands, without waiting for the
@@ -148,51 +279,55 @@ class OllamaConversation(_BaseConversation):
         total time but the silence — and that is what makes a conversation feel
         alive rather than laggy.
         """
-        import json as _json
-
-        import requests
-
+        n_before = len(self.messages)
         self.messages.append({"role": "user", "content": text})
-        full: list[str] = []
-        rest = ""
+        spoken: list[str] = []
+
         try:
-            with requests.post(
-                config.OLLAMA_CHAT_URL,
-                json=self._payload(stream=True),
-                timeout=config.OLLAMA_TIMEOUT,
-                stream=True,
-            ) as resp:
-                resp.raise_for_status()
-                for line in resp.iter_lines():
-                    if not line:
+            for attempt in range(config.TOOL_MAX_ROUNDS + 1):
+                held: str | None = None
+                for sentence in self._stream_once():
+                    # The FIRST sentence is held back until we know whether a
+                    # tool call came with it. Costs nothing: a sentence is only
+                    # yielded once complete anyway. Without this, a stall gets
+                    # spoken before we can tell it was one, and speech cannot
+                    # be retracted.
+                    if held is None and not spoken:
+                        held = sentence
                         continue
-                    chunk = (_json.loads(line).get("message") or {}).get("content", "")
-                    if not chunk:
+                    if held is not None:
+                        spoken.append(held)
+                        yield held
+                        held = None
+                    spoken.append(sentence)
+                    yield sentence
+
+                calls = getattr(self, "_last_calls", None)
+
+                if held is not None:
+                    stalled = not calls and _looks_like_stall(held)
+                    if stalled and attempt < config.TOOL_MAX_ROUNDS:
+                        # A promise with no tool call behind it. Drop it unsaid
+                        # and ask again rather than voicing a dead end.
+                        log.info("stall with no tool call, retrying: %r", held)
                         continue
-                    full.append(chunk)
-                    rest += chunk
-                    # Waiting for a whole sentence is deliberate: feeding half
-                    # a sentence to the TTS wrecks the intonation and puts the
-                    # pauses in the wrong places.
-                    while True:
-                        sentence, new_rest = _split_sentence(rest)
-                        if sentence is None:
-                            break
-                        rest = new_rest
-                        clean = _clean_for_speech(sentence)
-                        if clean:
-                            yield clean
+                    spoken.append(held)
+                    yield held
+
+                if not calls:
+                    break
+                # Anything said before a tool call is narration, not an answer.
+                # It has been spoken already, but must not enter the history as
+                # the assistant's reply.
+                self._run_tools(calls)
+                self._last_calls = None
         except Exception:
-            self.messages.pop()
+            del self.messages[n_before:]
             raise
 
-        tail = _clean_for_speech(rest)
-        if tail:
-            yield tail
-
-        reply = "".join(full).strip()
-        if not reply:
-            self.messages.pop()
+        reply = getattr(self, "_last_text", "") or " ".join(spoken)
+        if not reply.strip():
+            del self.messages[n_before:]
             raise RuntimeError("Ollama returned an empty response")
 
         self.messages.append({"role": "assistant", "content": reply})

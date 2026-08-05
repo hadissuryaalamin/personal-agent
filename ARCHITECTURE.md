@@ -36,8 +36,9 @@ Four models for four jobs: **Silero VAD knows when you have finished speaking**
 ~5 GB), **Kokoro speaks** (CPU, 0 VRAM). Only one occupies the GPU — see §4.7.
 
 Alongside them sits an **event store** (§4.12) — classes, tasks, and reminders
-in one JSON file. It holds real data, but nothing in the pipeline reads it yet:
-it is groundwork, not a wired-up feature.
+in one JSON file — which the model reaches through **tools** (§4.15), so
+answers about your schedule come from your data rather than from its
+imagination.
 
 Nothing else. A calendar integration, a separate task list, cross-session
 memory, and a deterministic answerer all existed once and were **deliberately
@@ -66,15 +67,17 @@ few minutes, so holding models in memory all day is pure waste.
 | `tts.py` | 142 | Kokoro / Piper: text -> WAV |
 | `offline_check.py` | 128 | Verifies readiness to run with no network |
 | `events.py` | 425 | Class / task / reminder store, and its CLI |
+| `tools.py` | 293 | What the model may call, and the code that runs it |
 | `text.py` | 55 | Text normaliser |
 
-About 2,756 lines in total.
+About 3,281 lines in total.
 
 ### Dependency direction
 
 ```
-main ──▶ audio, vad, stt, llm, tts, text
-events ──▶ config          (standalone; nothing in the pipeline reads it yet)
+main  ──▶ audio, vad, stt, llm, tts, text
+llm   ──▶ tools
+tools ──▶ events
 everything ──▶ config
 ```
 
@@ -394,6 +397,51 @@ leaves the old file intact rather than half of a new one.
 This stops being the right call somewhere around tens of thousands of entries,
 or when queries need more than a linear scan. Neither is close.
 
+### 4.15 Tools: the model asks, the code decides
+
+The model never opens a file. It returns a request — a name and arguments — and
+`agent/tools.py` runs it. The model decides *what it needs*; the code decides
+*what it is allowed to do*.
+
+Its only job in the first round is **translation**. For *"how many assignments
+in this two weeks"* it emits `get_schedule({"kind": "task", "days": 14})`: the
+user never said 14. Then the result is appended to the conversation and the
+model writes the sentence.
+
+**The description is the prompt.** A tool is chosen by matching the question
+against its `description`, so the description has to name the triggers rather
+than the function. Measured on qwen2.5:7b, 5 repetitions each: 30/30 questions
+that should call a tool did, 0/10 that should not did, and the right tool was
+picked every time.
+
+Two jobs had to be taken away from the model, both for the same reason.
+
+**Working out what has already happened.** Asked for the next class at 19:25,
+with today's 15:30–17:00 tutorial in the list, it answered *"at 3:30 PM"* — a
+class finished two and a half hours earlier. Marking rows `already_finished`
+was not enough: it read the marker for "what's on today" and ignored it for
+"what's next". So `get_next` is a separate tool that filters in Python.
+Choosing between two tools is a far easier decision than filtering a list, and
+unlike the filtering, the choice is measurable.
+
+**Recovering from its own malformed tool calls.** About 20% of the time the
+call arrived as text instead of structure:
+
+    CallCheck for your next class time and location.
+    .GetOrdinal("nextlecture")
+    Let me check your schedule.
+
+Spoken aloud that is worse than a wrong answer: it sounds like work is
+happening when nothing is. The first sentence of a reply is now held back until
+we know whether a tool call came with it; if it reads as a stall or as code and
+no tool was called, it is dropped unsaid and the request retried. 80% to 100%,
+at no latency cost — a sentence is only spoken once complete anyway.
+
+The pattern underneath all three: **give the model a decision, never a
+calculation.** Choosing a tool, translating a phrase into an argument — those
+it does well. Comparing timestamps, filtering a list, keeping a count — those
+it does badly, and every one of them moved into Python.
+
 ---
 
 ## 6. Swappable parts
@@ -428,8 +476,8 @@ Everything below **existed** and was removed during the restart. The git history
 is complete — this is not a wishlist, it is a list of things waiting to be
 picked back up:
 
-- **Voice access to the event store** — the store exists and holds real data
-  (§4.12), but nothing in the pipeline reads or writes it. The obvious next step
+- **Editing and deleting by voice** — the model can read the store and add
+  tasks, but has no tool to change or remove an entry
 - **Google Calendar sync** — two-way, over OAuth
 - **Cross-session memory** — history and facts surviving a restart
 - **Deterministic answers without the LLM** — clock, date, and schedule computed

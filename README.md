@@ -12,8 +12,9 @@ Four models, four jobs: **the VAD knows when you have finished speaking**,
 **Parakeet hears**, **qwen thinks**, **Kokoro answers**.
 
 It also keeps an **event store** — your class schedule, tasks, and reminders in
-one JSON file. The store is real and populated; nothing in the voice pipeline
-reads it yet. See [The event store](#the-event-store).
+one JSON file — and the model **reads it through tools**, so answers about your
+schedule come from your data rather than from its imagination. See
+[The event store](#the-event-store) and [How tools work](#how-tools-work).
 
 Conversation history lives only as long as the process.
 
@@ -218,6 +219,68 @@ replaces rather than duplicates.
 `memory/` is gitignored, so this file is **not** backed up by git. Copy it
 somewhere if the contents matter.
 
+## How tools work
+
+The model does not read `events.json`. It returns a *request*; `agent/tools.py`
+runs it. That boundary is the point: the model decides **what it needs**, the
+code decides **what it is allowed to do**.
+
+For *"How many assignments do I have in this two weeks?"*:
+
+```
+1. we POST     question + tool descriptions
+2. model says  tool_calls: get_schedule({"kind": "task", "days": 14})
+               content: ""          <- it has not answered anything yet
+3. we run      events.between(2026-08-05, 2026-08-19, kinds=("task",))
+4. we POST     the same conversation + the result appended
+5. model says  "You have 1 assignment due in the next two weeks."
+```
+
+Step 2 is the whole trick. The model's only job there is **translation**:
+*"assignments"* becomes `kind: "task"`, *"this two weeks"* becomes `days: 14`.
+You never said the number 14.
+
+**How it knows to call at all**: it matches your question against the tool's
+`description`. That text is a prompt, not documentation — a lazy `"gets
+schedule"` misses far more often than one that names the triggers.
+
+Measured on qwen2.5:7b, 5 repetitions of each question:
+
+| | Rate |
+|---|---|
+| Called a tool when it should | **30/30** |
+| Called a tool when it should not | **0/10** |
+| Picked `get_next` for "what's next" questions | 10/10 |
+
+### Two things had to be taken away from the model
+
+**Deciding what has already happened.** Asked *"where is my next class?"* at
+19:25, with today's 15:30–17:00 tutorial in the list, it answered *"at 3:30
+PM"* — a class that had finished two and a half hours earlier. It had every
+timestamp it needed. Marking rows `already_finished` was not enough either; it
+read the marker for "what's on today" and ignored it for "what's next".
+
+So `get_next` is a separate tool that filters in Python. Choosing between two
+tools turns out to be a far easier decision than filtering a list.
+
+**Recovering from its own malformed tool calls.** About 20% of the time the
+call came out as text instead:
+
+```
+CallCheck for your next class time and location.
+.GetOrdinal("nextlecture")
+Let me check your schedule.
+```
+
+Spoken aloud, that is worse than a wrong answer — it sounds like the agent is
+working while nothing happens. The first sentence of every reply is now held
+back until we know whether a tool call came with it; if it looks like a stall or
+like code and no tool was called, it is dropped unsaid and the request is
+retried. That took 80% to 100%, and costs nothing: a sentence is only spoken
+once complete anyway.
+
+Turn it all off with `TOOLS_ENABLED=false`.
+
 ## Starting automatically at login
 
 ```powershell
@@ -344,6 +407,7 @@ agent/
   llm.py             Ollama / Claude, sentence-by-sentence streaming
   tts.py             Kokoro / Piper
   events.py          class / task / reminder store (+ its CLI)
+  tools.py           what the model may call, and the code that runs it
   text.py            text normaliser
   offline_check.py   verifies readiness to run with no network
 models/              Kokoro & Piper weights (gitignored)
@@ -352,7 +416,7 @@ scripts/             setup, autostart, status
 logs/                agent.log (rotating, 1 MB x 4)
 ```
 
-~2,756 lines. **[ARCHITECTURE.md](ARCHITECTURE.md)** explains the reasoning
+~3,281 lines. **[ARCHITECTURE.md](ARCHITECTURE.md)** explains the reasoning
 behind each decision, with the measurements behind it.
 
 Every module can be exercised on its own:
@@ -393,8 +457,8 @@ full chain ran 7/7 steps with **zero** outbound connection attempts.
 Everything below was removed during the restart, and the git history is intact
 if you want any of it back:
 
-- **Voice access to the event store** — it exists and is populated, but nothing
-  in the pipeline reads or writes it yet. This is the obvious next step
+- **Editing and deleting by voice** — the model can read the store and add
+  tasks, but not change or remove anything
 - **Google Calendar sync** — two-way, over OAuth
 - **Cross-session memory** — history and facts that survive a restart
 - **Deterministic answers without the LLM** — clock, date, schedule computed in

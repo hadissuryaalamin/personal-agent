@@ -30,12 +30,27 @@ $proc = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python
 if ($proc) {
     # The venv python.exe is a stub that runs the real interpreter as a child,
     # so one agent legitimately shows up as two processes. What counts is how
-    # many distinct START TIMES there are — two separate agents cannot share one.
+    # many distinct LAUNCHES there are — two separate agents cannot share one.
     $pids = ($proc | ForEach-Object { $_.ProcessId }) -join ", "
-    # The @() is required. Without it, a single group holding 2 processes makes
-    # .Count report the MEMBER count (2) rather than the group count (1) — and
-    # the script raises a false alarm.
-    $generations = @($proc | Group-Object { $_.CreationDate.ToString("s") })
+
+    # Processes launched within this many seconds of each other are one agent.
+    # Grouping by the exact second was wrong: the launcher and its child can
+    # land either side of a second boundary (measured at 11:55:49 and 11:55:50),
+    # and the script then reported two agents when there was one. A false alarm
+    # here is not harmless — it sends you off killing a process you need.
+    $LaunchWindow = 5
+    $sorted = @($proc | Sort-Object CreationDate)
+    $generations = @()
+    $current = @($sorted[0])
+    foreach ($p in $sorted | Select-Object -Skip 1) {
+        if (($p.CreationDate - $current[0].CreationDate).TotalSeconds -le $LaunchWindow) {
+            $current += $p
+        } else {
+            $generations += , $current
+            $current = @($p)
+        }
+    }
+    $generations += , $current
     $started = ($proc | Sort-Object CreationDate | Select-Object -First 1).CreationDate
     $age = [datetime]::Now - $started
     Row "Agent" "RUNNING" "Green"
@@ -44,9 +59,9 @@ if ($proc) {
     if ($generations.Count -gt 1) {
         Row "WARNING" "$($generations.Count) AGENTS RUNNING AT ONCE" "Red"
         Write-Host "               They all grab the same hotkey."
-        foreach ($g in ($generations | Sort-Object Name)) {
-            $ids = ($g.Group | ForEach-Object { $_.ProcessId }) -join ", "
-            Write-Host "               started $($g.Group[0].CreationDate)  PID $ids"
+        foreach ($g in $generations) {
+            $ids = ($g | ForEach-Object { $_.ProcessId }) -join ", "
+            Write-Host "               started $($g[0].CreationDate)  PID $ids"
         }
         Write-Host "               Stop the old one:  Stop-Process -Id <PID> -Force" -ForegroundColor Yellow
     }

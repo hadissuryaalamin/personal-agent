@@ -1,0 +1,2702 @@
+[
+  {
+    "id": "read-easy-000",
+    "prompt": "What's my next class?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-001",
+    "prompt": "What classes do I have tomorrow?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-002",
+    "prompt": "How many assignments do I have?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-003",
+    "prompt": "When is my next assignment due?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-004",
+    "prompt": "What's on my schedule today?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-005",
+    "prompt": "Do I have any classes today?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-006",
+    "prompt": "What's my schedule for this week?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-007",
+    "prompt": "When is assignment one due?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-008",
+    "prompt": "How many assignments do I have this month?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-009",
+    "prompt": "What have I got on tomorrow?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-010",
+    "prompt": "Show me my schedule for the next two weeks",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-011",
+    "prompt": "What's my next lecture?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-012",
+    "prompt": "Do I have any tutorials tomorrow?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-013",
+    "prompt": "What reminders do I have?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-014",
+    "prompt": "List my tasks",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-015",
+    "prompt": "What's due this week?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-016",
+    "prompt": "When's my next tutorial?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-017",
+    "prompt": "What's coming up this semester?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-018",
+    "prompt": "Do I have anything on Friday?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-019",
+    "prompt": "What are my deadlines?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-020",
+    "prompt": "Can you show me uh how many assignments I have in this month?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-021",
+    "prompt": "So what do I have on um tomorrow?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-022",
+    "prompt": "I need to know my assignments this month",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-023",
+    "prompt": "Tell me what's my next class again",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-easy-024",
+    "prompt": "What's on today, like, the whole day?",
+    "label": 1,
+    "group": "read-easy",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-000",
+    "prompt": "Am I free tomorrow afternoon?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-001",
+    "prompt": "Have I got anything before lunch today?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-002",
+    "prompt": "How much work have I got left on assignment one?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-003",
+    "prompt": "Is there anything I'm forgetting this week?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-004",
+    "prompt": "What's the busiest day this week?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-005",
+    "prompt": "How many hours of study have I got left?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-006",
+    "prompt": "Anything urgent coming up?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-007",
+    "prompt": "Is my Thursday clear?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-008",
+    "prompt": "What room is my next class in?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-009",
+    "prompt": "Do I need to be anywhere in the next hour?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-010",
+    "prompt": "How long until my next class?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-011",
+    "prompt": "Have I got time for lunch before my tutorial?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-012",
+    "prompt": "What did I have on yesterday?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-013",
+    "prompt": "Is assignment one finished yet?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-014",
+    "prompt": "Which course has the most work due?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-015",
+    "prompt": "What's left to do before Friday?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-016",
+    "prompt": "Have I got two things on at once anywhere this week?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-medium-017",
+    "prompt": "When does my last class of the day finish?",
+    "label": 1,
+    "group": "read-medium",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-000",
+    "prompt": "Should I start working tonight?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-001",
+    "prompt": "Do I have time to watch a movie this evening?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-002",
+    "prompt": "Can I go to the gym at four?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-003",
+    "prompt": "Am I going to be busy this week?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-004",
+    "prompt": "Is it a good time to take a break?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-005",
+    "prompt": "Should I be worried about anything right now?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-006",
+    "prompt": "Can I sleep in tomorrow?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-007",
+    "prompt": "How's my week looking?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-008",
+    "prompt": "Do I need to leave soon?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-009",
+    "prompt": "Is there anything I should be doing right now?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-010",
+    "prompt": "Can I take Saturday off?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-011",
+    "prompt": "How far behind am I?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-012",
+    "prompt": "Am I on track?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-013",
+    "prompt": "Is tonight going to be a late one?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-014",
+    "prompt": "Have I got a spare couple of hours anywhere?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-015",
+    "prompt": "Would it be silly to go out on Thursday?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-016",
+    "prompt": "Is there enough time left or should I panic?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-017",
+    "prompt": "Is now a bad time to call mum?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-018",
+    "prompt": "Have I got room to take on something else?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-019",
+    "prompt": "Should I say yes to Friday drinks?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-020",
+    "prompt": "Am I going to regret staying up?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-021",
+    "prompt": "Is there a gap somewhere I can use?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-022",
+    "prompt": "Can I afford an afternoon off?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-023",
+    "prompt": "How's tomorrow shaping up?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-024",
+    "prompt": "Is the rest of today quiet?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-025",
+    "prompt": "Do I have breathing room this week?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-026",
+    "prompt": "Should I be somewhere right now?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-027",
+    "prompt": "Is there anything urgent left?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-028",
+    "prompt": "Am I overcommitted?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-029",
+    "prompt": "Have I got anything clashing?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-030",
+    "prompt": "Is my morning free enough for a run?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-031",
+    "prompt": "Can I fit a haircut in this week?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "read-hard-032",
+    "prompt": "Would tomorrow be a better day for this?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-000",
+    "prompt": "Add a task to read chapter four by Friday",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-001",
+    "prompt": "Remind me to submit the lab report on Tuesday",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-002",
+    "prompt": "New assignment, data analysis, due next Monday, about six hours",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-003",
+    "prompt": "Put down a task to finish the essay by the tenth",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-004",
+    "prompt": "I need to add a reading task for next week",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-005",
+    "prompt": "Can you note down that the quiz is on the twentieth",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-006",
+    "prompt": "New task, revise lecture notes, due Thursday",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-007",
+    "prompt": "Save this, group presentation due in two weeks, ten hours",
+    "label": 1,
+    "group": "write",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "clock-000",
+    "prompt": "What time is it?",
+    "label": 1,
+    "group": "clock",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "clock-001",
+    "prompt": "What's today's date?",
+    "label": 1,
+    "group": "clock",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "clock-002",
+    "prompt": "What day is it today?",
+    "label": 1,
+    "group": "clock",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "clock-003",
+    "prompt": "Is it morning or afternoon?",
+    "label": 1,
+    "group": "clock",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "clock-004",
+    "prompt": "What month are we in?",
+    "label": 1,
+    "group": "clock",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-000",
+    "prompt": "I've finished assignment one",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-001",
+    "prompt": "Mark the lab report as done",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-002",
+    "prompt": "I submitted the essay this morning",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-003",
+    "prompt": "Tick off the reading task",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-004",
+    "prompt": "That quiz is done now",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-005",
+    "prompt": "I handed in the data analysis",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-006",
+    "prompt": "Can you mark the group presentation finished",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-007",
+    "prompt": "Done with the revision task",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-008",
+    "prompt": "I finished chapter four",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-009",
+    "prompt": "Cross off the rego reminder",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-010",
+    "prompt": "The lab report's in, mark it off",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-011",
+    "prompt": "I've done the essay, take it off my list",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-012",
+    "prompt": "Assignment one is complete",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-013",
+    "prompt": "Just submitted the report",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-014",
+    "prompt": "You can mark the tutorial prep as done",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-015",
+    "prompt": "Finished the presentation slides",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-016",
+    "prompt": "Um I've done that reading task now",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-done-017",
+    "prompt": "Take the quiz off, I sat it yesterday",
+    "label": 1,
+    "group": "write-done",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-000",
+    "prompt": "I worked three hours on the essay",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-001",
+    "prompt": "Log two hours on assignment one",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-002",
+    "prompt": "Just did an hour of study on the report",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-003",
+    "prompt": "Put down four hours for the data analysis",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-004",
+    "prompt": "I spent about ninety minutes on the reading",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-005",
+    "prompt": "Add three hours to the presentation",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-006",
+    "prompt": "That was two hours on the lab report",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-007",
+    "prompt": "I did five hours on assignment one today",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-008",
+    "prompt": "Log half an hour on the revision",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-009",
+    "prompt": "Spent the whole morning on the essay, about three hours",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-010",
+    "prompt": "Take an hour off the essay, I logged too much",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-011",
+    "prompt": "I put in six hours on the group project",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-012",
+    "prompt": "Record two and a half hours for the report",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-013",
+    "prompt": "I worked on assignment one for two hours this arvo",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-log-014",
+    "prompt": "Chuck in an hour for the reading task",
+    "label": 1,
+    "group": "write-log",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-000",
+    "prompt": "Delete the rego reminder",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-001",
+    "prompt": "Remove the quiz from my list",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-002",
+    "prompt": "Get rid of that reading task",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-003",
+    "prompt": "Take the group presentation off my schedule",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-004",
+    "prompt": "Cancel the reminder about the lab report",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-005",
+    "prompt": "Delete assignment one, it got withdrawn",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-006",
+    "prompt": "That task shouldn't be there, remove it",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-007",
+    "prompt": "Scrap the revision task",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-008",
+    "prompt": "Can you delete the essay entry",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-009",
+    "prompt": "Bin the reminder about the tutorial",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-010",
+    "prompt": "Remove the data analysis task please",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-remove-011",
+    "prompt": "Wipe the quiz entry, it's not happening",
+    "label": 1,
+    "group": "write-remove",
+    "difficulty": "medium",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-000",
+    "prompt": "Actually I already did that one",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-001",
+    "prompt": "Scratch that, it's finished",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-002",
+    "prompt": "That one's off, they cancelled it",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-003",
+    "prompt": "I got through about three hours of it today",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-004",
+    "prompt": "Never mind the quiz, it's not happening anymore",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-005",
+    "prompt": "Chapter four, sorted",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-006",
+    "prompt": "That's out of the way now",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-007",
+    "prompt": "Two hours down on the essay",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-008",
+    "prompt": "It's not due anymore",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-009",
+    "prompt": "I'm through with the lab report",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-010",
+    "prompt": "Knock the presentation off the list",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-011",
+    "prompt": "Put me down for another hour on that",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-012",
+    "prompt": "The essay can go, I already handed it in",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-013",
+    "prompt": "That's one down, the essay's in",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-014",
+    "prompt": "Add another two hours to what I've done on it",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-015",
+    "prompt": "Right, the reading's done and dusted",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-016",
+    "prompt": "So um the quiz got cancelled, take it out",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-hard-017",
+    "prompt": "I've been at the report all morning, about four hours",
+    "label": 1,
+    "group": "write-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-000",
+    "prompt": "Hi",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-001",
+    "prompt": "Hey there",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-002",
+    "prompt": "Good morning",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-003",
+    "prompt": "How are you?",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-004",
+    "prompt": "How's it going?",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-005",
+    "prompt": "Thanks",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-006",
+    "prompt": "Thank you so much",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-007",
+    "prompt": "That's great",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-008",
+    "prompt": "Cool",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-009",
+    "prompt": "Never mind",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-010",
+    "prompt": "Goodbye",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-011",
+    "prompt": "See you later",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-012",
+    "prompt": "Nice one",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-013",
+    "prompt": "Sorry, what?",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-014",
+    "prompt": "You're a legend",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-015",
+    "prompt": "Ha, fair enough",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-016",
+    "prompt": "I'm pretty tired today",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-017",
+    "prompt": "It's freezing in here",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-018",
+    "prompt": "I had a good weekend",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-019",
+    "prompt": "This weather is miserable",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-020",
+    "prompt": "I'm a bit stressed out",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-021",
+    "prompt": "Talk to me for a sec",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-022",
+    "prompt": "Morning",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-023",
+    "prompt": "How's your day?",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-024",
+    "prompt": "Cheers",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-025",
+    "prompt": "No worries",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-026",
+    "prompt": "All good",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-027",
+    "prompt": "Alright then",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-028",
+    "prompt": "Catch you later",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-029",
+    "prompt": "That's hilarious",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-030",
+    "prompt": "Yeah nah",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-031",
+    "prompt": "Fair call",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-032",
+    "prompt": "I'm back",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "social-033",
+    "prompt": "Hello again",
+    "label": 0,
+    "group": "social",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "knowledge-000",
+    "prompt": "What's the capital of Australia?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "canberra"
+  },
+  {
+    "id": "knowledge-001",
+    "prompt": "Who wrote Hamlet?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "shakespeare"
+  },
+  {
+    "id": "knowledge-002",
+    "prompt": "What's twelve plus seven?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "19"
+  },
+  {
+    "id": "knowledge-003",
+    "prompt": "How many days are in February in a leap year?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "29"
+  },
+  {
+    "id": "knowledge-004",
+    "prompt": "What's the boiling point of water in Celsius?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "100"
+  },
+  {
+    "id": "knowledge-005",
+    "prompt": "Why is the sky blue?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "scatter"
+  },
+  {
+    "id": "knowledge-006",
+    "prompt": "What language do they speak in Brazil?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "portuguese"
+  },
+  {
+    "id": "knowledge-007",
+    "prompt": "How many continents are there?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "seven"
+  },
+  {
+    "id": "knowledge-008",
+    "prompt": "What's the largest planet in the solar system?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "jupiter"
+  },
+  {
+    "id": "knowledge-009",
+    "prompt": "Who painted the Mona Lisa?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "vinci"
+  },
+  {
+    "id": "knowledge-010",
+    "prompt": "What does CPU stand for?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "central processing"
+  },
+  {
+    "id": "knowledge-011",
+    "prompt": "How many minutes are there in a day?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "1440"
+  },
+  {
+    "id": "knowledge-012",
+    "prompt": "What's the square root of one hundred and forty four?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "12"
+  },
+  {
+    "id": "knowledge-013",
+    "prompt": "What's photosynthesis?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "light"
+  },
+  {
+    "id": "knowledge-014",
+    "prompt": "What's the tallest mountain in the world?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "everest"
+  },
+  {
+    "id": "knowledge-015",
+    "prompt": "How many sides does a hexagon have?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "six"
+  },
+  {
+    "id": "knowledge-016",
+    "prompt": "What year did the Second World War end?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "1945"
+  },
+  {
+    "id": "knowledge-017",
+    "prompt": "What's the chemical symbol for gold?",
+    "label": 0,
+    "group": "knowledge",
+    "difficulty": "medium",
+    "source": "measured",
+    "expect": "au"
+  },
+  {
+    "id": "general-hard-000",
+    "prompt": "How many weeks is a typical university semester?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-001",
+    "prompt": "What time zone is Canberra in?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-002",
+    "prompt": "What does ENGN stand for?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-003",
+    "prompt": "How long should I spend on a two thousand word essay?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-004",
+    "prompt": "What's a good way to manage deadlines?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-005",
+    "prompt": "How many hours a week should a full time student study?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-006",
+    "prompt": "When do most Australian universities start semester two?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-007",
+    "prompt": "Is it better to study in the morning or at night?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-008",
+    "prompt": "How do I stop procrastinating on assignments?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-009",
+    "prompt": "What's the difference between a lecture and a tutorial?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-010",
+    "prompt": "How many units is a normal course load?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-011",
+    "prompt": "What's the best way to plan out a week?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-012",
+    "prompt": "Do universities usually run classes on Fridays?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-013",
+    "prompt": "How long is a typical lecture?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-014",
+    "prompt": "What does it mean when an assignment is worth thirty percent?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-015",
+    "prompt": "Any tips for writing a good report?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-016",
+    "prompt": "Is it normal to feel behind at university?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-017",
+    "prompt": "What's the Pomodoro technique?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-018",
+    "prompt": "How early should you start on a big assignment?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-019",
+    "prompt": "What's a reasonable number of contact hours?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-020",
+    "prompt": "How many assignments does a normal semester have?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-021",
+    "prompt": "Is a two hour tutorial common?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-022",
+    "prompt": "What time do most lectures start?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-023",
+    "prompt": "How far ahead do universities publish timetables?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-024",
+    "prompt": "Do tutorials usually have attendance marks?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-025",
+    "prompt": "What's a credit point?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-026",
+    "prompt": "How many students are in a typical tutorial?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-027",
+    "prompt": "Is it normal to have no classes on a Wednesday?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-028",
+    "prompt": "How long is the mid semester break?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-029",
+    "prompt": "What's a good weekly study routine?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-030",
+    "prompt": "Do most people work while studying full time?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-031",
+    "prompt": "How many hours ahead should you plan your week?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-032",
+    "prompt": "Is it better to have classes in a block or spread out?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-033",
+    "prompt": "What does a course outline usually include?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-034",
+    "prompt": "How much reading is normal per week?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-035",
+    "prompt": "When are exams usually held?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-036",
+    "prompt": "Is a group assignment worth more than an individual one?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "general-hard-037",
+    "prompt": "How do you work out how long something will take?",
+    "label": 0,
+    "group": "general-hard",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-000",
+    "prompt": "What can you do?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-001",
+    "prompt": "Can you hear me?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-002",
+    "prompt": "Are you there?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-003",
+    "prompt": "What's your name?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-004",
+    "prompt": "Repeat that",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-005",
+    "prompt": "Say that again",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-006",
+    "prompt": "Can you speak up a bit?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-007",
+    "prompt": "Are you an AI?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-008",
+    "prompt": "How do I stop you listening?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-009",
+    "prompt": "Say that more slowly",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-010",
+    "prompt": "Can you understand me okay?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-011",
+    "prompt": "Are you listening right now?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-012",
+    "prompt": "How do I make you stop talking?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-013",
+    "prompt": "Do you remember what I said before?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-014",
+    "prompt": "Are you recording me?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-015",
+    "prompt": "Speak a bit louder please",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-016",
+    "prompt": "What can't you do?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-017",
+    "prompt": "Are you always on?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-018",
+    "prompt": "Who made you?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "about-self-019",
+    "prompt": "Can you hear me properly now?",
+    "label": 0,
+    "group": "about-self",
+    "difficulty": "easy",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-000",
+    "prompt": "How many hours should a three thousand word essay take?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-001",
+    "prompt": "Is it better to log study hours daily or weekly?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-002",
+    "prompt": "What does it mean when an assignment is marked as submitted late?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-003",
+    "prompt": "How do you know when an essay is actually finished?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-004",
+    "prompt": "Should you delete old notes at the end of semester?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-005",
+    "prompt": "What happens if you hand in an assignment after the deadline?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-006",
+    "prompt": "How many hours a day is too much study?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-007",
+    "prompt": "Is it worth tracking how long tasks take you?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-008",
+    "prompt": "What's a good way to break a big task into smaller ones?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-009",
+    "prompt": "Can you delete things from my schedule?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-010",
+    "prompt": "Can you mark things off for me?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-011",
+    "prompt": "What's the point of estimating hours before you start?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-012",
+    "prompt": "Is it normal for an essay to take twice as long as planned?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-013",
+    "prompt": "How do people remember to remove things from their to do lists?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-014",
+    "prompt": "What's the difference between finished and submitted?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-015",
+    "prompt": "Should I finish the easy tasks first or the hard ones?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-016",
+    "prompt": "How many hours of work is a thirty percent assignment worth?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-017",
+    "prompt": "Is deleting a task the same as giving up on it?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-018",
+    "prompt": "What's a realistic number of tasks to finish in a day?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "write-trap-019",
+    "prompt": "Do people usually log their hours as they go or at the end?",
+    "label": 0,
+    "group": "write-trap",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-000",
+    "prompt": "I'm so done with this week",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-001",
+    "prompt": "That lecture finished me off",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-002",
+    "prompt": "I'm absolutely wrecked",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-003",
+    "prompt": "Well that's me done for today",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-004",
+    "prompt": "My brain is fried",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-005",
+    "prompt": "I could delete this whole week from my memory",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-006",
+    "prompt": "That was three hours of my life I won't get back",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-007",
+    "prompt": "I'm finished, I need a nap",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-008",
+    "prompt": "What a day, completely done in",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-009",
+    "prompt": "I've had it",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-010",
+    "prompt": "That's it, I'm out",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-011",
+    "prompt": "I'm running on empty today",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-012",
+    "prompt": "Honestly I'm cooked",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-013",
+    "prompt": "That took forever",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-014",
+    "prompt": "I'm counting down the hours",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-015",
+    "prompt": "Two more hours of this and I'm free",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-016",
+    "prompt": "I've finished my coffee, that's the real achievement",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  },
+  {
+    "id": "chat-idiom-017",
+    "prompt": "Never again",
+    "label": 0,
+    "group": "chat-idiom",
+    "difficulty": "hard",
+    "source": "definitional",
+    "expect": null
+  }
+]

@@ -1,0 +1,25 @@
+# Environment for the PROBE&PREFILL replication. Separate from the agent's
+# own requirements on purpose: torch is ~3 GB and the running voice assistant
+# should not be exposed to a dependency change it does not need.
+#
+#   .venv-agent\Scripts\python.exe -m venv .venv-probe
+#   .venv-probe\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cu128
+#   .venv-probe\Scripts\python.exe -m pip install -r probe\requirements.txt
+#
+# THE INDEX URL IS NOT OPTIONAL. The card is Blackwell (sm_120); the default
+# PyPI torch wheel does not carry kernels for it, reports cuda.is_available()
+# as True anyway, and then fails on the first real operation. Verified working
+# combination on this machine, 2026-08-06:
+#
+#   torch 2.11.0+cu128, driver 591.91, arch list includes sm_120
+#
+# torch is deliberately NOT pinned here -- it must come from the cu128 index,
+# and listing it would invite a plain `pip install -r` that silently fetches
+# the wrong build.
+
+transformers==5.14.1
+accelerate==1.14.0
+scikit-learn==1.9.0
+numpy==2.4.6
+python-dotenv         # only so agent.config imports; the probe must build
+                      # prompts with the SAME tool schema the agent deploys

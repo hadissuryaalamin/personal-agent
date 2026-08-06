@@ -1,0 +1,54 @@
+[
+  {
+    "id": "read-hard-000",
+    "prompt": "Should I start working tonight?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "<tool_call>\n{\"name\":",
+    "tool_call": true,
+    "prose_bug": false,
+    "correct": true,
+    "output": "<tool_call>\n{\"name\": \"get_next\", \"arguments\": {\"kind\": \"task\", \"count\": 1}}\n</tool_call>"
+  },
+  {
+    "id": "read-hard-001",
+    "prompt": "Do I have time to watch a movie this evening?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "<tool_call>\n{\"name\":",
+    "tool_call": true,
+    "prose_bug": false,
+    "correct": true,
+    "output": "<tool_call>\n{\"name\": \"get_next\", \"arguments\": {\"kind\": \"class\", \"count\": 1}}\n</tool_call>"
+  },
+  {
+    "id": "read-hard-002",
+    "prompt": "Can I go to the gym at four?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "<tool_call>\n{\"name\":",
+    "tool_call": true,
+    "prose_bug": false,
+    "correct": true,
+    "output": "<tool_call>\n{\"name\": \"get_schedule\", \"arguments\": {\"kind\": \"class\", \"days\": 1}}\n</tool_call>"
+  },
+  {
+    "id": "read-hard-003",
+    "prompt": "Am I going to be busy this week?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "<tool_call>\n{\"name\":",
+    "tool_call": true,
+    "prose_bug": false,
+    "correct": true,
+    "output": "<tool_call>\n{\"name\": \"get_schedule\", \"arguments\": {\"kind\": \"all\", \"days\": 7}}\n</tool_call>"
+  }
+]

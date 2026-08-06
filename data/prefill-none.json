@@ -1,0 +1,54 @@
+[
+  {
+    "id": "read-hard-000",
+    "prompt": "Should I start working tonight?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "",
+    "tool_call": false,
+    "prose_bug": true,
+    "correct": false,
+    "output": "Let me check your schedule to see what's coming up. I'll look at the next 30 days to see if there's anything due or upcoming."
+  },
+  {
+    "id": "read-hard-001",
+    "prompt": "Do I have time to watch a movie this evening?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "",
+    "tool_call": false,
+    "prose_bug": true,
+    "correct": false,
+    "output": "Let me check your schedule for the next few hours."
+  },
+  {
+    "id": "read-hard-002",
+    "prompt": "Can I go to the gym at four?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "",
+    "tool_call": false,
+    "prose_bug": true,
+    "correct": false,
+    "output": "I'll check your schedule to see if you have anything coming up at four. Let me look at your next class or task."
+  },
+  {
+    "id": "read-hard-003",
+    "prompt": "Am I going to be busy this week?",
+    "label": 1,
+    "group": "read-hard",
+    "difficulty": "hard",
+    "p": null,
+    "prefill": "",
+    "tool_call": true,
+    "prose_bug": false,
+    "correct": true,
+    "output": "<tool_call>\n{\"name\": \"get_schedule\", \"arguments\": {\"kind\": \"all\", \"days\": 7}}\n</tool_call>"
+  }
+]

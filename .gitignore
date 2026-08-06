@@ -1,6 +1,7 @@
 # venv
 .venv/
 .venv-agent/
+.venv-probe/
 venv/
 
 # python
@@ -27,6 +28,12 @@ memory/
 client_secret*.json
 credentials*.json
 *_oauth*.json
+
+# Probe binaries — 21 MB of features, rebuilt in ~134 s by src/hidden_states.py,
+# and the fitted probes themselves. The glob matters: probe-bare.joblib is the
+# one hf_service actually loads, and a bare `probe.joblib` rule misses it.
+data/features*.npz
+data/probe*.joblib
 
 # jupyter
 .ipynb_checkpoints/

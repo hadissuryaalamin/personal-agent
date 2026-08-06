@@ -218,7 +218,7 @@ startup is written plainly to the log.
 point leaks through scripts and tests. `config.require_offline()` can be called
 by anyone.
 
-The proof is runnable: `python -m agent.offline_check` verifies the settings,
+The proof is runnable: `python -m src.offline_check` verifies the settings,
 the weights on disk, that the models genuinely load, and that Ollama answers.
 Tested with every non-localhost socket blocked, the full chain ran 7/7 steps
 with **zero** outbound connection attempts.
@@ -400,7 +400,7 @@ or when queries need more than a linear scan. Neither is close.
 ### 4.15 Tools: the model asks, the code decides
 
 The model never opens a file. It returns a request — a name and arguments — and
-`agent/tools.py` runs it. The model decides *what it needs*; the code decides
+`src/tools.py` runs it. The model decides *what it needs*; the code decides
 *what it is allowed to do*.
 
 Its only job in the first round is **translation**. For *"how many assignments
@@ -519,12 +519,12 @@ to know to measure them yourself:
 
 - **STT accuracy** — turn on `SAVE_RECORDINGS=true`, use it for a few days, then
   compare the transcripts against what you actually said
-- **VAD** — `python -m agent.vad`. Say a sentence with a pause in the middle: it
+- **VAD** — `python -m src.vad`. Say a sentence with a pause in the middle: it
   must come out as ONE line, not two. A cough must not appear at all
 - **Perceived latency** — what matters is time to **first sound**, not total
   time. Streaming barely changes the total but cuts the silence by 53–71%
 - **VRAM** — `nvidia-smi`, or `scripts/status.ps1` for the summary
-- **Offline** — `python -m agent.offline_check`. For harder proof, block every
+- **Offline** — `python -m src.offline_check`. For harder proof, block every
   non-localhost socket and run the full chain; what counts is not that it "runs"
   but that there are **zero outbound connection attempts**
 

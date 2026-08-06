@@ -1,0 +1,1432 @@
+[
+  {
+    "id": "read-easy-000",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's my next class?",
+    "z": 4.3047,
+    "p": 0.8959,
+    "z_words": 2.1449
+  },
+  {
+    "id": "read-easy-001",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What classes do I have tomorrow?",
+    "z": 4.2335,
+    "p": 0.8925,
+    "z_words": 1.7347
+  },
+  {
+    "id": "read-easy-002",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "How many assignments do I have?",
+    "z": 4.0309,
+    "p": 0.8824,
+    "z_words": 0.7965
+  },
+  {
+    "id": "read-easy-003",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "When is my next assignment due?",
+    "z": 4.6514,
+    "p": 0.911,
+    "z_words": 3.5277
+  },
+  {
+    "id": "read-easy-004",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's on my schedule today?",
+    "z": 3.8005,
+    "p": 0.8699,
+    "z_words": 1.9787
+  },
+  {
+    "id": "read-easy-005",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Do I have any classes today?",
+    "z": 4.7513,
+    "p": 0.915,
+    "z_words": 1.5021
+  },
+  {
+    "id": "read-easy-006",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's my schedule for this week?",
+    "z": 4.1244,
+    "p": 0.8872,
+    "z_words": 2.6923
+  },
+  {
+    "id": "read-easy-007",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "When is assignment one due?",
+    "z": 4.0827,
+    "p": 0.8851,
+    "z_words": 0.8435
+  },
+  {
+    "id": "read-easy-008",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "How many assignments do I have this month?",
+    "z": 4.208,
+    "p": 0.8913,
+    "z_words": 2.5304
+  },
+  {
+    "id": "read-easy-009",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What have I got on tomorrow?",
+    "z": 4.2621,
+    "p": 0.8939,
+    "z_words": 2.3612
+  },
+  {
+    "id": "read-easy-010",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Show me my schedule for the next two weeks",
+    "z": 4.3469,
+    "p": 0.8978,
+    "z_words": 1.7246
+  },
+  {
+    "id": "read-easy-011",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's my next lecture?",
+    "z": 4.2733,
+    "p": 0.8944,
+    "z_words": 1.6671
+  },
+  {
+    "id": "read-easy-012",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Do I have any tutorials tomorrow?",
+    "z": 4.7376,
+    "p": 0.9144,
+    "z_words": 1.7364
+  },
+  {
+    "id": "read-easy-013",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What reminders do I have?",
+    "z": 3.7988,
+    "p": 0.8698,
+    "z_words": 1.3054
+  },
+  {
+    "id": "read-easy-014",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "List my tasks",
+    "z": 3.6809,
+    "p": 0.863,
+    "z_words": 0.3339
+  },
+  {
+    "id": "read-easy-015",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's due this week?",
+    "z": 4.1441,
+    "p": 0.8882,
+    "z_words": 1.1468
+  },
+  {
+    "id": "read-easy-016",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "When's my next tutorial?",
+    "z": 4.2766,
+    "p": 0.8946,
+    "z_words": 1.3517
+  },
+  {
+    "id": "read-easy-017",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's coming up this semester?",
+    "z": 3.7305,
+    "p": 0.8659,
+    "z_words": 0.1325
+  },
+  {
+    "id": "read-easy-018",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Do I have anything on Friday?",
+    "z": 4.7439,
+    "p": 0.9147,
+    "z_words": 2.6873
+  },
+  {
+    "id": "read-easy-019",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What are my deadlines?",
+    "z": 3.7575,
+    "p": 0.8675,
+    "z_words": 0.1567
+  },
+  {
+    "id": "read-easy-020",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Can you show me uh how many assignments I have in this month?",
+    "z": 3.8228,
+    "p": 0.8712,
+    "z_words": 1.285
+  },
+  {
+    "id": "read-easy-021",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "So what do I have on um tomorrow?",
+    "z": 4.0706,
+    "p": 0.8845,
+    "z_words": 2.6083
+  },
+  {
+    "id": "read-easy-022",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "I need to know my assignments this month",
+    "z": 3.8415,
+    "p": 0.8722,
+    "z_words": 2.789
+  },
+  {
+    "id": "read-easy-023",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "Tell me what's my next class again",
+    "z": 3.6469,
+    "p": 0.861,
+    "z_words": 2.1862
+  },
+  {
+    "id": "read-easy-024",
+    "label": 1,
+    "difficulty": "easy",
+    "group": "read-easy",
+    "prompt": "What's on today, like, the whole day?",
+    "z": 3.6373,
+    "p": 0.8604,
+    "z_words": 0.2696
+  },
+  {
+    "id": "read-medium-000",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Am I free tomorrow afternoon?",
+    "z": 4.5554,
+    "p": 0.907,
+    "z_words": 0.384
+  },
+  {
+    "id": "read-medium-001",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Have I got anything before lunch today?",
+    "z": 4.7004,
+    "p": 0.913,
+    "z_words": 2.3672
+  },
+  {
+    "id": "read-medium-002",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "How much work have I got left on assignment one?",
+    "z": 4.1624,
+    "p": 0.8891,
+    "z_words": 2.7123
+  },
+  {
+    "id": "read-medium-003",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Is there anything I'm forgetting this week?",
+    "z": 4.015,
+    "p": 0.8816,
+    "z_words": 1.5813
+  },
+  {
+    "id": "read-medium-004",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "What's the busiest day this week?",
+    "z": 3.9057,
+    "p": 0.8758,
+    "z_words": 0.0498
+  },
+  {
+    "id": "read-medium-005",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "How many hours of study have I got left?",
+    "z": 3.8503,
+    "p": 0.8727,
+    "z_words": 0.2336
+  },
+  {
+    "id": "read-medium-006",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Anything urgent coming up?",
+    "z": 3.3945,
+    "p": 0.8452,
+    "z_words": -0.1186
+  },
+  {
+    "id": "read-medium-007",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Is my Thursday clear?",
+    "z": 4.0621,
+    "p": 0.884,
+    "z_words": 1.0564
+  },
+  {
+    "id": "read-medium-008",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "What room is my next class in?",
+    "z": 4.0598,
+    "p": 0.8839,
+    "z_words": 2.6292
+  },
+  {
+    "id": "read-medium-009",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Do I need to be anywhere in the next hour?",
+    "z": 4.7573,
+    "p": 0.9152,
+    "z_words": 1.8207
+  },
+  {
+    "id": "read-medium-010",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "How long until my next class?",
+    "z": 4.0119,
+    "p": 0.8814,
+    "z_words": 1.2607
+  },
+  {
+    "id": "read-medium-011",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Have I got time for lunch before my tutorial?",
+    "z": 4.6762,
+    "p": 0.912,
+    "z_words": 3.0193
+  },
+  {
+    "id": "read-medium-012",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "What did I have on yesterday?",
+    "z": 3.6283,
+    "p": 0.8599,
+    "z_words": 0.6575
+  },
+  {
+    "id": "read-medium-013",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Is assignment one finished yet?",
+    "z": 4.3826,
+    "p": 0.8995,
+    "z_words": 0.0553
+  },
+  {
+    "id": "read-medium-014",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Which course has the most work due?",
+    "z": 3.5639,
+    "p": 0.8559,
+    "z_words": -0.4705
+  },
+  {
+    "id": "read-medium-015",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "What's left to do before Friday?",
+    "z": 3.9476,
+    "p": 0.878,
+    "z_words": 0.4492
+  },
+  {
+    "id": "read-medium-016",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "Have I got two things on at once anywhere this week?",
+    "z": 4.329,
+    "p": 0.897,
+    "z_words": 3.6271
+  },
+  {
+    "id": "read-medium-017",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "read-medium",
+    "prompt": "When does my last class of the day finish?",
+    "z": 4.2109,
+    "p": 0.8914,
+    "z_words": 0.6682
+  },
+  {
+    "id": "read-hard-000",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Should I start working tonight?",
+    "z": 2.7758,
+    "p": 0.8003,
+    "z_words": -0.8684
+  },
+  {
+    "id": "read-hard-001",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Do I have time to watch a movie this evening?",
+    "z": 4.0353,
+    "p": 0.8826,
+    "z_words": 2.8875
+  },
+  {
+    "id": "read-hard-002",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Can I go to the gym at four?",
+    "z": 2.8087,
+    "p": 0.8029,
+    "z_words": -0.2639
+  },
+  {
+    "id": "read-hard-003",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Am I going to be busy this week?",
+    "z": 4.3119,
+    "p": 0.8962,
+    "z_words": 2.0844
+  },
+  {
+    "id": "read-hard-004",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Is it a good time to take a break?",
+    "z": 0.3782,
+    "p": 0.5471,
+    "z_words": 0.7964
+  },
+  {
+    "id": "read-hard-005",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Should I be worried about anything right now?",
+    "z": 1.9197,
+    "p": 0.7231,
+    "z_words": 0.6253
+  },
+  {
+    "id": "read-hard-006",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Can I sleep in tomorrow?",
+    "z": 2.9394,
+    "p": 0.813,
+    "z_words": -0.5
+  },
+  {
+    "id": "read-hard-007",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "How's my week looking?",
+    "z": 3.7406,
+    "p": 0.8665,
+    "z_words": 0.4594
+  },
+  {
+    "id": "read-hard-008",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Do I need to leave soon?",
+    "z": 3.1082,
+    "p": 0.8255,
+    "z_words": 0.2523
+  },
+  {
+    "id": "read-hard-009",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Is there anything I should be doing right now?",
+    "z": 3.3672,
+    "p": 0.8434,
+    "z_words": 1.4901
+  },
+  {
+    "id": "read-hard-010",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Can I take Saturday off?",
+    "z": 2.2378,
+    "p": 0.7538,
+    "z_words": -0.3717
+  },
+  {
+    "id": "read-hard-011",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "How far behind am I?",
+    "z": 3.0094,
+    "p": 0.8183,
+    "z_words": -1.378
+  },
+  {
+    "id": "read-hard-012",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Am I on track?",
+    "z": 3.4259,
+    "p": 0.8472,
+    "z_words": -0.2111
+  },
+  {
+    "id": "read-hard-013",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Is tonight going to be a late one?",
+    "z": 3.901,
+    "p": 0.8755,
+    "z_words": 0.9276
+  },
+  {
+    "id": "read-hard-014",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Have I got a spare couple of hours anywhere?",
+    "z": 3.9126,
+    "p": 0.8761,
+    "z_words": 0.7594
+  },
+  {
+    "id": "read-hard-015",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Would it be silly to go out on Thursday?",
+    "z": 1.1457,
+    "p": 0.6394,
+    "z_words": 0.9398
+  },
+  {
+    "id": "read-hard-016",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "read-hard",
+    "prompt": "Is there enough time left or should I panic?",
+    "z": 3.5318,
+    "p": 0.8539,
+    "z_words": -0.1242
+  },
+  {
+    "id": "write-000",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "Add a task to read chapter four by Friday",
+    "z": 3.343,
+    "p": 0.8418,
+    "z_words": 0.1692
+  },
+  {
+    "id": "write-001",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "Remind me to submit the lab report on Tuesday",
+    "z": 3.0712,
+    "p": 0.8228,
+    "z_words": 0.431
+  },
+  {
+    "id": "write-002",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "New assignment, data analysis, due next Monday, about six hours",
+    "z": 3.7908,
+    "p": 0.8694,
+    "z_words": 0.9513
+  },
+  {
+    "id": "write-003",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "Put down a task to finish the essay by the tenth",
+    "z": 2.5507,
+    "p": 0.7817,
+    "z_words": -0.2535
+  },
+  {
+    "id": "write-004",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "I need to add a reading task for next week",
+    "z": 1.8527,
+    "p": 0.7163,
+    "z_words": 1.4294
+  },
+  {
+    "id": "write-005",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "Can you note down that the quiz is on the twentieth",
+    "z": 2.1462,
+    "p": 0.7452,
+    "z_words": -1.4136
+  },
+  {
+    "id": "write-006",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "New task, revise lecture notes, due Thursday",
+    "z": 3.609,
+    "p": 0.8587,
+    "z_words": 0.0465
+  },
+  {
+    "id": "write-007",
+    "label": 1,
+    "difficulty": "medium",
+    "group": "write",
+    "prompt": "Save this, group presentation due in two weeks, ten hours",
+    "z": 3.6129,
+    "p": 0.8589,
+    "z_words": 0.155
+  },
+  {
+    "id": "clock-000",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "clock",
+    "prompt": "What time is it?",
+    "z": 0.8317,
+    "p": 0.6025,
+    "z_words": -0.3481
+  },
+  {
+    "id": "clock-001",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "clock",
+    "prompt": "What's today's date?",
+    "z": 1.2703,
+    "p": 0.6537,
+    "z_words": -0.5102
+  },
+  {
+    "id": "clock-002",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "clock",
+    "prompt": "What day is it today?",
+    "z": 1.6058,
+    "p": 0.6906,
+    "z_words": 1.1653
+  },
+  {
+    "id": "clock-003",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "clock",
+    "prompt": "Is it morning or afternoon?",
+    "z": 0.8262,
+    "p": 0.6018,
+    "z_words": -0.4073
+  },
+  {
+    "id": "clock-004",
+    "label": 1,
+    "difficulty": "hard",
+    "group": "clock",
+    "prompt": "What month are we in?",
+    "z": 0.569,
+    "p": 0.5706,
+    "z_words": -0.8599
+  },
+  {
+    "id": "social-000",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Hi",
+    "z": -3.7022,
+    "p": 0.1357,
+    "z_words": -0.8709
+  },
+  {
+    "id": "social-001",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Hey there",
+    "z": -4.4102,
+    "p": 0.0993,
+    "z_words": -1.0981
+  },
+  {
+    "id": "social-002",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Good morning",
+    "z": -3.1052,
+    "p": 0.1747,
+    "z_words": -1.1586
+  },
+  {
+    "id": "social-003",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "How are you?",
+    "z": -3.6595,
+    "p": 0.1383,
+    "z_words": -1.9044
+  },
+  {
+    "id": "social-004",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "How's it going?",
+    "z": -2.1548,
+    "p": 0.254,
+    "z_words": -0.8423
+  },
+  {
+    "id": "social-005",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Thanks",
+    "z": -4.2988,
+    "p": 0.1044,
+    "z_words": -0.8709
+  },
+  {
+    "id": "social-006",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Thank you so much",
+    "z": -4.4099,
+    "p": 0.0993,
+    "z_words": -1.5381
+  },
+  {
+    "id": "social-007",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "That's great",
+    "z": -3.4851,
+    "p": 0.149,
+    "z_words": -1.1755
+  },
+  {
+    "id": "social-008",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Cool",
+    "z": -4.1262,
+    "p": 0.1127,
+    "z_words": -0.9212
+  },
+  {
+    "id": "social-009",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Never mind",
+    "z": -3.5256,
+    "p": 0.1464,
+    "z_words": -0.9212
+  },
+  {
+    "id": "social-010",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Goodbye",
+    "z": -4.0013,
+    "p": 0.1191,
+    "z_words": -1.0363
+  },
+  {
+    "id": "social-011",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "See you later",
+    "z": -2.7162,
+    "p": 0.2045,
+    "z_words": -1.6824
+  },
+  {
+    "id": "social-012",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Nice one",
+    "z": -4.5305,
+    "p": 0.094,
+    "z_words": -0.5658
+  },
+  {
+    "id": "social-013",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Sorry, what?",
+    "z": -2.1696,
+    "p": 0.2526,
+    "z_words": -0.7258
+  },
+  {
+    "id": "social-014",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "You're a legend",
+    "z": -5.1745,
+    "p": 0.07,
+    "z_words": -1.6579
+  },
+  {
+    "id": "social-015",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Ha, fair enough",
+    "z": -3.1692,
+    "p": 0.1701,
+    "z_words": -0.8154
+  },
+  {
+    "id": "social-016",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "I'm pretty tired today",
+    "z": -2.4277,
+    "p": 0.229,
+    "z_words": -0.5239
+  },
+  {
+    "id": "social-017",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "It's freezing in here",
+    "z": -2.8428,
+    "p": 0.1944,
+    "z_words": -1.0078
+  },
+  {
+    "id": "social-018",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "I had a good weekend",
+    "z": -3.4239,
+    "p": 0.1529,
+    "z_words": -1.0865
+  },
+  {
+    "id": "social-019",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "This weather is miserable",
+    "z": -3.7537,
+    "p": 0.1328,
+    "z_words": 0.4154
+  },
+  {
+    "id": "social-020",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "I'm a bit stressed out",
+    "z": -2.3816,
+    "p": 0.2331,
+    "z_words": -1.0762
+  },
+  {
+    "id": "social-021",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "social",
+    "prompt": "Talk to me for a sec",
+    "z": -3.3575,
+    "p": 0.1573,
+    "z_words": -0.2171
+  },
+  {
+    "id": "knowledge-000",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the capital of Australia?",
+    "z": -3.3817,
+    "p": 0.1557,
+    "z_words": -1.2589
+  },
+  {
+    "id": "knowledge-001",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "Who wrote Hamlet?",
+    "z": -3.2242,
+    "p": 0.1663,
+    "z_words": -0.9883
+  },
+  {
+    "id": "knowledge-002",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's twelve plus seven?",
+    "z": -2.3625,
+    "p": 0.2348,
+    "z_words": -0.8611
+  },
+  {
+    "id": "knowledge-003",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "How many days are in February in a leap year?",
+    "z": -2.7234,
+    "p": 0.204,
+    "z_words": -2.0914
+  },
+  {
+    "id": "knowledge-004",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the boiling point of water in Celsius?",
+    "z": -3.8981,
+    "p": 0.1247,
+    "z_words": -1.2303
+  },
+  {
+    "id": "knowledge-005",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "Why is the sky blue?",
+    "z": -3.8704,
+    "p": 0.1262,
+    "z_words": -0.6008
+  },
+  {
+    "id": "knowledge-006",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What language do they speak in Brazil?",
+    "z": -3.5542,
+    "p": 0.1447,
+    "z_words": -0.7971
+  },
+  {
+    "id": "knowledge-007",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "How many continents are there?",
+    "z": -3.2806,
+    "p": 0.1624,
+    "z_words": -1.8873
+  },
+  {
+    "id": "knowledge-008",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the largest planet in the solar system?",
+    "z": -3.3672,
+    "p": 0.1566,
+    "z_words": -1.1396
+  },
+  {
+    "id": "knowledge-009",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "Who painted the Mona Lisa?",
+    "z": -3.2909,
+    "p": 0.1617,
+    "z_words": -0.9249
+  },
+  {
+    "id": "knowledge-010",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What does CPU stand for?",
+    "z": -4.3463,
+    "p": 0.1022,
+    "z_words": -1.5553
+  },
+  {
+    "id": "knowledge-011",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "How many minutes are there in a day?",
+    "z": -2.1213,
+    "p": 0.2572,
+    "z_words": -1.0955
+  },
+  {
+    "id": "knowledge-012",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the square root of one hundred and forty four?",
+    "z": -2.9566,
+    "p": 0.1857,
+    "z_words": -0.9394
+  },
+  {
+    "id": "knowledge-013",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's photosynthesis?",
+    "z": -3.7605,
+    "p": 0.1324,
+    "z_words": -0.7258
+  },
+  {
+    "id": "knowledge-014",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the tallest mountain in the world?",
+    "z": -2.9856,
+    "p": 0.1835,
+    "z_words": -1.7345
+  },
+  {
+    "id": "knowledge-015",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "How many sides does a hexagon have?",
+    "z": -3.4763,
+    "p": 0.1496,
+    "z_words": -0.0434
+  },
+  {
+    "id": "knowledge-016",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What year did the Second World War end?",
+    "z": -2.7712,
+    "p": 0.2001,
+    "z_words": -0.9725
+  },
+  {
+    "id": "knowledge-017",
+    "label": 0,
+    "difficulty": "medium",
+    "group": "knowledge",
+    "prompt": "What's the chemical symbol for gold?",
+    "z": -3.7329,
+    "p": 0.134,
+    "z_words": -1.334
+  },
+  {
+    "id": "general-hard-000",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How many weeks is a typical university semester?",
+    "z": -2.8585,
+    "p": 0.1932,
+    "z_words": -0.6002
+  },
+  {
+    "id": "general-hard-001",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What time zone is Canberra in?",
+    "z": -2.4374,
+    "p": 0.2282,
+    "z_words": 0.0725
+  },
+  {
+    "id": "general-hard-002",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What does ENGN stand for?",
+    "z": -2.8685,
+    "p": 0.1924,
+    "z_words": -1.57
+  },
+  {
+    "id": "general-hard-003",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How long should I spend on a two thousand word essay?",
+    "z": -2.3624,
+    "p": 0.2348,
+    "z_words": -0.9614
+  },
+  {
+    "id": "general-hard-004",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What's a good way to manage deadlines?",
+    "z": -3.3048,
+    "p": 0.1608,
+    "z_words": -0.3506
+  },
+  {
+    "id": "general-hard-005",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How many hours a week should a full time student study?",
+    "z": -3.0203,
+    "p": 0.1809,
+    "z_words": -0.5155
+  },
+  {
+    "id": "general-hard-006",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "When do most Australian universities start semester two?",
+    "z": -2.4789,
+    "p": 0.2245,
+    "z_words": -0.0091
+  },
+  {
+    "id": "general-hard-007",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "Is it better to study in the morning or at night?",
+    "z": -1.8039,
+    "p": 0.2887,
+    "z_words": 0.919
+  },
+  {
+    "id": "general-hard-008",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How do I stop procrastinating on assignments?",
+    "z": -2.2042,
+    "p": 0.2493,
+    "z_words": 0.1276
+  },
+  {
+    "id": "general-hard-009",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What's the difference between a lecture and a tutorial?",
+    "z": -3.141,
+    "p": 0.1721,
+    "z_words": -1.0271
+  },
+  {
+    "id": "general-hard-010",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How many units is a normal course load?",
+    "z": -2.833,
+    "p": 0.1952,
+    "z_words": -0.6747
+  },
+  {
+    "id": "general-hard-011",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What's the best way to plan out a week?",
+    "z": -1.5178,
+    "p": 0.3189,
+    "z_words": -0.3457
+  },
+  {
+    "id": "general-hard-012",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "Do universities usually run classes on Fridays?",
+    "z": -2.5698,
+    "p": 0.2167,
+    "z_words": 0.1016
+  },
+  {
+    "id": "general-hard-013",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How long is a typical lecture?",
+    "z": -2.5526,
+    "p": 0.2182,
+    "z_words": -0.4934
+  },
+  {
+    "id": "general-hard-014",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What does it mean when an assignment is worth thirty percent?",
+    "z": -3.6935,
+    "p": 0.1363,
+    "z_words": -0.039
+  },
+  {
+    "id": "general-hard-015",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "Any tips for writing a good report?",
+    "z": -3.9827,
+    "p": 0.1201,
+    "z_words": -1.0468
+  },
+  {
+    "id": "general-hard-016",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "Is it normal to feel behind at university?",
+    "z": -3.3314,
+    "p": 0.159,
+    "z_words": 0.8663
+  },
+  {
+    "id": "general-hard-017",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What's the Pomodoro technique?",
+    "z": -4.0956,
+    "p": 0.1143,
+    "z_words": -1.4897
+  },
+  {
+    "id": "general-hard-018",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "How early should you start on a big assignment?",
+    "z": -2.3322,
+    "p": 0.2376,
+    "z_words": -0.4991
+  },
+  {
+    "id": "general-hard-019",
+    "label": 0,
+    "difficulty": "hard",
+    "group": "general-hard",
+    "prompt": "What's a reasonable number of contact hours?",
+    "z": -1.824,
+    "p": 0.2866,
+    "z_words": -0.4057
+  },
+  {
+    "id": "about-self-000",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "What can you do?",
+    "z": -2.1732,
+    "p": 0.2523,
+    "z_words": -0.9783
+  },
+  {
+    "id": "about-self-001",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Can you hear me?",
+    "z": -2.3375,
+    "p": 0.2371,
+    "z_words": -1.2678
+  },
+  {
+    "id": "about-self-002",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Are you there?",
+    "z": -1.8748,
+    "p": 0.2814,
+    "z_words": -1.9212
+  },
+  {
+    "id": "about-self-003",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "What's your name?",
+    "z": -1.8698,
+    "p": 0.2819,
+    "z_words": -0.8143
+  },
+  {
+    "id": "about-self-004",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Repeat that",
+    "z": -3.2662,
+    "p": 0.1634,
+    "z_words": -1.2882
+  },
+  {
+    "id": "about-self-005",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Say that again",
+    "z": -3.1729,
+    "p": 0.1699,
+    "z_words": -1.4804
+  },
+  {
+    "id": "about-self-006",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Can you speak up a bit?",
+    "z": -1.9872,
+    "p": 0.2702,
+    "z_words": -1.0508
+  },
+  {
+    "id": "about-self-007",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Are you an AI?",
+    "z": -3.4925,
+    "p": 0.1485,
+    "z_words": -1.788
+  },
+  {
+    "id": "about-self-008",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "How do I stop you listening?",
+    "z": -1.791,
+    "p": 0.29,
+    "z_words": -1.6683
+  },
+  {
+    "id": "about-self-009",
+    "label": 0,
+    "difficulty": "easy",
+    "group": "about-self",
+    "prompt": "Say that more slowly",
+    "z": -3.3613,
+    "p": 0.157,
+    "z_words": -1.5445
+  }
+]

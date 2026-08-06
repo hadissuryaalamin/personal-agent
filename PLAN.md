@@ -83,8 +83,7 @@ in the working tree with **no commit behind them**.
    research pipeline, the services, the tray, the docs.
 2. Tag it `v1`.
 3. Fix `requirements-probe.txt`: its header tells you to install
-   `probe\requirements.txt`, which does not exist. `probe/` holds one stale
-   `data/oof.json` and should go.
+   `probe\requirements.txt`, which does not exist.
 4. Add the four keys `config.py` reads but `.env.example` never mentions:
    `HF_SERVICE_URL`, `HF_MODEL`, `PREFILL_HARD`, `PREFILL_SOFT`.
 

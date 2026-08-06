@@ -195,9 +195,13 @@ ARCHITECTURE.md against what v2 actually is. ARCHITECTURE's module map is
 already stale — it still lists `main.py` at 672 lines and knows nothing of the
 tray, the probe, or the services.
 
-**Done when** `offline_check` runs 7/7 with **zero outbound connection
+**Done when** `offline_check` runs 4/4 with **zero outbound connection
 attempts** under a blocked-socket test, and no document names a file that does
 not exist.
+
+The script has four steps, not seven. The "7/7" in README and ARCHITECTURE
+refers to a separate blocked-socket run of the whole voice chain and should
+say so; it reads as the script's own step count and is not.
 
 ---
 

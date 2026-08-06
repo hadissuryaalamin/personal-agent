@@ -64,7 +64,7 @@ Write-Host "=== install-startup ===" -ForegroundColor Cyan
 Write-Host "Repo   : $RepoRoot"
 Write-Host "Python : $PythonW"
 
-$action = New-ScheduledTaskAction -Execute $PythonW -Argument "-m agent.main" -WorkingDirectory $RepoRoot
+$action = New-ScheduledTaskAction -Execute $PythonW -Argument "-m src.agent" -WorkingDirectory $RepoRoot
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $principal = New-ScheduledTaskPrincipal `
     -UserId "$env:USERDOMAIN\$env:USERNAME" `

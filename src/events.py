@@ -350,7 +350,7 @@ def effort_label(e: dict) -> str:
 
 
 def agenda(days: int = 14) -> str:
-    """Human-readable listing, for `python -m agent.events`."""
+    """Human-readable listing, for `python -m src.tools`."""
     start = today()
     end = start + timedelta(days=days)
     items = between(start, end)
@@ -396,103 +396,53 @@ def agenda(days: int = 14) -> str:
     return "\n".join(out)
 
 
-def _cli() -> int:
-    """Read and edit the store from a terminal.
+# Everything arrives through Parakeet, which writes numbers as words. The
+# store writes them as digits, because that is how a timetable import spells
+# them. So "I've finished assignment one" found nothing while "Assignment 1"
+# sat right there -- measured, not imagined.
+_NUMBER_WORDS = {
+    "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+    "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+    "eleven": "11", "twelve": "12", "first": "1", "second": "2", "third": "3",
+    "fourth": "4", "fifth": "5",
+}
 
-    Exists so the store is usable before anything is wired into the voice
-    agent — and so there is always a way in that does not depend on the
-    microphone, the models, or Ollama being up.
+
+def _normalise(text: str) -> str:
+    words = re.split(r"(\W+)", (text or "").lower())
+    return "".join(_NUMBER_WORDS.get(w, w) for w in words)
+
+
+def find(needle: str) -> list[dict]:
+    """Entries whose id or title contains `needle`, case-insensitively.
+
+    Returns every match rather than picking one. Both doors resolve a fragment
+    through here, and ambiguity has to reach the caller intact -- guessing
+    which "assignment" was meant is how the wrong entry gets deleted.
+
+    Matched twice: once literally, once with number words turned into digits.
+    The second pass is what makes a spoken "assignment one" reach a stored
+    "Assignment 1".
     """
-    import argparse
+    needle = (needle or "").strip().lower()
+    if not needle:
+        return []
+    norm = _normalise(needle)
 
-    ap = argparse.ArgumentParser(prog="python -m agent.events")
-    sub = ap.add_subparsers(dest="cmd")
-
-    p_list = sub.add_parser("list", help="show the agenda (default)")
-    p_list.add_argument("days", nargs="?", type=int, default=14)
-
-    p_add = sub.add_parser("add", help="add a task, reminder, or class")
-    p_add.add_argument("kind", choices=KINDS)
-    p_add.add_argument("title")
-    p_add.add_argument("start", help="YYYY-MM-DD or YYYY-MM-DDTHH:MM")
-    p_add.add_argument("--end", default="")
-    p_add.add_argument("--course", default="")
-    p_add.add_argument("--session", default="")
-    p_add.add_argument("--location", default="")
-    p_add.add_argument("--hours", type=float, default=0, help="estimated effort")
-    p_add.add_argument("--notes", default="")
-
-    p_log = sub.add_parser("log", help="record hours worked on a task")
-    p_log.add_argument("id_part", help="any distinctive part of the id or title")
-    p_log.add_argument("hours", type=float, help="negative to correct a mis-log")
-
-    p_done = sub.add_parser("done", help="mark a task or reminder finished")
-    p_done.add_argument("id_part", help="any distinctive part of the id or title")
-
-    p_rm = sub.add_parser("rm", help="delete an entry")
-    p_rm.add_argument("id_part")
-
-    args = ap.parse_args()
-    cmd = args.cmd or "list"
-
-    if cmd == "add":
-        e = add(
-            args.kind, args.title, args.start, end=args.end, course=args.course,
-            session=args.session, location=args.location,
-            estimate_hours=args.hours, notes=args.notes,
-        )
-        print(f"added: {e['id']}\n  {one_line(e)}")
-        return 0
-
-    if cmd in ("log", "done", "rm"):
-        # Match on a fragment so you never have to type a full id. Ambiguity is
-        # reported rather than resolved by guessing — picking the wrong entry
-        # here deletes the wrong thing.
-        needle = args.id_part.lower()
-        hits = [
-            e for e in load()
-            if needle in e.get("id", "").lower() or needle in e.get("title", "").lower()
-        ]
-        if not hits:
-            print(f"nothing matches {args.id_part!r}")
-            return 1
-        if len(hits) > 1:
-            print(f"{len(hits)} entries match {args.id_part!r} — be more specific:")
-            for e in hits[:10]:
-                print(f"  {e['id']}")
-            return 1
-        e = hits[0]
-        if cmd == "log":
-            updated = log_hours(e["id"], args.hours)
-            print(f"{updated['title']}: {effort_label(updated)}")
-            left = remaining(updated)
-            if left is not None and left <= 0:
-                print("  (estimate used up — mark it done when it really is:")
-                print(f"   python -m agent.events done \"{updated['title']}\")")
-        elif cmd == "done":
-            mark_done(e["id"])
-            print(f"done: {e['title']}")
-        else:
-            remove(e["id"])
-            print(f"removed: {e['title']}")
-        return 0
-
-    items = load()
-    counts = {k: sum(1 for e in items if e.get("kind") == k) for k in KINDS}
-    print(f"\n{path()}  —  {len(items)} entries "
-          f"({', '.join(f'{v} {k}' for k, v in counts.items())})\n")
-    print(agenda(args.days))
-    return 0
+    hits = []
+    for e in load():
+        hay = f"{e.get('id', '')} {e.get('title', '')}".lower()
+        if needle in hay or norm in _normalise(hay):
+            hits.append(e)
+    return hits
 
 
 if __name__ == "__main__":
-    #   python -m agent.events                                    # next 14 days
-    #   python -m agent.events list 60                            # next 60 days
-    #   python -m agent.events add task "Assignment 1" 2026-08-14 --course ENGN4122 --hours 8
-    #   python -m agent.events add reminder "Pay rego" 2026-08-19T09:00
-    #   python -m agent.events log "Assignment 1" 3     # worked 3 hours
-    #   python -m agent.events log "Assignment 1" -1    # correct a mis-log
-    #   python -m agent.events done "Assignment 1"
-    #   python -m agent.events rm "Pay rego"
-    logging.basicConfig(level=logging.WARNING)
-    raise SystemExit(_cli())
+    print("The store has no command line of its own -- the tools do:")
+    print()
+    print("    python -m src.tools                 list everything")
+    print("    python -m src.tools add task \"Assignment 1\" 2026-08-14 --course ENGN4122")
+    print("    python -m src.tools log \"Assignment 1\" 3")
+    print("    python -m src.tools done \"Assignment 1\"")
+    print()
+    print(f"file: {path()}")

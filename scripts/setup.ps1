@@ -88,7 +88,7 @@ if (-not (Test-Path $Python)) {
     Write-Host "  venv not found at $Python — skipping." -ForegroundColor Yellow
 } else {
     Write-Host "  loading once so it gets cached (~660 MB if not present)..."
-    & $Python -c "import onnx_asr, agent.config as c; onnx_asr.load_model(c.STT_MODEL); print('  ok, Parakeet ready.')"
+    & $Python -c "import onnx_asr, src.config as c; onnx_asr.load_model(c.STT_MODEL); print('  ok, Parakeet ready.')"
     if ($LASTEXITCODE -ne 0) { throw "failed to prepare Parakeet (exit $LASTEXITCODE)" }
 }
 
@@ -113,5 +113,5 @@ if (-not $Piper) {
 }
 
 Write-Host "`nSetup complete." -ForegroundColor Cyan
-Write-Host "Check offline readiness:  .\.venv-agent\Scripts\python.exe -m agent.offline_check"
-Write-Host "Run the agent:            .\.venv-agent\Scripts\python.exe -m agent.main"
+Write-Host "Check offline readiness:  .\.venv-agent\Scripts\python.exe -m src.offline_check"
+Write-Host "Run the agent:            .\.venv-agent\Scripts\python.exe -m src.agent"

@@ -14,6 +14,10 @@ dependencies = [
     "keyboard>=0.13.5",
     "pynput>=1.7.6",
     "anthropic>=0.40",
+    # Tray icon. Optional at runtime — src/tray.py no-ops without them, so an
+    # install that skips these still gets a working agent, just an invisible one.
+    "pystray>=0.19",
+    "pillow>=10",
 ]
 
 [project.optional-dependencies]
@@ -24,11 +28,11 @@ gpu = [
 ]
 
 [project.scripts]
-personal-agent = "agent.main:main"
+personal-agent = "src.agent:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["agent"]
+packages = ["src"]

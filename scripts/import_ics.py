@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent import events  # noqa: E402
+from src import events  # noqa: E402
 
 # ANU session codes, as they appear at the end of a SUMMARY: "..., LecA"
 SESSIONS = {

@@ -52,7 +52,12 @@ CLAUDE_MAX_TOKENS = int(os.getenv("CLAUDE_MAX_TOKENS", "1024"))
 CLAUDE_TIMEOUT = float(os.getenv("CLAUDE_TIMEOUT", "60"))
 
 # --- Ollama ---
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+# 127.0.0.1, never "localhost". Windows resolves localhost to ::1 first and
+# Ollama listens on IPv4 only, so every single request pays the IPv6 connection
+# timeout before falling back. Measured on this machine: 2819 ms per call
+# against 764 ms, while Ollama's own reported work was 765 ms either way.
+# Two seconds of pure waiting on every turn of a voice assistant.
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_CHAT_URL = f"{OLLAMA_URL}/api/chat"
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
@@ -70,7 +75,7 @@ LANGUAGE = os.getenv("LANGUAGE", "en").lower()
 
 # --- Tools ---
 # Let the model ask for real data instead of answering from memory. It returns
-# a request; agent/tools.py runs it. Measured on qwen2.5:7b: 5/5 questions that
+# a request; src/tools.py runs it. Measured on qwen2.5:7b: 5/5 questions that
 # should call a tool did, 4/4 that should not stayed away.
 TOOLS_ENABLED = os.getenv("TOOLS_ENABLED", "true").lower() in ("1", "true", "yes")
 # A turn may need several rounds — read the schedule, then save something based
@@ -193,6 +198,48 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 SAVE_RECORDINGS = os.getenv("SAVE_RECORDINGS", "false").lower() in ("1", "true", "yes")
 RECORDINGS_DIR = _path(os.getenv("RECORDINGS_DIR", "logs/rec"))
 
+# --- All-HF backend (LLM_BACKEND=hf) ---
+# Qwen3-4B answers as well as probes, through src/hf_service.py, and Ollama is
+# not involved at all. One model in VRAM instead of two, and the probe reads
+# the forward pass the answer needed anyway rather than paying for its own.
+# Measured over the 132 hard tasks: 98% routing at 1508 ms a turn, against
+# Ollama's 69% at 1451 ms.
+HF_SERVICE_URL = os.getenv("HF_SERVICE_URL", "http://127.0.0.1:11501").rstrip("/")
+HF_CHAT_URL = f"{HF_SERVICE_URL}/api/chat"
+HF_MODEL = os.getenv("HF_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
+
+# --- Probe and prefill (PROBE&PREFILL) ---
+# A linear probe reads Qwen3-4B's hidden state before generation and decides
+# whether this question needs a tool; when it says yes, the assistant turn is
+# prefilled with the opening of a tool call so the model cannot answer with
+# "let me check your schedule" and then stop.
+#
+# Measured on the 132 hard tasks: routing 69% -> 100%, prose bugs 34 -> 0.
+# Costs one call to src/probe_service.py, ~80 ms, plus 3.6 GB of VRAM held by
+# that service. If it is not running the agent behaves exactly as before.
+PROBE_ENABLED = os.getenv("PROBE_ENABLED", "true").lower() in ("1", "true", "yes")
+PROBE_URL = os.getenv("PROBE_URL", "http://127.0.0.1:11500").rstrip("/")
+PROBE_TIMEOUT = float(os.getenv("PROBE_TIMEOUT", "5"))
+# p >= tau means "needs a tool". 0.5 is the classifier's own boundary (z = 0),
+# not a tuned value -- the sweep over train.json picked it out of 0.1-0.9.
+PROBE_TAU = float(os.getenv("PROBE_TAU", "0.5"))
+# Qwen wraps tool calls in a tag, so the paper's `{"name":` would open a JSON
+# object inside a tag the model writes first. Checked against the template.
+PREFILL_HARD = os.getenv("PREFILL_HARD", '<tool_call>\n{"name":')
+# The other half. When the probe says no tool is needed, the model is still
+# free to announce that it will check the schedule and then stop — measured
+# live on "I'm so done with this week", which burned four stall retries and
+# ended in "Sorry, I couldn't read your schedule just then." This opens the
+# turn with a commitment to answer instead. It is never spoken: the sentence
+# is ours, and only the continuation is read aloud.
+PREFILL_SOFT = os.getenv(
+    "PREFILL_SOFT", "I can answer this directly, without checking the schedule.")
+
+# --- Tray icon ---
+# The agent starts under pythonw with no console, so a dot in the notification
+# area is the only sign it is alive. Off makes it fully invisible again.
+TRAY_ENABLED = os.getenv("TRAY_ENABLED", "true").lower() in ("1", "true", "yes")
+
 # --- Conversation ---
 # Messages (excluding the system prompt) carried into each request.
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "20"))
@@ -237,10 +284,13 @@ is next or coming up.
 If a tool returns nothing for the range asked, say there is nothing in that
 range. Do not fall back to guessing.
 
+Deleting cannot be undone. Before removing anything, say which entry you mean
+and wait for them to agree. If they only finished it, mark it done instead.
+
 NEVER claim to have done something you did not do. If you have no tool for what
-was asked — changing or deleting an entry, sending something, looking something
-up online — say plainly that you can't do it. Don't say "done" or "I've updated
-it" unless a tool actually did it in this conversation.
+was asked — moving an entry to another day, sending something, looking
+something up online — say plainly that you can't do it. Don't say "done" or
+"I've updated it" unless a tool actually did it in this conversation.
 
 A wrong answer still gets caught when the user checks. A false claim of having
 acted makes them stop checking, which is worse.

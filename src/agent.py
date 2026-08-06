@@ -11,7 +11,7 @@ import threading
 import time
 from typing import Callable
 
-from . import audio, config, llm, stt, tts, vad
+from . import audio, config, llm, stt, tray, tts, vad
 from . import text as text_utils
 
 log = logging.getLogger("agent")
@@ -353,6 +353,15 @@ def make_backend(on_activate):
 # command must not hinge on a model's guess.
 def handle_utterance(is_recording: Callable[[], bool]) -> None:
     """One turn: record -> transcribe -> LLM -> speak."""
+    try:
+        _handle_utterance(is_recording)
+    finally:
+        # Whatever happened, the icon goes back to idle. A tray stuck on
+        # "listening" after a failed turn would be a worse lie than no tray.
+        tray.state("idle")
+
+
+def _handle_utterance(is_recording: Callable[[], bool]) -> None:
     # 0. If the model has been released, start loading it NOW — in parallel
     #    with the user speaking. The time they spend talking (typically 3-5 s)
     #    is spent loading instead of idling. get_model() has its own lock, so
@@ -361,6 +370,7 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         threading.Thread(target=stt.warmup, name="preload", daemon=True).start()
 
     # 1. Record
+    tray.state("recording")
     try:
         # the beep plays from inside, once the mic is genuinely ready
         clip = audio.record_until_release(
@@ -380,6 +390,7 @@ def handle_utterance(is_recording: Callable[[], bool]) -> None:
         return
 
     # 2. STT
+    tray.state("thinking")
     # Loading can take 10-35 s from a cold disk cache. With no word at all,
     # that silence is indistinguishable from a dead agent — the user presses
     # again and gets more confused. TTS is already warm, so this speaks instantly.
@@ -426,6 +437,10 @@ def _speak_streaming(text: str) -> None:
     try:
         for sentence in conv.chat_stream(text):
             sp.add(tts.speak(sentence))
+            if not spoke_any:
+                # Only on the first sentence: the icon should flip when sound
+                # actually starts, not when the model starts writing.
+                tray.state("speaking")
             spoke_any = True
         sp.finish()
     except Exception:
@@ -655,7 +670,14 @@ def main() -> int:
         log.exception("settings clash with OFFLINE_MODE, agent not starting")
         return 2
 
+    # Before warmup, not after: warmup can take 35 s from a cold disk cache,
+    # and "is it loading or is it dead?" is exactly the question the icon
+    # exists to answer.
+    tray.start()
+    tray.state("starting")
     warmup()
+    tray.state("idle")
+
     # Session mode changes the whole interaction style, not just a setting:
     # the hotkey opens a session instead of being a record button.
     backend = make_backend(handle_session if config.SESSION_MODE else handle_utterance)
@@ -670,6 +692,8 @@ def main() -> int:
     except Exception:
         log.exception("hotkey listener died")
         return 1
+    finally:
+        tray.stop()
     return 0
 
 

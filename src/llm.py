@@ -104,6 +104,7 @@ class _BaseConversation:
     def __init__(self, system_prompt: str | None = None) -> None:
         self.base_prompt = system_prompt or config.SYSTEM_PROMPT
         self.messages: list[dict] = []
+        self._soft_prefill = ""   # one turn only; see _payload
 
     @property
     def system_prompt(self) -> str:
@@ -123,6 +124,7 @@ class _BaseConversation:
 
     def reset(self) -> None:
         self.messages = []
+        self._soft_prefill = ""
 
     def _trim(self) -> None:
         limit = config.MAX_HISTORY_MESSAGES
@@ -146,6 +148,10 @@ class OllamaConversation(_BaseConversation):
 
     name = "ollama"
 
+    @property
+    def chat_url(self) -> str:
+        return config.OLLAMA_CHAT_URL
+
     def _payload(self, stream: bool, with_tools: bool = True) -> dict:
         body = {
             "model": config.OLLAMA_MODEL,
@@ -160,6 +166,14 @@ class OllamaConversation(_BaseConversation):
         }
         if with_tools and tools.enabled():
             body["tools"] = tools.SCHEMA
+        # Set by the probe round when it judged no tool is needed. A trailing
+        # assistant message is how Ollama is told to continue rather than to
+        # start; it is cleared after one use so it cannot leak into the next
+        # turn, or into the rounds that follow a tool call.
+        soft = getattr(self, "_soft_prefill", "")
+        if soft:
+            body["messages"] = body["messages"] + [
+                {"role": "assistant", "content": soft}]
         return body
 
     def _run_tools(self, calls: list[dict]) -> None:
@@ -179,7 +193,7 @@ class OllamaConversation(_BaseConversation):
         import requests
 
         resp = requests.post(
-            config.OLLAMA_CHAT_URL,
+            self.chat_url,
             json=self._payload(stream=stream),
             timeout=config.OLLAMA_TIMEOUT,
         )
@@ -233,7 +247,7 @@ class OllamaConversation(_BaseConversation):
         full: list[str] = []
 
         with requests.post(
-            config.OLLAMA_CHAT_URL,
+            self.chat_url,
             json=self._payload(stream=True),
             timeout=config.OLLAMA_TIMEOUT,
             stream=True,
@@ -271,6 +285,73 @@ class OllamaConversation(_BaseConversation):
         self._last_calls = calls
         self._last_text = "".join(full).strip()
 
+    def _prefill_tool_round(self, question: str) -> bool:
+        """Ask the probe, and if it says this needs a tool, force the format.
+
+        Prompting alone was measured at 32% on the hard questions that need a
+        tool: two thirds were answered from a guess, and twenty announced
+        "let me check your schedule" and then stopped. The system prompt
+        forbids that sentence in as many words and it happened anyway, which is
+        the limit of telling a model what to do.
+
+        So when the probe is confident, the assistant turn is opened FOR it,
+        with the first characters of a tool call. There is no longer a way to
+        begin with a sentence. Measured on the same questions: 100%.
+
+        Returns whether a tool actually ran. False means the normal streamed
+        path should proceed untouched.
+        """
+        import json as _json
+
+        import requests
+
+        from . import probe_service
+
+        # Cleared first, not last: if the service goes down mid-session, ask()
+        # returns None and an early return would leave the previous turn's
+        # prefill sitting in the payload.
+        self._soft_prefill = ""
+
+        p = probe_service.ask(question, config.PROBE_URL, config.PROBE_TIMEOUT)
+        if p is None:
+            return False
+        if p < config.PROBE_TAU:
+            # Soft prefill. Not forced structure -- a first sentence, which the
+            # model then continues. It is dropped before speaking: the words
+            # are ours, not an answer, and _stream_once only ever sees the
+            # continuation because Ollama returns just that.
+            log.info("probe p=%.2f < %.2f, answering directly", p, config.PROBE_TAU)
+            self._soft_prefill = config.PREFILL_SOFT
+            return False
+        self._soft_prefill = ""
+
+        # Not streamed: what comes back is JSON, not something to speak.
+        body = self._payload(stream=False)
+        body["messages"] = body["messages"] + [
+            {"role": "assistant", "content": config.PREFILL_HARD}
+        ]
+        resp = requests.post(self.chat_url, json=body,
+                             timeout=config.OLLAMA_TIMEOUT)
+        resp.raise_for_status()
+        msg = resp.json().get("message") or {}
+
+        # Ollama does not parse the continuation into `tool_calls`, because the
+        # opening tag came from us rather than from the model. So read it here.
+        raw = config.PREFILL_HARD + (msg.get("content") or "")
+        start = raw.find("{")
+        try:
+            obj, _ = _json.JSONDecoder().raw_decode(raw[start:])
+            name = obj["name"]
+            args = obj.get("arguments", {})
+        except Exception:
+            log.warning("probe said tool (p=%.2f) but the prefilled reply did "
+                        "not parse: %r", p, raw[:120])
+            return False
+
+        log.info("probe p=%.2f -> prefilled %s(%s)", p, name, args)
+        self._run_tools([{"function": {"name": name, "arguments": args}}])
+        return True
+
     def chat_stream(self, text: str):
         """Yield each sentence as soon as it lands, without waiting for the
         whole paragraph.
@@ -284,6 +365,16 @@ class OllamaConversation(_BaseConversation):
         spoken: list[str] = []
 
         try:
+            if config.PROBE_ENABLED and tools.enabled():
+                # Runs before the first streamed round, so by the time the
+                # model speaks, the tool result is already in the context and
+                # it has something true to say.
+                try:
+                    self._prefill_tool_round(text)
+                except Exception:
+                    # A research component may not take the assistant down.
+                    log.exception("probe/prefill round failed, carrying on "
+                                  "without it")
             for attempt in range(config.TOOL_MAX_ROUNDS + 1):
                 held: list[str] = []
                 suspect = False
@@ -417,10 +508,40 @@ class ClaudeConversation(_BaseConversation):
 _conversation: _BaseConversation | None = None
 
 
+class HFConversation(OllamaConversation):
+    """Qwen3-4B through src/hf_service.py, with no Ollama anywhere.
+
+    Subclasses the Ollama backend rather than reimplementing it, because the
+    service answers in Ollama's dialect on purpose: same endpoint shape, same
+    newline-delimited JSON, same `message.tool_calls`. Streaming, the tool
+    loop and the stall guard are all inherited unchanged.
+
+    The probe is not called from here. It lives inside the service, reading
+    the same forward pass that produces the answer -- so unlike the Ollama
+    path, it costs no extra pass and `_prefill_tool_round` is not used.
+    """
+
+    name = "hf"
+
+    @property
+    def chat_url(self) -> str:
+        return config.HF_CHAT_URL
+
+    def _prefill_tool_round(self, question: str) -> bool:
+        return False    # the service probes and prefills on its own
+
+    def _payload(self, stream: bool, with_tools: bool = True) -> dict:
+        body = super()._payload(stream, with_tools)
+        body["model"] = config.HF_MODEL
+        return body
+
+
 def get_conversation() -> _BaseConversation:
     global _conversation
     if _conversation is None:
-        if config.LLM_BACKEND == "ollama":
+        if config.LLM_BACKEND == "hf":
+            _conversation = HFConversation()
+        elif config.LLM_BACKEND == "ollama":
             _conversation = OllamaConversation()
         elif config.LLM_BACKEND == "claude":
             _conversation = ClaudeConversation()

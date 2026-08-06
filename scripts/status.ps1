@@ -25,7 +25,7 @@ Write-Host "`n=== personal-agent ===" -ForegroundColor Cyan
 # The consequence was not cosmetic: it reported STOPPED while another agent was
 # still grabbing the same hotkey, so every press was caught by both.
 $proc = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*agent.main*" }
+    Where-Object { $_.CommandLine -like "*src.agent*" }
 
 if ($proc) {
     # The venv python.exe is a stub that runs the real interpreter as a child,
@@ -132,7 +132,7 @@ if (Test-Path $LogFile) {
 Write-Host ""
 if (-not $proc) {
     Write-Host "Start :  Start-ScheduledTask -TaskName $TaskName" -ForegroundColor Cyan
-    Write-Host "   or :  .\.venv-agent\Scripts\python.exe -m agent.main   (in a terminal)" -ForegroundColor Cyan
+    Write-Host "   or :  .\.venv-agent\Scripts\python.exe -m src.agent   (in a terminal)" -ForegroundColor Cyan
 } else {
     # The stop command MUST match how it was started. This used to always
     # suggest Stop-ScheduledTask, but a manually started agent runs as

@@ -1,0 +1,40 @@
+# Windows ships no IANA time zone database, so zoneinfo cannot resolve
+# "Australia/Sydney" without this. Not optional on this platform.
+tzdata>=2024.1
+
+pytest>=8.0
+
+# --- M1: model in the loop -------------------------------------------------
+#
+# torch is NOT installable from PyPI for this machine: an RTX 50-series card is
+# Blackwell (sm_120) and needs the CUDA 12.8 build. Install it first, from the
+# PyTorch index, then everything else from here:
+#
+#     pip install --index-url https://download.pytorch.org/whl/cu128 torch
+#     pip install -r requirements.txt
+#
+# Invariant #2: transformers is the only route that exposes per-layer hidden
+# states, which is the entire premise of the project. Do not swap it.
+torch>=2.11
+transformers>=5.14
+accelerate>=1.0
+safetensors>=0.4
+huggingface_hub>=0.34
+
+# 4-bit NF4 quantisation. Needed on an 8 GB card, where bf16 weights (~8 GB)
+# do not leave room for the KV cache. Still a single HF load, still exposes
+# hidden states -- see src/llm/engine.py.
+bitsandbytes>=0.48
+
+# --- M2/M3: the probe ------------------------------------------------------
+#
+# numpy arrives with torch. The probe is a logistic regression on a
+# standardised hidden state -- PLAN.md section 4 says linear first, and to
+# reach for an MLP only if the layer sweep shows the linear probe is the
+# bottleneck.
+scikit-learn>=1.5
+joblib>=1.4
+#
+# --- M4/M5: voice ----------------------------------------------------------
+#   sherpa-onnx  -- Parakeet TDT + Silero VAD on Windows
+#   sounddevice

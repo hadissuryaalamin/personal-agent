@@ -1,0 +1,75 @@
+{"text": "the comp4020 assignment was due last friday and I got it in", "label": 0, "why": "hard negative: past tense, full of schedule words"}
+{"text": "my thursday class runs from nine until eleven, which is a long stretch", "label": 0, "why": "hard negative: states a schedule, asks nothing"}
+{"text": "I reckon the essay will take about six hours", "label": 0, "why": "hard negative: estimate, not an instruction"}
+{"text": "deadlines in week eight are always the worst", "label": 0, "why": "hard negative: schedule words, no request"}
+{"text": "comp4620 has three assignments and comp4020 only has two", "label": 0, "why": "hard negative: comparison, no request"}
+{"text": "the lab report is worth thirty percent of the grade", "label": 0, "why": "hard negative: percent, not progress"}
+{"text": "she said the tutorial on tuesday was cancelled last week", "label": 0, "why": "hard negative: past cancellation, hearsay"}
+{"text": "I remember when my classes were all on mondays", "label": 0, "why": "hard negative: reminiscing"}
+{"text": "the due date for that one was extended twice already", "label": 0, "why": "hard negative: past tense"}
+{"text": "engn4122 meets in hanna neumann, which is miles away", "label": 0, "why": "hard negative: states a location"}
+{"text": "apparently the deadline for everyone else is next friday", "label": 0, "why": "hard negative: about other people"}
+{"text": "my friend has a class at nine am on thursdays too", "label": 0, "why": "hard negative: about someone else"}
+{"text": "I finished an assignment last semester in about four hours", "label": 0, "why": "hard negative: past tense with hours"}
+{"text": "the reminder you set last week was useful", "label": 0, "why": "hard negative: refers to a past tool call"}
+{"text": "undoing things is a good feature to have", "label": 0, "why": "hard negative: talks about undo"}
+{"text": "it is handy that you can cancel a class for one week only", "label": 0, "why": "hard negative: describes a capability"}
+{"text": "adding assignments by voice is much faster than typing", "label": 0, "why": "hard negative: describes a capability"}
+{"text": "so you keep classes and assignments in separate lists", "label": 0, "why": "hard negative: restating how it works"}
+{"text": "progress percentages are a bit arbitrary really", "label": 0, "why": "hard negative: opinion about a field"}
+{"text": "estimating hours of work is basically guesswork", "label": 0, "why": "hard negative: opinion about a field"}
+{"text": "I wish the timetable had been published earlier", "label": 0, "why": "hard negative: wish, not instruction"}
+{"text": "it would be good if classes never started before ten", "label": 0, "why": "hard negative: hypothetical about times"}
+{"text": "imagine having six assignments due on the same friday", "label": 0, "why": "hard negative: hypothetical"}
+{"text": "if the essay were due next week I would be fine", "label": 0, "why": "hard negative: counterfactual"}
+{"text": "suppose comp4020 moved to a wednesday, that would clash", "label": 0, "why": "hard negative: counterfactual with a move"}
+{"text": "someone should really cancel nine am lectures altogether", "label": 0, "why": "hard negative: uses cancel, not a request"}
+{"text": "I nearly deleted my whole schedule by accident once", "label": 0, "why": "hard negative: uses delete, past tense"}
+{"text": "the assignment list on the course site is out of date", "label": 0, "why": "hard negative: about an external list"}
+{"text": "my tutor reminds us about deadlines every week", "label": 0, "why": "hard negative: uses remind, about a person"}
+{"text": "thursday the fourteenth is my birthday actually", "label": 0, "why": "hard negative: a date, no request"}
+{"text": "next friday is a public holiday I think", "label": 0, "why": "hard negative: a date, no request"}
+{"text": "in two weeks I will be on a plane", "label": 0, "why": "hard negative: relative date, no request"}
+{"text": "tomorrow is going to be a nightmare", "label": 0, "why": "hard negative: relative date, complaint"}
+{"text": "this week has gone so fast", "label": 0, "why": "hard negative: relative date, remark"}
+{"text": "at nine am I am barely conscious", "label": 0, "why": "hard negative: a time, no request"}
+{"text": "sixty percent is a pass I suppose", "label": 0, "why": "hard negative: percent, no target"}
+{"text": "six hours of work sounds optimistic to me", "label": 0, "why": "hard negative: hours, no target"}
+{"text": "the data structures content is the hardest part of comp4020", "label": 0, "why": "hard negative: names an assignment and a course"}
+{"text": "planning and learning has the best lecturer of the four", "label": 0, "why": "hard negative: names a course"}
+{"text": "I have got four courses this semester, which was ambitious", "label": 0, "why": "hard negative: about courses"}
+{"text": "the group project team never replies to anything", "label": 0, "why": "hard negative: names an assignment"}
+{"text": "my schedule is fine, it is my motivation that is the problem", "label": 0, "why": "hard negative: uses schedule"}
+{"text": "the timetable makes no sense this semester", "label": 0, "why": "hard negative: uses timetable"}
+{"text": "I already know what is due, I just do not want to do it", "label": 0, "why": "hard negative: explicitly declines the lookup"}
+{"text": "do not bother checking, I know it is friday", "label": 0, "why": "hard negative: explicitly declines the lookup"}
+{"text": "no need to look it up, I remember", "label": 0, "why": "hard negative: explicitly declines the lookup"}
+{"text": "I do not need the schedule, I need more hours in the day", "label": 0, "why": "hard negative: declines the lookup"}
+{"text": "you already told me about thursday", "label": 0, "why": "hard negative: declines a repeat"}
+{"text": "yeah I saw that assignment when you listed it", "label": 0, "why": "hard negative: refers to a past listing"}
+{"text": "that was the essay you added earlier, right", "label": 0, "why": "hard negative: confirming, not requesting"}
+{"text": "so comp4020 is the thursday one", "label": 0, "why": "hard negative: restating"}
+{"text": "the fourteenth, got it", "label": 0, "why": "hard negative: acknowledging a date"}
+{"text": "nine am, right", "label": 0, "why": "hard negative: acknowledging a time"}
+{"text": "sixty percent then", "label": 0, "why": "hard negative: acknowledging a percentage"}
+{"text": "so nothing on tomorrow, good", "label": 0, "why": "hard negative: acknowledging a result"}
+{"text": "two assignments, that is manageable", "label": 0, "why": "hard negative: acknowledging a count"}
+{"text": "what is on", "label": 1, "why": "hard positive: minimal vocabulary"}
+{"text": "anything today", "label": 1, "why": "hard positive: minimal vocabulary"}
+{"text": "and after that", "label": 1, "why": "hard positive: minimal, needs context", "history": [["what is on today", "One class today — COMP4020 at 9am."]]}
+{"text": "what else", "label": 1, "why": "hard positive: minimal, needs context", "history": [["what is due soon", "One thing outstanding — the essay, Friday."]]}
+{"text": "clear that one", "label": 1, "why": "hard positive: minimal, needs context", "history": [["what is due soon", "One thing outstanding — the essay, Friday."]]}
+{"text": "put it off a bit", "label": 1, "why": "hard positive: no schedule words", "history": [["what is due soon", "One thing outstanding — the essay, Friday."]]}
+{"text": "bump it to the end of the month", "label": 1, "why": "hard positive: needs context", "history": [["when is the report due", "Tuesday the eleventh."]]}
+{"text": "knock that one off the list", "label": 1, "why": "hard positive: idiomatic completion", "history": [["what is outstanding", "Two things — the closest is the quiz, tomorrow."]]}
+{"text": "call it done", "label": 1, "why": "hard positive: idiomatic completion", "history": [["how far through the essay am I", "The essay is at 90 percent."]]}
+{"text": "wipe it", "label": 1, "why": "hard positive: minimal deletion", "history": [["what is outstanding", "One thing — the poster, Friday."]]}
+{"text": "shift everything a day later", "label": 1, "why": "hard positive: no schedule nouns"}
+{"text": "is there anything I am forgetting", "label": 1, "why": "hard positive: indirect lookup"}
+{"text": "am I free", "label": 1, "why": "hard positive: minimal"}
+{"text": "how busy am I", "label": 1, "why": "hard positive: indirect lookup"}
+{"text": "have I missed anything", "label": 1, "why": "hard positive: indirect lookup"}
+{"text": "give me the damage", "label": 1, "why": "hard positive: idiomatic lookup"}
+{"text": "hit me with it", "label": 1, "why": "hard positive: idiomatic, needs context", "history": [["you have got a few things due", "Shall I read them out?"]]}
+{"text": "go on then", "label": 1, "why": "hard positive: idiomatic, needs context", "history": [["shall I read out what is due this week", "Say the word."]]}
+{"text": "same as last time", "label": 1, "why": "hard positive: needs context", "history": [["add a two hour reading task for tomorrow", "Added, due tomorrow."]]}

@@ -1,0 +1,60 @@
+{"text": "what is on today", "label": 1, "why": "list_schedule"}
+{"text": "what have I got on today", "label": 1, "why": "list_schedule"}
+{"text": "what is on tomorrow", "label": 1, "why": "list_schedule"}
+{"text": "what does tomorrow look like", "label": 1, "why": "list_schedule"}
+{"text": "what classes do I have today", "label": 1, "why": "list_schedule"}
+{"text": "have I got anything this morning", "label": 1, "why": "list_schedule"}
+{"text": "when is my next class", "label": 1, "why": "list_schedule"}
+{"text": "what time does my first class start", "label": 1, "why": "list_schedule"}
+{"text": "am I free on wednesday afternoon", "label": 1, "why": "list_schedule"}
+{"text": "is comp4020 on this week", "label": 1, "why": "list_schedule"}
+{"text": "is comp four thousand and twenty on this week", "label": 1, "why": "list_schedule, mangled code"}
+{"text": "do I have planning and learning tomorrow", "label": 1, "why": "list_schedule"}
+{"text": "what is my schedule for next week", "label": 1, "why": "list_schedule"}
+{"text": "run me through thursday", "label": 1, "why": "list_schedule"}
+{"text": "anything on this weekend", "label": 1, "why": "list_schedule"}
+{"text": "what have I got the rest of the week", "label": 1, "why": "list_schedule"}
+{"text": "where is my next lecture", "label": 1, "why": "list_schedule"}
+{"text": "which room is engineering in tomorrow", "label": 1, "why": "list_schedule"}
+{"text": "read me monday", "label": 1, "why": "list_schedule"}
+{"text": "have I got anything on the fourteenth", "label": 1, "why": "list_schedule"}
+{"text": "what is on next tuesday", "label": 1, "why": "list_schedule"}
+{"text": "do I have any classes before lunch", "label": 1, "why": "list_schedule"}
+{"text": "what does my week look like", "label": 1, "why": "list_schedule"}
+{"text": "tell me what is on friday", "label": 1, "why": "list_schedule"}
+{"text": "what have I got due this week", "label": 1, "why": "list_assignments"}
+{"text": "what is due soon", "label": 1, "why": "list_assignments"}
+{"text": "what assignments have I got", "label": 1, "why": "list_assignments"}
+{"text": "what is outstanding", "label": 1, "why": "list_assignments"}
+{"text": "what have I still got to do", "label": 1, "why": "list_assignments"}
+{"text": "how many hours of work have I got left", "label": 1, "why": "list_assignments"}
+{"text": "what is due before friday", "label": 1, "why": "list_assignments"}
+{"text": "anything due tomorrow", "label": 1, "why": "list_assignments"}
+{"text": "what is my closest deadline", "label": 1, "why": "list_assignments"}
+{"text": "have I got anything overdue", "label": 1, "why": "list_assignments"}
+{"text": "what have I finished so far", "label": 1, "why": "list_assignments, status filter"}
+{"text": "show me everything including the done ones", "label": 1, "why": "list_assignments, status filter"}
+{"text": "what is left for comp4620", "label": 1, "why": "list_assignments, course filter"}
+{"text": "what do I owe planning and learning", "label": 1, "why": "list_assignments, course filter"}
+{"text": "how far through the essay am I", "label": 1, "why": "list_assignments"}
+{"text": "how much is left on the data structures one", "label": 1, "why": "list_assignments"}
+{"text": "what is due in the next fortnight", "label": 1, "why": "list_assignments"}
+{"text": "list my assignments", "label": 1, "why": "list_assignments"}
+{"text": "what have I got on my plate", "label": 1, "why": "list_assignments"}
+{"text": "which assignment should I start first", "label": 1, "why": "list_assignments"}
+{"text": "have I got much on before the exam period", "label": 1, "why": "list_assignments"}
+{"text": "what is due after next week", "label": 1, "why": "list_assignments"}
+{"text": "anything dropped", "label": 1, "why": "list_assignments, status filter"}
+{"text": "what is in progress right now", "label": 1, "why": "list_assignments, status filter"}
+{"text": "what time is it", "label": 1, "why": "get_now"}
+{"text": "what is the time", "label": 1, "why": "get_now"}
+{"text": "what is the date today", "label": 1, "why": "get_now"}
+{"text": "what day is it", "label": 1, "why": "get_now"}
+{"text": "what is today's date", "label": 1, "why": "get_now"}
+{"text": "is it friday yet", "label": 1, "why": "get_now"}
+{"text": "what week are we in", "label": 1, "why": "get_now"}
+{"text": "have you got the time", "label": 1, "why": "get_now"}
+{"text": "what is the time right now", "label": 1, "why": "get_now"}
+{"text": "tell me the date", "label": 1, "why": "get_now"}
+{"text": "what day of the week is it today", "label": 1, "why": "get_now"}
+{"text": "how late is it", "label": 1, "why": "get_now"}

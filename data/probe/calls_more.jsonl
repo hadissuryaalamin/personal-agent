@@ -1,0 +1,92 @@
+{"text": "have I got anything on before three today", "label": 1, "why": "list_schedule"}
+{"text": "check my timetable for the eleventh", "label": 1, "why": "list_schedule"}
+{"text": "am I busy monday morning", "label": 1, "why": "list_schedule"}
+{"text": "what is happening the week after next", "label": 1, "why": "list_schedule"}
+{"text": "do I have anything clashing on thursday", "label": 1, "why": "list_schedule"}
+{"text": "how many classes have I got this week", "label": 1, "why": "list_schedule"}
+{"text": "when does comp3500 finish on tuesday", "label": 1, "why": "list_schedule"}
+{"text": "is there anything on during the break", "label": 1, "why": "list_schedule"}
+{"text": "tell me about wednesday", "label": 1, "why": "list_schedule"}
+{"text": "what is my first thing on monday", "label": 1, "why": "list_schedule"}
+{"text": "any classes at all tomorrow morning", "label": 1, "why": "list_schedule"}
+{"text": "what have I got between now and friday", "label": 1, "why": "list_schedule"}
+{"text": "which days do I have lectures", "label": 1, "why": "list_schedule"}
+{"text": "is anything cancelled this week", "label": 1, "why": "list_schedule"}
+{"text": "what room is comp four six two zero in", "label": 1, "why": "list_schedule, mangled code"}
+{"text": "give me the rundown for the twentieth", "label": 1, "why": "list_schedule"}
+{"text": "how much work is due before the end of term", "label": 1, "why": "list_assignments"}
+{"text": "which deadlines are in the next ten days", "label": 1, "why": "list_assignments"}
+{"text": "have I got anything worth starting tonight", "label": 1, "why": "list_assignments"}
+{"text": "what is the biggest thing on my list", "label": 1, "why": "list_assignments"}
+{"text": "how many assignments are still open", "label": 1, "why": "list_assignments"}
+{"text": "anything due on the sixth", "label": 1, "why": "list_assignments"}
+{"text": "what have I got for engineering", "label": 1, "why": "list_assignments, course filter"}
+{"text": "read me my to do list", "label": 1, "why": "list_assignments"}
+{"text": "how much have I actually finished", "label": 1, "why": "list_assignments"}
+{"text": "what is due between now and the end of the month", "label": 1, "why": "list_assignments"}
+{"text": "anything I have not started yet", "label": 1, "why": "list_assignments"}
+{"text": "how long until the essay is due", "label": 1, "why": "list_assignments"}
+{"text": "roughly what time are we at", "label": 1, "why": "get_now"}
+{"text": "is it still morning", "label": 1, "why": "get_now"}
+{"text": "what is the current time and date", "label": 1, "why": "get_now"}
+{"text": "how far into the week are we", "label": 1, "why": "get_now"}
+{"text": "add a presentation for comp3500 due the nineteenth, four hours", "label": 1, "why": "add_assignment"}
+{"text": "stick a draft down for next thursday", "label": 1, "why": "add_assignment"}
+{"text": "I need to write a reflection by sunday, add it", "label": 1, "why": "add_assignment"}
+{"text": "put the poster session prep in for the twenty first", "label": 1, "why": "add_assignment"}
+{"text": "add homework three, due in ten days", "label": 1, "why": "add_assignment"}
+{"text": "there is a peer review due next tuesday, log it", "label": 1, "why": "add_assignment"}
+{"text": "add a coding task due friday at midday, three hours", "label": 1, "why": "add_assignment"}
+{"text": "book in the exam revision as an assignment for the thirtieth", "label": 1, "why": "add_assignment"}
+{"text": "add a consultation on wednesdays at eleven", "label": 1, "why": "add_class"}
+{"text": "I have a drop in session mondays at four, add that", "label": 1, "why": "add_class"}
+{"text": "put a studio class on thursdays two thirty to five", "label": 1, "why": "add_class"}
+{"text": "add comp four six two zero on wednesdays at one pm", "label": 1, "why": "add_class, mangled code"}
+{"text": "new lecture, fridays nine am to ten am, in the peter karmel building", "label": 1, "why": "add_class"}
+{"text": "add a weekly meeting on tuesdays at five pm", "label": 1, "why": "add_class"}
+{"text": "my comp3500 class needs to move to wednesdays", "label": 1, "why": "update_class"}
+{"text": "change the start of the monday seminar to two thirty", "label": 1, "why": "update_class"}
+{"text": "the studio is in a new room, update it to hn 1.21", "label": 1, "why": "update_class"}
+{"text": "make the tuesday lab finish half an hour earlier", "label": 1, "why": "update_class"}
+{"text": "the term for comp4020 ends on the twenty seventh of october", "label": 1, "why": "update_class"}
+{"text": "put a note on the friday class that it is assessed", "label": 1, "why": "update_class"}
+{"text": "no class on the twenty fifth, it is a holiday", "label": 1, "why": "cancel_class"}
+{"text": "the wednesday lecture is online only next week", "label": 1, "why": "cancel_class, room change"}
+{"text": "comp3500 is running in the manning clark theatre on tuesday", "label": 1, "why": "cancel_class, room change"}
+{"text": "shift thursday's class to eleven just this once", "label": 1, "why": "cancel_class, moved"}
+{"text": "my monday lecture is cancelled for the next two weeks", "label": 1, "why": "cancel_class"}
+{"text": "the lab is off on the eighteenth", "label": 1, "why": "cancel_class"}
+{"text": "remove the wednesday consultation, it is not running", "label": 1, "why": "delete_class"}
+{"text": "delete the drop in session", "label": 1, "why": "delete_class"}
+{"text": "get rid of comp four six two zero altogether", "label": 1, "why": "delete_class, mangled code"}
+{"text": "take the weekly meeting off my calendar for good", "label": 1, "why": "delete_class"}
+{"text": "I am at about eighty percent on the draft", "label": 1, "why": "set_progress"}
+{"text": "the presentation is two thirds done", "label": 1, "why": "set_progress"}
+{"text": "set homework three to fifty", "label": 1, "why": "set_progress"}
+{"text": "the peer review is complete", "label": 1, "why": "set_progress"}
+{"text": "I have not touched the poster yet, zero percent", "label": 1, "why": "set_progress"}
+{"text": "call the reflection forty percent finished", "label": 1, "why": "set_progress"}
+{"text": "wrap up the coding task, it is done", "label": 1, "why": "set_progress"}
+{"text": "the exam revision is a third of the way there", "label": 1, "why": "set_progress"}
+{"text": "give the draft another week", "label": 1, "why": "update_assignment"}
+{"text": "the presentation moved to the twenty second", "label": 1, "why": "update_assignment"}
+{"text": "change homework three to eight hours of work", "label": 1, "why": "update_assignment"}
+{"text": "mark the poster as in progress", "label": 1, "why": "update_assignment"}
+{"text": "the reflection is for comp4620 not comp4020", "label": 1, "why": "update_assignment"}
+{"text": "call the coding task something clearer, api integration", "label": 1, "why": "update_assignment"}
+{"text": "the peer review deadline got pulled forward to monday", "label": 1, "why": "update_assignment"}
+{"text": "remove the draft, it got folded into the final report", "label": 1, "why": "delete_assignment"}
+{"text": "delete homework three", "label": 1, "why": "delete_assignment"}
+{"text": "the poster session is off, take it off my list", "label": 1, "why": "delete_assignment"}
+{"text": "scrap the exam revision task", "label": 1, "why": "delete_assignment"}
+{"text": "remind me to back up my work on friday afternoon", "label": 1, "why": "add_reminder"}
+{"text": "set a reminder for the consultation on wednesday", "label": 1, "why": "add_reminder"}
+{"text": "remind me to check the marking rubric tonight", "label": 1, "why": "add_reminder"}
+{"text": "give me a nudge about the peer review on sunday", "label": 1, "why": "add_reminder"}
+{"text": "remind me to bring my laptop on thursday morning", "label": 1, "why": "add_reminder"}
+{"text": "remember to tell me about the group meeting in two days", "label": 1, "why": "add_reminder"}
+{"text": "reverse the last thing", "label": 1, "why": "undo_last_write"}
+{"text": "undo the previous change please", "label": 1, "why": "undo_last_write"}
+{"text": "that is not right, undo", "label": 1, "why": "undo_last_write"}
+{"text": "back that out", "label": 1, "why": "undo_last_write"}
+{"text": "unwind that last edit", "label": 1, "why": "undo_last_write"}

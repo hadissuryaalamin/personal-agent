@@ -1,0 +1,107 @@
+{"text": "add the data structures assignment due next friday", "label": 1, "why": "add_assignment"}
+{"text": "add an essay for comp4620 due in two weeks, about six hours of work", "label": 1, "why": "add_assignment"}
+{"text": "new assignment, the planning report, due the fourteenth", "label": 1, "why": "add_assignment"}
+{"text": "I have got a lab report due thursday", "label": 1, "why": "add_assignment"}
+{"text": "put down a reading task for tomorrow night", "label": 1, "why": "add_assignment"}
+{"text": "add the group project, due end of the month, about twenty hours", "label": 1, "why": "add_assignment"}
+{"text": "there is a quiz on monday, put it in", "label": 1, "why": "add_assignment"}
+{"text": "chuck in an assignment called literature review due in three weeks", "label": 1, "why": "add_assignment"}
+{"text": "add a five hour problem set due next wednesday", "label": 1, "why": "add_assignment"}
+{"text": "remember I have got the intelligent systems prac due friday week", "label": 1, "why": "add_assignment"}
+{"text": "new task, finish the slides, due tomorrow at five pm", "label": 1, "why": "add_assignment"}
+{"text": "add the final report for engineering due the twenty seventh", "label": 1, "why": "add_assignment"}
+{"text": "I need to submit the ethics form by tuesday", "label": 1, "why": "add_assignment"}
+{"text": "add a two hour task, read chapter four, due sunday", "label": 1, "why": "add_assignment"}
+{"text": "log an assignment for comp3500 due at the end of next week", "label": 1, "why": "add_assignment"}
+{"text": "put comp4020 on thursdays from nine am to eleven am", "label": 1, "why": "add_class"}
+{"text": "add a new class, planning and learning, mondays two till four", "label": 1, "why": "add_class"}
+{"text": "I have got a tutorial every wednesday at one pm", "label": 1, "why": "add_class"}
+{"text": "add engineering four one two two on fridays at ten in hanna neumann", "label": 1, "why": "add_class, mangled code"}
+{"text": "new class on tuesdays, nine thirty to eleven, in copland", "label": 1, "why": "add_class"}
+{"text": "set up comp3500 tuesdays three pm to five pm", "label": 1, "why": "add_class"}
+{"text": "add a lab on thursday afternoons from two to four", "label": 1, "why": "add_class"}
+{"text": "my stats lecture is mondays at nine, add it", "label": 1, "why": "add_class"}
+{"text": "put in a seminar wednesdays four to five in the chifley building", "label": 1, "why": "add_class"}
+{"text": "add camp forty twenty on thursdays nine to eleven", "label": 1, "why": "add_class, mangled code"}
+{"text": "register agentic coding studio for fridays at eleven", "label": 1, "why": "add_class"}
+{"text": "add a workshop, tuesdays ten am to twelve pm, term starts next monday", "label": 1, "why": "add_class"}
+{"text": "move comp4020 to ten am", "label": 1, "why": "update_class"}
+{"text": "change my monday class to start at three", "label": 1, "why": "update_class"}
+{"text": "planning and learning is in a different room now, copland g30", "label": 1, "why": "update_class"}
+{"text": "the tuesday tutorial has moved to wednesday", "label": 1, "why": "update_class"}
+{"text": "update comp3500 to finish at five instead", "label": 1, "why": "update_class"}
+{"text": "change the location of my thursday lecture to the manning clark theatre", "label": 1, "why": "update_class"}
+{"text": "comp4620 is taught by someone else now, update the instructor", "label": 1, "why": "update_class"}
+{"text": "shift the friday seminar an hour later", "label": 1, "why": "update_class"}
+{"text": "rename that class to intelligent autonomous systems", "label": 1, "why": "update_class"}
+{"text": "my engineering class runs until six now, not five", "label": 1, "why": "update_class"}
+{"text": "cancel comp4020 on thursday", "label": 1, "why": "cancel_class"}
+{"text": "there is no class next monday", "label": 1, "why": "cancel_class"}
+{"text": "planning and learning is off this week", "label": 1, "why": "cancel_class"}
+{"text": "comp four thousand and twenty is cancelled tomorrow", "label": 1, "why": "cancel_class, mangled code"}
+{"text": "the tuesday lecture is moved to three pm just for next week", "label": 1, "why": "cancel_class, moved"}
+{"text": "engineering has moved to the chifley library next tuesday", "label": 1, "why": "cancel_class, room change"}
+{"text": "we are in a different room for comp3500 on friday, copland g30", "label": 1, "why": "cancel_class, room change"}
+{"text": "no lecture on the fourteenth, public holiday", "label": 1, "why": "cancel_class"}
+{"text": "my thursday class is off for the rest of the term", "label": 1, "why": "cancel_class"}
+{"text": "the lab is running an hour early this week", "label": 1, "why": "cancel_class, moved"}
+{"text": "skip comp4620 next monday", "label": 1, "why": "cancel_class"}
+{"text": "delete comp4020", "label": 1, "why": "delete_class"}
+{"text": "drop the intelligent systems class entirely", "label": 1, "why": "delete_class"}
+{"text": "remove planning and learning from my schedule", "label": 1, "why": "delete_class"}
+{"text": "I am not taking comp3500 any more, get rid of it", "label": 1, "why": "delete_class"}
+{"text": "take the tuesday tutorial off completely", "label": 1, "why": "delete_class"}
+{"text": "delete that stats lecture, I dropped the course", "label": 1, "why": "delete_class"}
+{"text": "get rid of the friday seminar", "label": 1, "why": "delete_class"}
+{"text": "I withdrew from engineering, remove the class", "label": 1, "why": "delete_class"}
+{"text": "mark the essay as sixty percent done", "label": 1, "why": "set_progress"}
+{"text": "the data structures one is finished", "label": 1, "why": "set_progress"}
+{"text": "I am about halfway through the report", "label": 1, "why": "set_progress"}
+{"text": "set the lab report to twenty percent", "label": 1, "why": "set_progress"}
+{"text": "I have done a quarter of the reading task", "label": 1, "why": "set_progress"}
+{"text": "the group project is all done", "label": 1, "why": "set_progress"}
+{"text": "put the essay at ninety percent", "label": 1, "why": "set_progress"}
+{"text": "I finished the problem set", "label": 1, "why": "set_progress"}
+{"text": "I have barely started the literature review, call it ten percent", "label": 1, "why": "set_progress"}
+{"text": "tick off the ethics form", "label": 1, "why": "set_progress"}
+{"text": "I am three quarters through the slides", "label": 1, "why": "set_progress"}
+{"text": "the quiz prep is done and dusted", "label": 1, "why": "set_progress"}
+{"text": "push the essay back a week", "label": 1, "why": "update_assignment"}
+{"text": "the lab report is due friday now, not thursday", "label": 1, "why": "update_assignment"}
+{"text": "change the estimate on the group project to thirty hours", "label": 1, "why": "update_assignment"}
+{"text": "move the deadline for the reading task to sunday", "label": 1, "why": "update_assignment"}
+{"text": "the literature review got extended to the end of the month", "label": 1, "why": "update_assignment"}
+{"text": "rename the essay to comparative analysis essay", "label": 1, "why": "update_assignment"}
+{"text": "link the problem set to comp4620", "label": 1, "why": "update_assignment"}
+{"text": "the report is going to take longer, make it twelve hours", "label": 1, "why": "update_assignment"}
+{"text": "I am dropping the optional assignment, mark it dropped", "label": 1, "why": "update_assignment"}
+{"text": "bring the slides deadline forward to tomorrow", "label": 1, "why": "update_assignment"}
+{"text": "delete the essay", "label": 1, "why": "delete_assignment"}
+{"text": "remove the reading task, it is not assessed", "label": 1, "why": "delete_assignment"}
+{"text": "get rid of that quiz I added", "label": 1, "why": "delete_assignment"}
+{"text": "the group project got cancelled, delete it", "label": 1, "why": "delete_assignment"}
+{"text": "take the ethics form off my list", "label": 1, "why": "delete_assignment"}
+{"text": "drop the literature review entirely", "label": 1, "why": "delete_assignment"}
+{"text": "delete the lab report assignment", "label": 1, "why": "delete_assignment"}
+{"text": "remind me to email the tutor tomorrow morning", "label": 1, "why": "add_reminder"}
+{"text": "remind me to submit the form on friday", "label": 1, "why": "add_reminder"}
+{"text": "set a reminder to start the essay on monday", "label": 1, "why": "add_reminder"}
+{"text": "remind me about the group meeting at three tomorrow", "label": 1, "why": "add_reminder"}
+{"text": "don't let me forget the reading before wednesday", "label": 1, "why": "add_reminder"}
+{"text": "remind me to print the notes tonight", "label": 1, "why": "add_reminder"}
+{"text": "set a reminder for the exam registration next week", "label": 1, "why": "add_reminder"}
+{"text": "nudge me about the lab report on thursday morning", "label": 1, "why": "add_reminder"}
+{"text": "remind me to book a room for the group project", "label": 1, "why": "add_reminder"}
+{"text": "put a reminder in for the tutorial prep on sunday evening", "label": 1, "why": "add_reminder"}
+{"text": "remind me to ask about the extension tomorrow", "label": 1, "why": "add_reminder"}
+{"text": "undo that", "label": 1, "why": "undo_last_write"}
+{"text": "scrap that last one", "label": 1, "why": "undo_last_write"}
+{"text": "undo the last change", "label": 1, "why": "undo_last_write"}
+{"text": "put that back how it was", "label": 1, "why": "undo_last_write"}
+{"text": "revert that", "label": 1, "why": "undo_last_write"}
+{"text": "no, undo it", "label": 1, "why": "undo_last_write"}
+{"text": "take that back", "label": 1, "why": "undo_last_write"}
+{"text": "cancel what you just did", "label": 1, "why": "undo_last_write"}
+{"text": "roll that back please", "label": 1, "why": "undo_last_write"}
+{"text": "undo", "label": 1, "why": "undo_last_write"}
+{"text": "that was wrong, reverse it", "label": 1, "why": "undo_last_write"}

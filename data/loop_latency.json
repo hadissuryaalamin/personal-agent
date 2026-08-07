@@ -1,0 +1,23 @@
+{
+  "n_turns": 3,
+  "n_dropped": 1,
+  "stages": {
+    "vad": 600.0,
+    "ms_asr": 418,
+    "ms_prefill": 318,
+    "ms_gen": 3836,
+    "ms_tts": 1929
+  },
+  "median_total": 7121.0,
+  "best_total": 5786.0,
+  "worst_total": 11908.0,
+  "budget": {
+    "vad": 200,
+    "ms_asr": 300,
+    "ms_prefill": 150,
+    "ms_gen": 500,
+    "ms_tts": 250
+  },
+  "budget_total": 1400,
+  "measured_at": "2026-08-06T23:09:43+00:00"
+}

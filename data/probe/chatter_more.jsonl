@@ -1,0 +1,105 @@
+{"text": "how was your weekend", "label": 0, "why": "small talk"}
+{"text": "do you sleep", "label": 0, "why": "small talk"}
+{"text": "are you a real person", "label": 0, "why": "small talk"}
+{"text": "what do you think of canberra winters", "label": 0, "why": "small talk"}
+{"text": "say something interesting", "label": 0, "why": "small talk"}
+{"text": "can you sing", "label": 0, "why": "small talk"}
+{"text": "do you get bored waiting around", "label": 0, "why": "small talk"}
+{"text": "what is the meaning of life", "label": 0, "why": "small talk, out of scope"}
+{"text": "how far is it to sydney", "label": 0, "why": "out of scope"}
+{"text": "what is the capital of chile", "label": 0, "why": "out of scope"}
+{"text": "convert twenty dollars to pounds", "label": 0, "why": "out of scope"}
+{"text": "who won the cricket", "label": 0, "why": "out of scope"}
+{"text": "play some music", "label": 0, "why": "out of scope"}
+{"text": "send a message to my mum", "label": 0, "why": "out of scope"}
+{"text": "order me a coffee", "label": 0, "why": "out of scope"}
+{"text": "open my email", "label": 0, "why": "out of scope"}
+{"text": "how do you actually work", "label": 0, "why": "capability question"}
+{"text": "are you storing all this somewhere", "label": 0, "why": "capability question"}
+{"text": "does any of this leave my laptop", "label": 0, "why": "capability question"}
+{"text": "can I export my data", "label": 0, "why": "capability question"}
+{"text": "what happens if I say something wrong", "label": 0, "why": "capability question"}
+{"text": "how many things can you remember", "label": 0, "why": "capability question"}
+{"text": "do you need the internet", "label": 0, "why": "capability question"}
+{"text": "will you tell me when something is due on its own", "label": 0, "why": "capability question"}
+{"text": "can you handle two classes at the same time", "label": 0, "why": "capability question"}
+{"text": "what happens when the term ends", "label": 0, "why": "capability question"}
+{"text": "I am not sure this is working properly", "label": 0, "why": "remark about the agent"}
+{"text": "you keep mishearing comp4020", "label": 0, "why": "remark about the agent"}
+{"text": "that came out garbled", "label": 0, "why": "remark about the agent"}
+{"text": "you cut me off", "label": 0, "why": "remark about the agent"}
+{"text": "hang on, you are ahead of me", "label": 0, "why": "remark about the agent"}
+{"text": "you sound different today", "label": 0, "why": "remark about the agent"}
+{"text": "that reply was too long", "label": 0, "why": "remark about the agent"}
+{"text": "I could not hear that last bit", "label": 0, "why": "remark about the agent"}
+{"text": "the microphone keeps dropping out", "label": 0, "why": "remark about the agent"}
+{"text": "I am dreading next week", "label": 0, "why": "complaint, no lookup"}
+{"text": "there are not enough hours in the day", "label": 0, "why": "complaint, no lookup"}
+{"text": "I should have started earlier", "label": 0, "why": "complaint, no lookup"}
+{"text": "everything is due at once this term", "label": 0, "why": "complaint, no lookup"}
+{"text": "I am completely burnt out", "label": 0, "why": "complaint, no lookup"}
+{"text": "why did I take four courses", "label": 0, "why": "complaint, no lookup"}
+{"text": "the marking on that was harsh", "label": 0, "why": "complaint, no lookup"}
+{"text": "I keep procrastinating", "label": 0, "why": "complaint, no lookup"}
+{"text": "group work is the worst", "label": 0, "why": "complaint, no lookup"}
+{"text": "my laptop keeps crashing", "label": 0, "why": "complaint, no lookup"}
+{"text": "I need a holiday", "label": 0, "why": "complaint, no lookup"}
+{"text": "that lecture was pointless", "label": 0, "why": "complaint, no lookup"}
+{"text": "the wifi in the library is terrible", "label": 0, "why": "complaint, no lookup"}
+{"text": "I am going to fail this one", "label": 0, "why": "complaint, no lookup"}
+{"text": "comp4020 is genuinely interesting though", "label": 0, "why": "mentions a course, asks nothing"}
+{"text": "the data structures content finally clicked", "label": 0, "why": "mentions a topic, asks nothing"}
+{"text": "thursdays are my worst day", "label": 0, "why": "mentions a day, asks nothing"}
+{"text": "nine am lectures should be illegal", "label": 0, "why": "mentions a time, asks nothing"}
+{"text": "I did the reading for once", "label": 0, "why": "past tense, asks nothing"}
+{"text": "that essay took me twice as long as I expected", "label": 0, "why": "past tense, asks nothing"}
+{"text": "the tutor said the deadline might move", "label": 0, "why": "hearsay, no request"}
+{"text": "apparently everyone struggled with that assignment", "label": 0, "why": "hearsay, no request"}
+{"text": "someone said there is a class on friday", "label": 0, "why": "hearsay, no request"}
+{"text": "my friend has the same lecture on tuesdays", "label": 0, "why": "about someone else"}
+{"text": "my housemate finished hers already", "label": 0, "why": "about someone else"}
+{"text": "the person next to me was asleep the whole lecture", "label": 0, "why": "about someone else"}
+{"text": "I might drop one of my courses", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "if I finish early I will start the next one", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "I could probably do that in an afternoon", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "maybe I should reschedule something", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "I was thinking about adding a class next semester", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "it would be nice if deadlines were spread out", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "one day I will be organised", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "suppose I finished it tonight", "label": 0, "why": "hypothetical, not an instruction"}
+{"text": "okay then", "label": 0, "why": "bare acknowledgement"}
+{"text": "alright", "label": 0, "why": "bare acknowledgement"}
+{"text": "got it", "label": 0, "why": "bare acknowledgement"}
+{"text": "understood", "label": 0, "why": "bare acknowledgement"}
+{"text": "yep", "label": 0, "why": "bare acknowledgement"}
+{"text": "nope", "label": 0, "why": "bare acknowledgement"}
+{"text": "sure thing", "label": 0, "why": "bare acknowledgement"}
+{"text": "no worries", "label": 0, "why": "bare acknowledgement"}
+{"text": "if you say so", "label": 0, "why": "bare acknowledgement"}
+{"text": "whatever you reckon", "label": 0, "why": "bare acknowledgement"}
+{"text": "er", "label": 0, "why": "filler"}
+{"text": "uh huh", "label": 0, "why": "filler"}
+{"text": "wait", "label": 0, "why": "filler"}
+{"text": "hmm let me see", "label": 0, "why": "filler"}
+{"text": "so", "label": 0, "why": "filler"}
+{"text": "anyway", "label": 0, "why": "filler"}
+{"text": "where was I", "label": 0, "why": "filler"}
+{"text": "sorry, say again", "label": 0, "why": "filler"}
+{"text": "just a moment", "label": 0, "why": "filler"}
+{"text": "hello, testing", "label": 0, "why": "filler"}
+{"text": "cheers mate", "label": 0, "why": "session close"}
+{"text": "right, back to it", "label": 0, "why": "session close"}
+{"text": "that will do", "label": 0, "why": "session close"}
+{"text": "I will talk to you later", "label": 0, "why": "session close"}
+{"text": "enough for today", "label": 0, "why": "session close"}
+{"text": "signing off", "label": 0, "why": "session close"}
+{"text": "night", "label": 0, "why": "session close"}
+{"text": "see ya", "label": 0, "why": "session close"}
+{"text": "stop", "label": 0, "why": "meta request, no tool"}
+{"text": "quiet please", "label": 0, "why": "meta request, no tool"}
+{"text": "slow down", "label": 0, "why": "meta request, no tool"}
+{"text": "repeat that", "label": 0, "why": "meta request, no tool"}
+{"text": "turn the volume down", "label": 0, "why": "meta request, no tool"}
+{"text": "can you use shorter sentences", "label": 0, "why": "meta request, no tool"}
+{"text": "do not read the whole list out", "label": 0, "why": "meta request, no tool"}
+{"text": "just the short version", "label": 0, "why": "meta request, no tool"}

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-agent"
+version = "0.1.0"
+description = "Local voice-driven scheduling assistant with a hidden-state tool gate"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+packages = ["src", "src.store", "src.tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Invariant #7: the default run has no GPU, no audio device, no network.
+addopts = "-m 'not hardware' -q"
+markers = [
+    "hardware: needs real model weights, a GPU, or an audio device (excluded by default)",
+]

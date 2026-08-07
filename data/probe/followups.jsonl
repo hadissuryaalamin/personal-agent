@@ -1,0 +1,79 @@
+{"text": "make it sixty instead", "label": 1, "why": "set_progress follow-up", "history": [["mark the essay as forty percent done", "The essay is at 40 percent, about 3 hours left."]]}
+{"text": "actually make that friday", "label": 1, "why": "update_assignment follow-up", "history": [["add the lab report due thursday", "Added, due Thursday the thirteenth."]]}
+{"text": "no, the fourteenth", "label": 1, "why": "update_assignment follow-up", "history": [["add the essay due the fourth", "Added, due Tuesday the fourth."]]}
+{"text": "and one for comp4620 as well", "label": 1, "why": "add_assignment follow-up", "history": [["add a problem set for comp4020 due friday", "Added, due Friday the fourteenth."]]}
+{"text": "same again for tuesday", "label": 1, "why": "add_class follow-up", "history": [["add a tutorial on monday at two pm", "Added, Mondays 2pm to 3pm."]]}
+{"text": "make it eight hours", "label": 1, "why": "update_assignment follow-up", "history": [["add the group project due next month, six hours", "Added, due Monday the seventh."]]}
+{"text": "push it back a week", "label": 1, "why": "update_assignment follow-up", "history": [["what is due soon", "One thing outstanding — the essay, Friday the fourteenth."]]}
+{"text": "delete that one", "label": 1, "why": "delete_assignment follow-up", "history": [["what is due soon", "Two things outstanding — the closest is the lab report, tomorrow."]]}
+{"text": "the second one", "label": 1, "why": "disambiguation follow-up", "history": [["delete the essay", "Which one — comparative essay, or reflective essay?"]]}
+{"text": "comp4020", "label": 1, "why": "disambiguation follow-up", "history": [["cancel the thursday class", "Did you mean COMP4020 or COMP4620?"]]}
+{"text": "the morning one", "label": 1, "why": "disambiguation follow-up", "history": [["move my thursday class", "I have two on Thursday — 9am and 2pm. Which one?"]]}
+{"text": "nine in the morning", "label": 1, "why": "clarification answer", "history": [["add a class on monday at nine", "Do you mean 9 in the morning or 9 in the afternoon?"]]}
+{"text": "next friday, the fourteenth", "label": 1, "why": "clarification answer", "history": [["add the essay due soon", "“soon” could be any day — which day did you have in mind?"]]}
+{"text": "make it done", "label": 1, "why": "set_progress follow-up", "history": [["the essay is at ninety percent", "The essay is at 90 percent, about 0.6 hours left."]]}
+{"text": "what about next week", "label": 1, "why": "list_schedule follow-up", "history": [["what is on this week", "Three classes this week — COMP4020 at 9am, then COMP3500 at 2pm."]]}
+{"text": "and tomorrow", "label": 1, "why": "list_schedule follow-up", "history": [["what is on today", "One class today — COMP4020 at 9am."]]}
+{"text": "what about the assignments", "label": 1, "why": "list_assignments follow-up", "history": [["what is on today", "One class today — COMP4020 at 9am."]]}
+{"text": "just the ones for comp4620", "label": 1, "why": "list_assignments follow-up", "history": [["what have I got due this week", "Four things outstanding — the closest is the lab report, tomorrow."]]}
+{"text": "including the finished ones", "label": 1, "why": "list_assignments follow-up", "history": [["what is outstanding", "Two things outstanding — the closest is the essay, Friday."]]}
+{"text": "how about friday", "label": 1, "why": "list_schedule follow-up", "history": [["am I free on thursday", "Nothing on Thursday."]]}
+{"text": "add it back", "label": 1, "why": "undo follow-up", "history": [["delete the essay", "The essay is gone. Say undo if that was wrong."]]}
+{"text": "no wait, undo that", "label": 1, "why": "undo follow-up", "history": [["delete comp4020", "COMP4020 is gone. Say undo if that was wrong."]]}
+{"text": "that was the wrong one, put it back", "label": 1, "why": "undo follow-up", "history": [["delete the lab report", "The lab report is gone. Say undo if that was wrong."]]}
+{"text": "change the room to copland instead", "label": 1, "why": "update_class follow-up", "history": [["add comp3500 on tuesdays at three in hanna neumann", "Added COMP3500, Tuesdays 3pm to 4pm in Hanna Neumann."]]}
+{"text": "and it runs till five", "label": 1, "why": "update_class follow-up", "history": [["add a lab on thursday at two", "Added, Thursdays 2pm to 3pm."]]}
+{"text": "link it to comp4020", "label": 1, "why": "update_assignment follow-up", "history": [["add the data structures assignment due friday", "Added, due Friday the fourteenth."]]}
+{"text": "give it a twelve hour estimate", "label": 1, "why": "update_assignment follow-up", "history": [["add the final report due the twenty seventh", "Added, due Tuesday the twenty-seventh."]]}
+{"text": "remind me about it the day before", "label": 1, "why": "add_reminder follow-up", "history": [["add the ethics form due tuesday", "Added, due Tuesday the eleventh."]]}
+{"text": "set a reminder for that too", "label": 1, "why": "add_reminder follow-up", "history": [["add the group meeting notes due friday", "Added, due Friday the fourteenth."]]}
+{"text": "cancel it for next week too", "label": 1, "why": "cancel_class follow-up", "history": [["comp4020 is off this thursday", "COMP4020 is off Thursday the thirteenth."]]}
+{"text": "the whole rest of term actually", "label": 1, "why": "delete_class follow-up", "history": [["cancel comp3500 next tuesday", "COMP3500 is off Tuesday the eleventh."]]}
+{"text": "make that one done as well", "label": 1, "why": "set_progress follow-up", "history": [["the essay is finished", "The essay is done."]]}
+{"text": "what is left after that", "label": 1, "why": "list_assignments follow-up", "history": [["the lab report is finished", "The lab report is done."]]}
+{"text": "yeah do it", "label": 1, "why": "confirmation answer", "history": [["delete comp4020", "Delete COMP4020 Agentic Coding Studio, Thursday at 09:00? (yes/no)"]]}
+{"text": "no leave it", "label": 0, "why": "confirmation refusal", "history": [["delete comp4020", "Delete COMP4020 Agentic Coding Studio, Thursday at 09:00? (yes/no)"]]}
+{"text": "twenty hours", "label": 1, "why": "clarification answer", "history": [["add the thesis chapter due in a month", "Added, due Sunday the sixth."]]}
+{"text": "in the chifley building", "label": 1, "why": "update_class follow-up", "history": [["add a seminar on wednesdays at four", "Added, Wednesdays 4pm to 5pm."]]}
+{"text": "one more, the reflective piece, due monday", "label": 1, "why": "add_assignment follow-up", "history": [["add the essay due friday", "Added, due Friday the fourteenth."]]}
+{"text": "swap those two dates around", "label": 1, "why": "update_assignment follow-up", "history": [["what is due soon", "Two things outstanding — the closest is the essay, Friday."]]}
+{"text": "how many hours does that leave", "label": 1, "why": "list_assignments follow-up", "history": [["mark the essay as sixty percent done", "The essay is at 60 percent, about 2.4 hours left."]]}
+{"text": "great, that works", "label": 0, "why": "follow-up needing nothing", "history": [["add the essay due friday", "Added, due Friday the fourteenth."]]}
+{"text": "that is the one, thanks", "label": 0, "why": "follow-up needing nothing", "history": [["what is on tomorrow", "One class tomorrow — COMP4020 at 9am."]]}
+{"text": "perfect", "label": 0, "why": "follow-up needing nothing", "history": [["mark the essay as done", "The essay is done."]]}
+{"text": "oh right, I forgot about that", "label": 0, "why": "follow-up needing nothing", "history": [["what have I got due this week", "Three things outstanding — the closest is the lab report, tomorrow."]]}
+{"text": "that is more than I thought", "label": 0, "why": "follow-up needing nothing", "history": [["how many hours of work have I got left", "About fourteen hours across three assignments."]]}
+{"text": "ugh, friday again", "label": 0, "why": "complaint follow-up", "history": [["what is due soon", "One thing outstanding — the essay, Friday the fourteenth."]]}
+{"text": "that is going to be tight", "label": 0, "why": "complaint follow-up", "history": [["what is on tomorrow", "Three classes tomorrow — COMP4020 at 9am, then COMP3500 at 2pm."]]}
+{"text": "I had better get started then", "label": 0, "why": "follow-up needing nothing", "history": [["what is due soon", "One thing outstanding — the essay, tomorrow."]]}
+{"text": "no that is fine", "label": 0, "why": "follow-up needing nothing", "history": [["the essay is at 60 percent, about 2.4 hours left.", "Anything else?"]]}
+{"text": "good, that is what I thought", "label": 0, "why": "follow-up needing nothing", "history": [["is comp4020 on this week", "Yes — Thursday at 9am."]]}
+{"text": "okay cool", "label": 0, "why": "follow-up needing nothing", "history": [["added comp4020, Thursdays 9am to 11am.", "Anything else?"]]}
+{"text": "yep that is right", "label": 0, "why": "follow-up needing nothing", "history": [["add the essay due next friday", "Added, due Friday the fourteenth."]]}
+{"text": "sounds about right", "label": 0, "why": "follow-up needing nothing", "history": [["the group project is about twenty hours", "Added, due Monday the seventh."]]}
+{"text": "wow, that many", "label": 0, "why": "follow-up needing nothing", "history": [["what is outstanding", "Six things outstanding — the closest is the quiz, tomorrow."]]}
+{"text": "I completely forgot about that one", "label": 0, "why": "follow-up needing nothing", "history": [["what is due before friday", "One thing outstanding — the ethics form, Wednesday."]]}
+{"text": "thanks, that is all sorted", "label": 0, "why": "session close follow-up", "history": [["undo that", "Done — restored the assignment."]]}
+{"text": "alright, I am off", "label": 0, "why": "session close follow-up", "history": [["what is on tomorrow", "Nothing on tomorrow."]]}
+{"text": "you did that fast", "label": 0, "why": "remark follow-up", "history": [["add the essay due friday", "Added, due Friday the fourteenth."]]}
+{"text": "that is not what I said", "label": 0, "why": "remark follow-up", "history": [["add the essay due friday", "Added, due Friday the fourteenth."]]}
+{"text": "you misheard the course code", "label": 0, "why": "remark follow-up", "history": [["add a problem set for comp4620", "I could not find a class matching “comp4620”."]]}
+{"text": "hmm", "label": 0, "why": "filler follow-up", "history": [["what is due soon", "Two things outstanding — the closest is the essay, Friday."]]}
+{"text": "let me think about that", "label": 0, "why": "filler follow-up", "history": [["which assignment should I start first", "The lab report is closest, due tomorrow."]]}
+{"text": "hold on a sec", "label": 0, "why": "filler follow-up", "history": [["what is on today", "One class today — COMP4020 at 9am."]]}
+{"text": "sorry, someone at the door", "label": 0, "why": "abandonment follow-up", "history": [["what is due this week", "Three things outstanding — the closest is the quiz, tomorrow."]]}
+{"text": "forget I asked", "label": 0, "why": "abandonment follow-up", "history": [["what is on next month", "Nothing on next month."]]}
+{"text": "never mind then", "label": 0, "why": "abandonment follow-up", "history": [["delete the essay", "I could not find an assignment matching “essay”."]]}
+{"text": "that is annoying", "label": 0, "why": "complaint follow-up", "history": [["cancel comp4020 tomorrow", "COMP4020 does not meet on a Friday. Which date did you mean?"]]}
+{"text": "no I meant the other thing", "label": 0, "why": "correction with no target", "history": [["what is on today", "One class today — COMP4020 at 9am."]]}
+{"text": "yes exactly", "label": 0, "why": "bare acknowledgement follow-up", "history": [["is the essay due friday", "Yes — Friday the fourteenth."]]}
+{"text": "right, got it", "label": 0, "why": "bare acknowledgement follow-up", "history": [["the lab report is due tomorrow at 5pm.", "Anything else?"]]}
+{"text": "so it is next week then", "label": 0, "why": "restating, asks nothing", "history": [["when is the essay due", "Friday the fourteenth."]]}
+{"text": "that is ages away", "label": 0, "why": "remark follow-up", "history": [["when is the final report due", "Tuesday the twenty-seventh."]]}
+{"text": "at least it is not monday", "label": 0, "why": "remark follow-up", "history": [["when is the quiz", "Wednesday the twelfth."]]}
+{"text": "I thought it was later than that", "label": 0, "why": "remark follow-up", "history": [["when is the lab report due", "Tomorrow at 5pm."]]}
+{"text": "good to know", "label": 0, "why": "follow-up needing nothing", "history": [["am I free on wednesday", "Nothing on Wednesday."]]}
+{"text": "makes sense, cheers", "label": 0, "why": "follow-up needing nothing", "history": [["how many hours have I got left", "About six hours on the essay."]]}
+{"text": "fine, leave it as it is", "label": 0, "why": "confirmation refusal", "history": [["move comp4020 to 10am", "COMP4020 is currently Thursday 09:00 to 11:00. Change it? (yes/no)"]]}
+{"text": "no, cancel that", "label": 0, "why": "confirmation refusal", "history": [["delete the essay", "Delete the essay? (yes/no)"]]}
+{"text": "actually do not bother", "label": 0, "why": "confirmation refusal", "history": [["delete comp3500", "Delete COMP3500, Tuesday at 15:00? (yes/no)"]]}

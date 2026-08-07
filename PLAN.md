@@ -277,12 +277,25 @@ were wrong in what is written above:
   pause past 15 characters took the median from 726 ms to 504 ms on the CPU
   alone, before any of the GPU work.
 
-Two traps found on the way, both worth keeping in mind elsewhere:
-`onnxruntime` advertises a provider it cannot actually build and then falls
-back to the CPU with a log line, so `src/tts/kokoro.py` reads the provider back
-off the built session instead of trusting the one it asked for. And on Windows
-`os.add_dll_directory` does not cover a native DLL's own dependencies — the
-CUDA libraries have to go on `PATH` before the session is built.
+Three traps found on the way, all worth keeping in mind elsewhere:
+
+- `onnxruntime` advertises a provider it cannot actually build and then falls
+  back to the CPU with a log line. `src/tts/kokoro.py` reads the provider back
+  off the built session instead of trusting the one it asked for.
+- `os.add_dll_directory` does not cover a native DLL's own dependencies, so the
+  CUDA libraries have to go on `PATH` before the session is built.
+- **And they must come straight back off it.** torch and `onnxruntime` both
+  want a DLL called `cudnn64_9.dll`, built against different CUDA majors, and
+  Windows keeps one per name per process. Leaving the CUDA 13 directory on
+  `PATH` made the model fail to load with `WinError 127` — naming *torch's*
+  file, with nothing to suggest the TTS had done it. Every turn of the voice
+  loop errored. torch is now imported before the CUDA session is built, so it
+  owns the name, and `PATH` is restored as soon as the graph is warm.
+
+**The GPU was still the right call, and this was checked rather than assumed.**
+With the model resident on the same 8 GB card the TTS runs at 183 ms against
+528 ms on the CPU, and the two together use 4.8 GB of 8. The obvious worry —
+that a resident LLM would starve the synthesiser — costs about 20 ms.
 
 **This does not mean the loop got 1.7 s faster.** These are warm, standalone
 numbers with nothing else running; the 1929 ms came from real turns with the

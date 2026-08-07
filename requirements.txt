@@ -60,8 +60,19 @@ onnxruntime-gpu>=1.28
 
 # onnxruntime 1.28's CUDA provider wants CUDA 13 and cuDNN 9. torch ships its
 # own CUDA 12.8 libraries in torch/lib, which are the wrong major version, so
-# these supply CUDA 13 alongside them -- the filenames carry the version, so
-# the two sets coexist. ~850 MB.
+# these supply CUDA 13 alongside them. ~850 MB.
+#
+# The two sets coexist only *carefully*. cublas64_12 and cublas64_13 differ by
+# name and are fine. cuDNN does not: both builds are called cudnn64_9.dll, and
+# Windows keeps one DLL per name per process. If onnxruntime loads its copy
+# first, torch then fails at import with
+#
+#     OSError: [WinError 127] ... torch\lib\cudnn_cnn64_9.dll
+#
+# which names torch's file and never mentions the TTS. This broke every turn of
+# the voice loop once. src/tts/kokoro.py handles it: torch is imported before
+# the CUDA session is built, and these directories go on PATH only while it is
+# being built. tests/test_hardware.py guards both halves.
 #
 # Note the naming: for CUDA 13 the `-cu13` suffix was dropped from some of
 # these. `nvidia-cublas-cu13` and `nvidia-cuda-runtime-cu13` exist on PyPI as

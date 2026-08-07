@@ -211,53 +211,72 @@ def split_sentences(
     return out
 
 
-def register_cuda_dll_dirs() -> list[str]:
-    """Put the pip-installed CUDA runtime on the DLL search path.
+def cuda_dll_dirs() -> list[str]:
+    """Directories holding the pip-installed CUDA runtime, if it is there.
 
-    onnxruntime's CUDA provider loads `cublasLt64_13.dll` and friends by bare
-    name, and Windows searches the process DLL directories -- not site-packages,
-    where the `nvidia-*` wheels put them. Without this the provider is listed as
-    available, fails to build, and onnxruntime quietly runs on the CPU instead.
-
-    torch ships its own CUDA 12 libraries in `torch/lib`, which are the wrong
-    major version for onnxruntime 1.28; the two sets coexist because the version
-    is in the filename. Returns what it added, so a caller can say why CUDA is
-    still missing.
+    Every directory under `nvidia/` that holds a DLL, rather than a fixed
+    layout: cudnn ships them in `<pkg>/bin`, the CUDA 13 wheels one level
+    deeper in `<pkg>/bin/x86_64`, and that has moved between releases before.
     """
-    if not hasattr(os, "add_dll_directory"):  # not Windows
-        return []
-
     import site
 
     roots = [Path(p) for p in site.getsitepackages()]
     roots.append(Path(sys.prefix) / "Lib" / "site-packages")
 
-    # Every directory under nvidia/ that holds a DLL, rather than a fixed
-    # layout: cudnn ships them in <pkg>/bin, the CUDA 13 wheels one level
-    # deeper in <pkg>/bin/x86_64, and that has moved between releases before.
-    added: list[str] = []
+    found: list[str] = []
     seen: set[Path] = set()
     for root in roots:
         for dll in (root / "nvidia").rglob("*.dll"):
             parent = dll.parent.resolve()
-            if parent in seen:
-                continue
-            seen.add(parent)
-            with contextlib.suppress(OSError):
-                os.add_dll_directory(str(parent))
-                added.append(str(parent))
+            if parent not in seen:
+                seen.add(parent)
+                found.append(str(parent))
+    return found
 
-    # add_dll_directory alone is not enough. It covers DLLs Python loads, but
-    # onnxruntime loads onnxruntime_providers_cuda.dll from native code, and
-    # Windows resolves *that* DLL's own dependencies -- cublasLt64_13.dll and
-    # the rest -- by the ordinary search order, which reads PATH and does not
-    # consult directories added for the Python process.
-    if added:
-        existing = os.environ.get("PATH", "")
-        missing = [d for d in added if d not in existing]
-        if missing:
-            os.environ["PATH"] = os.pathsep.join([*missing, existing])
-    return added
+
+@contextlib.contextmanager
+def cuda_dlls_visible():
+    """Expose the CUDA 13 runtime, but only while the ONNX session is built.
+
+    onnxruntime's CUDA provider loads `cublasLt64_13.dll` and friends by bare
+    name from native code, so Windows resolves them by the ordinary search
+    order. `os.add_dll_directory` does not cover a native DLL's own
+    dependencies, which leaves PATH -- and PATH is a process-wide global.
+
+    **This must not outlive the session build.** torch ships its own cuDNN 9 in
+    `torch/lib`, built against CUDA 12, and the CUDA 13 cuDNN has the *same*
+    filename: `cudnn64_9.dll`. Whichever is found first wins for the whole
+    process. Leaving these directories on PATH makes torch load the CUDA 13
+    library against its CUDA 12 build, and the model dies at load with
+
+        OSError: [WinError 127] The specified procedure could not be found.
+        Error loading ".../torch/lib/cudnn_cnn64_9.dll"
+
+    which names torch's file and gives no hint that the TTS put a stranger's
+    cuDNN in front of it. `cublas64_12` and `cublas64_13` genuinely do coexist;
+    cuDNN does not.
+
+    Kokoro.load() therefore warms the graph inside this block, so every DLL
+    onnxruntime loads lazily is resolved before PATH goes back.
+    """
+    dirs = cuda_dll_dirs() if hasattr(os, "add_dll_directory") else []
+    if not dirs:
+        yield []
+        return
+
+    previous = os.environ.get("PATH", "")
+    handles = []
+    try:
+        for directory in dirs:
+            with contextlib.suppress(OSError):
+                handles.append(os.add_dll_directory(directory))
+        os.environ["PATH"] = os.pathsep.join([*dirs, previous])
+        yield dirs
+    finally:
+        os.environ["PATH"] = previous
+        for handle in handles:
+            with contextlib.suppress(OSError):
+                handle.close()
 
 
 def available_providers() -> list[str]:
@@ -333,29 +352,53 @@ class Kokoro:
                     "    python scripts\\fetch_models.py --restore-kokoro"
                 )
 
-        if "CUDA" in (self.provider or "") or self.provider == "auto":
-            register_cuda_dll_dirs()
-
         chosen = choose_provider(self.provider)
-        # kokoro-onnx builds its own InferenceSession and takes no provider
-        # argument, but it reads ONNX_PROVIDER when it does. Set it around the
-        # construction only, so this never leaks into another session.
-        with _env("ONNX_PROVIDER", chosen):
-            self._engine = _Kokoro(str(self.model_path), str(self.voices_path))
 
-        # Being *offered* a provider is not the same as getting it. onnxruntime
-        # lists CUDA whenever the GPU wheel is installed, then falls back to the
-        # CPU at session build if the CUDA runtime DLLs are not there -- it logs
-        # and carries on. Reporting the requested name here would mean the
-        # benchmark cheerfully labels a CPU run "CUDAExecutionProvider", which
-        # is how a performance regression hides for a week. Ask the session.
-        self.provider_in_use = self._engine.sess.get_providers()[0]
-        if self.provider != "auto" and self.provider_in_use != chosen:
-            raise RuntimeError(
-                f"asked for {chosen}, got {self.provider_in_use}. onnxruntime "
-                "loaded but could not build that provider -- usually a missing "
-                "CUDA/cuDNN runtime. The onnxruntime log above names the DLL."
-            )
+        # Windows keeps one DLL per *name* per process, and whoever loads it
+        # first wins for everyone. torch and onnxruntime both want a file called
+        # cudnn64_9.dll, built against different CUDA majors. If onnxruntime
+        # gets there first, torch later fails to load its own cudnn_cnn64_9.dll
+        # with WinError 127 -- and the message names torch's file, giving no
+        # hint that the TTS is responsible. So torch goes first and keeps it:
+        # importing it is enough, since it loads its CUDA DLLs eagerly here.
+        #
+        # This is not a layering violation looking for a home. It is a
+        # process-wide constraint, and the TTS is the component that knows the
+        # CUDA session is about to be built.
+        if "CUDA" in chosen:
+            with contextlib.suppress(ImportError):
+                import torch  # noqa: F401
+
+        with cuda_dlls_visible():
+            # kokoro-onnx builds its own InferenceSession and takes no provider
+            # argument, but it reads ONNX_PROVIDER when it does. Set it around
+            # the construction only, so this never leaks into another session.
+            with _env("ONNX_PROVIDER", chosen):
+                self._engine = _Kokoro(str(self.model_path), str(self.voices_path))
+
+            # Being *offered* a provider is not the same as getting it.
+            # onnxruntime lists CUDA whenever the GPU wheel is installed, then
+            # falls back to the CPU at session build if the CUDA runtime DLLs
+            # are not there -- it logs and carries on. Reporting the requested
+            # name here would mean the benchmark cheerfully labels a CPU run
+            # "CUDAExecutionProvider", which is how a performance regression
+            # hides for a week. Ask the session.
+            self.provider_in_use = self._engine.sess.get_providers()[0]
+            if self.provider != "auto" and self.provider_in_use != chosen:
+                raise RuntimeError(
+                    f"asked for {chosen}, got {self.provider_in_use}. onnxruntime "
+                    "loaded but could not build that provider -- usually a missing "
+                    "CUDA/cuDNN runtime. The onnxruntime log above names the DLL."
+                )
+
+            # Warm the graph while the CUDA libraries are still reachable.
+            # onnxruntime loads some of them at the first inference rather than
+            # at session build, and PATH is about to go back to normal so that
+            # torch can find its own cuDNN. Also means no real reply pays for it.
+            with contextlib.suppress(Exception):
+                self._engine.create(
+                    "Ready.", voice=self.voice, speed=self.speed, lang=self.lang
+                )
 
         if self.voice not in self.voices():
             raise ValueError(

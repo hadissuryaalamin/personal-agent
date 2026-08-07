@@ -374,6 +374,57 @@ def test_the_first_chunk_is_what_the_budget_is_about(tts):
     )
 
 
+def test_the_tts_does_not_break_torch():
+    """Kokoro on CUDA must not stop the model loading afterwards.
+
+    onnxruntime and torch both want a DLL called cudnn64_9.dll, built against
+    different CUDA majors, and Windows keeps one per name per process. When the
+    TTS moved to the GPU this broke every turn of the voice loop: the model
+    failed to load with WinError 127 naming *torch's* file, so nothing pointed
+    at the TTS. src/tts/kokoro.py now imports torch first and keeps the CUDA
+    libraries off PATH once the session is built.
+
+    Loads in the order the session does, which is the order that failed.
+    """
+    from src.tts.kokoro import Kokoro
+
+    speech = Kokoro()
+    if not speech.model_path.exists():
+        pytest.skip("no TTS weights — run scripts/fetch_models.py --restore-kokoro")
+    speech.load()
+    speech.synthesise("Added, due Friday the fourteenth.")
+
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("no GPU")
+
+    # A real cuDNN call, not just the import: this is what raised.
+    tensor = torch.randn(1, 8, 16, 16, device="cuda")
+    weight = torch.randn(8, 8, 3, 3, device="cuda")
+    torch.nn.functional.conv2d(tensor, weight)
+    torch.cuda.synchronize()
+
+    # And the TTS still works afterwards, on the provider it reported.
+    assert speech.synthesise("Nothing on tomorrow.").seconds > 0.3
+
+
+def test_the_cuda_libraries_do_not_stay_on_path():
+    """PATH is process-wide. Leaving the CUDA 13 runtime on it is the bug."""
+    import os
+
+    from src.tts.kokoro import Kokoro, cuda_dll_dirs
+
+    speech = Kokoro()
+    if not speech.model_path.exists():
+        pytest.skip("no TTS weights — run scripts/fetch_models.py --restore-kokoro")
+    speech.load()
+
+    path = os.environ.get("PATH", "")
+    for directory in cuda_dll_dirs():
+        assert directory not in path, f"{directory} left on PATH after load"
+
+
 @pytest.fixture(scope="module")
 def tts():
     from src.tts.kokoro import Kokoro

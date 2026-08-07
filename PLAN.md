@@ -241,16 +241,53 @@ interrupts playback).
 **Built, and the exit criterion is not met.** The loop runs end to end — speech
 in, the right write, speech out — at about 7 s a turn against a 1400 ms budget.
 The numbers are in `docs/eval.md`, from `scripts/bench_loop.py`. ASR and the
-gate are at or near budget; generation is 7.7× over and Kokoro's first chunk is
-7.7× over. Both are the same problem: an 8 GB card running 4-bit weights with
-the TTS pushed onto the CPU.
+gate are at or near budget; generation is 7.7× over and Kokoro's first chunk
+was 7.7× over.
+
+The TTS half of that is now fixed — see below — which leaves **generation** as
+the one stage standing between the loop and section 5. It is not fixable by
+tuning: decode is ~105 ms/token on 4-bit bitsandbytes weights and a tool call
+is 40–70 tokens.
+
+That is also not a hardware verdict, which is what this milestone first
+concluded. Measured on the card: 240 GB/s of memory bandwidth and 24 TFLOP/s
+bf16, with native `sm_120` kernels. At 2.2 GB of NF4 weights the roofline for
+decode is about **9 ms/token**, so the measured 105 is roughly 11× off what
+the hardware allows. The card is not the limit; the 4-bit kernel and the
+per-token framework overhead are, and both are software.
 
 **Sentence streaming cannot buy what section 5 assumed it would.** The design
 has the speaker start on sentence one while sentence two is synthesised — but
 the response rules cap replies at two sentences and most are one, so there is
 usually no second sentence to overlap with. Streaming is still there and still
-correct; it just cannot hide a 0.5× real-time synthesiser behind a one-sentence
-answer. Thread count was measured across 1/4/8/16 and makes no difference.
+correct; it just cannot hide a slow synthesiser behind a one-sentence answer.
+Thread count was measured across 1/4/8/16 and makes no difference.
+
+**Fixed, and the diagnosis above was wrong twice.** `scripts/bench_tts.py` now
+measures Kokoro on its own, and the first chunk is **157 ms against a 250 ms
+budget** — the first stage of the loop to land inside section 5. Two things
+were wrong in what is written above:
+
+- *"Kokoro takes about 0.5× real time on the CPU"* was never measured. It is
+  3.3× real time on the CPU and 12× on CUDA. The synthesiser was not slow;
+  `onnxruntime` was the CPU wheel, so it never touched the GPU at all.
+- *"there is no second sentence to overlap with"* is true and beside the point.
+  What matters is not how many sentences there are but how long the **first
+  piece** is, since that is the entire wait. Breaking it at the first natural
+  pause past 15 characters took the median from 726 ms to 504 ms on the CPU
+  alone, before any of the GPU work.
+
+Two traps found on the way, both worth keeping in mind elsewhere:
+`onnxruntime` advertises a provider it cannot actually build and then falls
+back to the CPU with a log line, so `src/tts/kokoro.py` reads the provider back
+off the built session instead of trusting the one it asked for. And on Windows
+`os.add_dll_directory` does not cover a native DLL's own dependencies — the
+CUDA libraries have to go on `PATH` before the session is built.
+
+**This does not mean the loop got 1.7 s faster.** These are warm, standalone
+numbers with nothing else running; the 1929 ms came from real turns with the
+model resident. Re-run `bench_loop.py` over spoken turns before believing the
+end-to-end figure moved.
 
 **Barge-in needs headphones.** The microphone stays open while the agent talks,
 so with speakers it hears itself and interrupts itself. There is no acoustic

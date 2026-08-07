@@ -361,9 +361,16 @@ def test_the_first_chunk_is_what_the_budget_is_about(tts):
     """PLAN.md section 5 allows 250 ms to the first audio. Measured, not assumed."""
     tts.synthesise("warm")
     chunks = list(tts.stream("Nothing on today. Three things are due this week."))
-    assert chunks[0].ms < 2000, (
-        f"{chunks[0].ms} ms to first audio — over budget, but this test only "
-        "guards against it getting dramatically worse; see docs/eval.md"
+
+    # scripts/bench_tts.py measures 157 ms on CUDA and 504 ms on the CPU. The
+    # limits are loose enough not to flake on a busy machine and tight enough
+    # to catch the failure that actually happens: onnxruntime advertising a
+    # provider it cannot build and quietly running on the CPU instead.
+    on_gpu = "CUDA" in (tts.provider_in_use or "")
+    limit = 400 if on_gpu else 1200
+    assert chunks[0].ms < limit, (
+        f"{chunks[0].ms} ms to first audio on {tts.provider_in_use}, over the "
+        f"{limit} ms this configuration should manage — see docs/eval.md"
     )
 
 

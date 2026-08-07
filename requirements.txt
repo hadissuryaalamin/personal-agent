@@ -35,6 +35,41 @@ bitsandbytes>=0.48
 scikit-learn>=1.5
 joblib>=1.4
 #
-# --- M4/M5: voice ----------------------------------------------------------
-#   sherpa-onnx  -- Parakeet TDT + Silero VAD on Windows
-#   sounddevice
+# --- M4: voice in ----------------------------------------------------------
+#
+# sherpa-onnx carries its own runtime in sherpa-onnx-core and does NOT use the
+# onnxruntime wheel below, so the ASR is unaffected by which one is installed.
+sherpa-onnx>=1.13
+sounddevice>=0.5
+
+# --- M5: voice out ---------------------------------------------------------
+kokoro-onnx>=0.5
+espeakng-loader>=0.2
+
+# Kokoro on the GPU rather than the CPU. Measured by scripts/bench_tts.py:
+# 726 ms to the first chunk on the CPU, 157 ms on CUDA, against a 250 ms
+# budget -- the difference between the one stage of the loop that meets
+# PLAN.md section 5 and one that does not.
+#
+# This wheel replaces the CPU `onnxruntime`; installing both breaks the import.
+#
+#     pip uninstall -y onnxruntime
+#     pip install onnxruntime-gpu
+#
+onnxruntime-gpu>=1.28
+
+# onnxruntime 1.28's CUDA provider wants CUDA 13 and cuDNN 9. torch ships its
+# own CUDA 12.8 libraries in torch/lib, which are the wrong major version, so
+# these supply CUDA 13 alongside them -- the filenames carry the version, so
+# the two sets coexist. ~850 MB.
+#
+# Note the naming: for CUDA 13 the `-cu13` suffix was dropped from some of
+# these. `nvidia-cublas-cu13` and `nvidia-cuda-runtime-cu13` exist on PyPI as
+# empty 1.4 kB placeholders that fail to build; the real wheels are these.
+#
+# src/tts/kokoro.py has to put them on PATH at load: onnxruntime loads its
+# provider DLL from native code, and Windows resolves that DLL's dependencies
+# by the ordinary search order.
+nvidia-cudnn-cu13>=9.24
+nvidia-cublas>=13.6
+nvidia-cuda-runtime>=13.3

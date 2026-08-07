@@ -1,0 +1,82 @@
+{
+  "rows": [
+    {
+      "text": "Added, due Friday the fourteenth.",
+      "pieces": 1,
+      "first_chars": 33,
+      "ms_first": 143.43920000828803,
+      "ms_total": 143.44119999441318,
+      "audio_seconds": 1.8773333333333333,
+      "realtime_factor": 13.087825069829677
+    },
+    {
+      "text": "Nothing on tomorrow.",
+      "pieces": 1,
+      "first_chars": 20,
+      "ms_first": 148.26779998838902,
+      "ms_total": 148.269800003618,
+      "audio_seconds": 1.3013333333333332,
+      "realtime_factor": 8.776792936266043
+    },
+    {
+      "text": "It is nine in the morning, Thursday.",
+      "pieces": 1,
+      "first_chars": 36,
+      "ms_first": 168.83119998965412,
+      "ms_total": 168.83290000259876,
+      "audio_seconds": 1.92,
+      "realtime_factor": 11.372191083434842
+    },
+    {
+      "text": "COMP4020 is at nine, in Copland G30.",
+      "pieces": 1,
+      "first_chars": 36,
+      "ms_first": 268.0355999909807,
+      "ms_total": 268.0392999900505,
+      "audio_seconds": 3.8186666666666667,
+      "realtime_factor": 14.246667062659894
+    },
+    {
+      "text": "Three things due this week \u2014 the closest is the data structures assignment, Friday.",
+      "pieces": 2,
+      "first_chars": 26,
+      "ms_first": 198.61029999447055,
+      "ms_total": 457.14589999988675,
+      "audio_seconds": 4.437333333333333,
+      "realtime_factor": 9.706602057099127
+    },
+    {
+      "text": "Marked sixty percent done, about two and a half hours left.",
+      "pieces": 2,
+      "first_chars": 25,
+      "ms_first": 221.9576999777928,
+      "ms_total": 437.72960000205785,
+      "audio_seconds": 3.4346666666666668,
+      "realtime_factor": 7.846548797820663
+    },
+    {
+      "text": "Deleted the poster session. Say undo if that was wrong.",
+      "pieces": 2,
+      "first_chars": 27,
+      "ms_first": 204.33579999371432,
+      "ms_total": 423.54530000011437,
+      "audio_seconds": 3.3706666666666667,
+      "realtime_factor": 7.958219974736483
+    },
+    {
+      "text": "Two classes today \u2014 intelligent systems at ten, then the studio at two.",
+      "pieces": 2,
+      "first_chars": 17,
+      "ms_first": 193.92099999822676,
+      "ms_total": 445.5356999824289,
+      "audio_seconds": 4.309333333333333,
+      "realtime_factor": 9.672251479518442
+    }
+  ],
+  "median_first_ms": 196.26564999634866,
+  "worst_first_ms": 268.0355999909807,
+  "median_realtime_factor": 9.689426768308785,
+  "budget_ms": 250,
+  "first_max_chars": 45,
+  "provider": "CUDAExecutionProvider"
+}

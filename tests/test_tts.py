@@ -11,7 +11,12 @@ import numpy as np
 import pytest
 
 from src.audio.playback import NullSpeaker
-from src.tts.kokoro import split_sentences
+from src.tts.kokoro import (
+    FIRST_MAX_CHARS,
+    FIRST_MIN_CHARS,
+    choose_provider,
+    split_sentences,
+)
 
 
 # -- splitting a reply into speakable pieces -------------------------------
@@ -86,6 +91,89 @@ def test_the_replies_format_produces_are_one_or_two_pieces():
     ]
     for reply in replies:
         assert 1 <= len(split_sentences(reply)) <= 3, reply
+
+
+# -- the opening piece, which is the whole latency budget -------------------
+
+
+def test_a_short_reply_is_still_one_piece():
+    """The common case must not be chopped up for a budget it already meets."""
+    for reply in ("Added, due Friday the fourteenth.", "Nothing on tomorrow."):
+        assert split_sentences(reply, first_max_chars=FIRST_MAX_CHARS) == [reply]
+
+
+def test_a_long_opening_sentence_is_broken_at_the_dash():
+    pieces = split_sentences(
+        "Three things due this week — the closest is the data structures assignment, Friday.",
+        first_max_chars=FIRST_MAX_CHARS,
+    )
+    assert pieces[0] == "Three things due this week"
+    assert pieces[1].startswith("the closest is")
+
+
+def test_the_opening_break_falls_back_to_a_comma():
+    pieces = split_sentences(
+        "Marked sixty percent done, about two and a half hours left.",
+        first_max_chars=FIRST_MAX_CHARS,
+    )
+    assert pieces[0] == "Marked sixty percent done"
+
+
+def test_the_opening_piece_is_never_a_fragment():
+    """"Added" alone, then a pause, sounds like the agent lost its thread."""
+    pieces = split_sentences(
+        "Added, the data structures assignment is due on Friday the fourteenth.",
+        first_max_chars=FIRST_MAX_CHARS,
+    )
+    assert len(pieces[0]) >= FIRST_MIN_CHARS, pieces
+
+
+def test_a_sentence_with_no_natural_pause_is_left_whole():
+    """A cut mid-clause is worse than waiting: no bare-space breaks up front."""
+    text = "The intelligent systems lecture has been moved to the Copland building today"
+    assert split_sentences(text, first_max_chars=FIRST_MAX_CHARS) == [text]
+
+
+def test_breaking_the_opening_keeps_every_word():
+    text = "Two classes today — intelligent systems at ten, then the studio at two."
+    pieces = split_sentences(text, first_max_chars=FIRST_MAX_CHARS)
+    rejoined = " ".join(pieces).lower()
+    for word in ("two", "classes", "intelligent", "studio"):
+        assert word in rejoined
+
+
+def test_the_opening_cap_is_off_by_default():
+    """split_sentences keeps its old behaviour; only stream() opts in."""
+    text = "Three things due this week — the closest is the data structures assignment, Friday."
+    assert split_sentences(text) == [text]
+
+
+# -- picking an execution provider -----------------------------------------
+
+
+def test_auto_prefers_cuda_when_it_is_there():
+    assert choose_provider("auto", ["CPUExecutionProvider", "CUDAExecutionProvider"]) == (
+        "CUDAExecutionProvider"
+    )
+
+
+def test_auto_falls_back_to_cpu():
+    assert choose_provider("auto", ["CPUExecutionProvider"]) == "CPUExecutionProvider"
+
+
+def test_auto_copes_with_an_onnxruntime_that_offers_nothing():
+    assert choose_provider("auto", []) == "CPUExecutionProvider"
+
+
+def test_an_explicit_provider_that_is_missing_is_an_error():
+    """Pinning CUDA and silently getting the CPU is the bug this prevents."""
+    with pytest.raises(ValueError, match="CUDAExecutionProvider"):
+        choose_provider("CUDAExecutionProvider", ["CPUExecutionProvider"])
+
+
+def test_an_explicit_provider_that_is_present_is_honoured():
+    available = ["CPUExecutionProvider", "CUDAExecutionProvider"]
+    assert choose_provider("CPUExecutionProvider", available) == "CPUExecutionProvider"
 
 
 # -- the speaker queue -----------------------------------------------------

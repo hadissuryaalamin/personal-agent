@@ -31,6 +31,12 @@ class Config:
     quantise: str
     #: Layer the probe reads. Chosen by the sweep at M2; unused before then.
     probe_layer: int | None
+    #: ONNX execution provider for Kokoro. "auto" prefers CUDA when the
+    #: installed onnxruntime offers it and falls back to CPU when it does not,
+    #: so a machine without the GPU build still speaks -- just slower. Name a
+    #: provider explicitly to pin it, which is what scripts/bench_tts.py does
+    #: when it measures one against the other.
+    tts_provider: str = "auto"
 
     @property
     def tz_name(self) -> str:
@@ -46,4 +52,5 @@ def load() -> Config:
         model_dir=Path(os.environ.get("AGENT_MODEL_DIR", DEFAULT_MODEL)),
         quantise=os.environ.get("AGENT_QUANTISE", "auto"),
         probe_layer=int(layer) if layer else None,
+        tts_provider=os.environ.get("AGENT_TTS_PROVIDER", "auto"),
     )

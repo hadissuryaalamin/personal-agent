@@ -178,10 +178,72 @@ def render_latency(decode: dict) -> list[str]:
         "prompt or the loop, and **the probe will not fix it either**: the gate is",
         "one forward pass either way, and the cost is decoding the tool call. It",
         "needs a faster 4-bit kernel than bitsandbytes, or a card with room for",
-        "bf16. Worth settling before the TTS streaming work, which assumes",
-        "generation keeps ahead of speech.",
+        "bf16.",
+        "",
+        "This is now the largest remaining stage by a wide margin: the TTS was",
+        "moved to the GPU and meets its budget (below), so generation is what",
+        "stands between the loop and PLAN.md section 5.",
         "",
     ]
+
+
+def render_tts(tts: dict) -> list[str]:
+    """Kokoro on its own, from scripts/bench_tts.py."""
+    budget = tts["budget_ms"]
+    median = tts["median_first_ms"]
+    lines = [
+        "## TTS: time to the first audio chunk",
+        "",
+        "Measured by `scripts\\bench_tts.py` over replies shaped like the ones",
+        "`src/format.py` produces. This is the synthesiser alone -- no model, no",
+        "microphone -- so a change to the TTS can be checked in seconds instead of",
+        "by holding a conversation with it.",
+        "",
+        "Only the **first** chunk is in the latency budget. The speaker starts on",
+        "it while the rest is still being made.",
+        "",
+        "| | Measured | Budget | |",
+        "|---|---|---|---|",
+        f"| Median first chunk | {median:.0f} ms | {budget} ms | "
+        f"{'**inside**' if median <= budget else f'{median / budget:.1f}× over'} |",
+        f"| Worst first chunk | {tts['worst_first_ms']:.0f} ms | {budget} ms | "
+        f"{'inside' if tts['worst_first_ms'] <= budget else f'{tts['worst_first_ms'] / budget:.1f}× over'} |",
+        f"| Synthesis speed | {tts['median_realtime_factor']:.1f}× real time | — | |",
+        "",
+        f"Provider: `{tts.get('provider', 'unknown')}`. First piece capped at "
+        f"{tts.get('first_max_chars') or 'no cap'} characters.",
+        "",
+        "| first | total | audio | ×RT | reply |",
+        "|---|---|---|---|---|",
+    ]
+    lines += [
+        f"| {r['ms_first']:.0f} ms | {r['ms_total']:.0f} ms | {r['audio_seconds']:.1f} s | "
+        f"{r['realtime_factor']:.1f}× | {r['text'][:52]} |"
+        for r in tts["rows"]
+    ]
+    lines += [
+        "",
+        "Two changes got here from the 1929 ms `bench_loop.py` attributed to",
+        "Kokoro at M5, and they are worth separating:",
+        "",
+        "- **The provider.** Kokoro ran on the CPU because `onnxruntime` was the",
+        "  CPU wheel. On CUDA it is roughly 3× faster. Note that onnxruntime",
+        "  *lists* a provider it cannot build and then falls back silently, so",
+        "  `src/tts/kokoro.py` reads the provider back off the session rather",
+        "  than trusting the one it asked for.",
+        "- **The first piece.** Time to first audio tracks the length of the",
+        "  opening piece and nothing else, so it is now broken at the first",
+        "  natural pause past 15 characters rather than spoken whole. On the CPU",
+        "  this alone took the median from 726 ms to 504 ms.",
+        "",
+        "**What this does not say.** These are warm, standalone numbers with",
+        "nothing competing for the machine. The 1929 ms at M5 was measured inside",
+        "a real turn with the model resident and decoding, and the gap between",
+        "the two is not yet explained -- re-run `bench_loop.py` over spoken turns",
+        "before claiming the loop improved by this much.",
+        "",
+    ]
+    return lines
 
 
 def render_sweep(sweep: dict) -> list[str]:
@@ -449,7 +511,8 @@ def render_loop(loop: dict) -> list[str]:
 
 def render(summary: dict, engine_info: dict, decode: dict | None = None,
            sweep: dict | None = None, probe: dict | None = None,
-           artifact: dict | None = None, loop: dict | None = None) -> str:
+           artifact: dict | None = None, loop: dict | None = None,
+           tts: dict | None = None) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
         "# Evaluation",
@@ -521,6 +584,8 @@ def render(summary: dict, engine_info: dict, decode: dict | None = None,
         lines += render_comparison(summary, probe, artifact)
     if loop:
         lines += render_loop(loop)
+    if tts:
+        lines += render_tts(tts)
     if sweep:
         lines += render_sweep(sweep)
     if decode:
@@ -537,6 +602,10 @@ def render(summary: dict, engine_info: dict, decode: dict | None = None,
         pending.append(
             "- **End-to-end latency** (M5): run `python scripts\\bench_loop.py` "
             "against spoken turns in `turn_log`."
+        )
+    if not tts:
+        pending.append(
+            "- **TTS first chunk** (M5): run `python scripts\\bench_tts.py`."
         )
     if pending:
         lines += ["## Not measured yet", ""] + pending + [""]
@@ -606,6 +675,15 @@ def main(argv: list[str] | None = None) -> int:
         loop = json.loads(loop_results.read_text(encoding="utf-8"))
         print(f"including loop latency: {loop['median_total']:.0f} ms median turn")
 
+    tts = None
+    tts_results = ROOT / "data" / "tts_latency.json"
+    if tts_results.exists():
+        tts = json.loads(tts_results.read_text(encoding="utf-8"))
+        print(
+            f"including tts latency: {tts['median_first_ms']:.0f} ms first chunk "
+            f"on {tts.get('provider', '?')}"
+        )
+
     print(f"{summary['n']} held-out utterances")
     print(
         f"  prompted: {summary['accuracy']:.1%} accuracy, "
@@ -622,7 +700,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.print_only:
         EVAL_DOC.parent.mkdir(parents=True, exist_ok=True)
         EVAL_DOC.write_text(
-            render(summary, engine.info, decode, sweep, probe_summary, artifact, loop),
+            render(summary, engine.info, decode, sweep, probe_summary, artifact, loop, tts),
             encoding="utf-8",
         )
         print(f"\nwrote {EVAL_DOC}")
